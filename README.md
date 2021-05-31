@@ -1,3 +1,20 @@
+## Repotisory / Fork Scope
+
+This fork scope is to upgrate TightCNC to better use in my GCODEGO project. 
+Planned task upgrade:
+- [ ] Typescript Migration (ts-migrate)
+- [ ] Support for raw socket comunication
+- [ ] Support fro websocket comunication
+- [ ] Support start without config
+- [ ] Support for new API
+  - [ ] Reload Config
+  - [ ] Is Alive
+- [ ] Sender as Worker
+  - [ ] support Virtual comunication API Adapter ( comunication as plugin )
+    - [ ] Web-Serial/Web-USB API
+- [ ] More firmware
+  - [ ] Support grblHal
+  - [ ] Support Marlin
 # TightCNC
 
 TightCNC is a CNC controller interface application with a focus on backend robustness and stability.  The architecture
