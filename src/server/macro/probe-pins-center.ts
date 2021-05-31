@@ -1,3 +1,4 @@
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'macroMeta'.
 macroMeta({ params: {
 	invertAxes: {
 		type: 'boolean',
@@ -30,11 +31,14 @@ macroMeta({ params: {
 	}
 } });
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
 async function probeAbs(axisNum, pos, throwOnNotTripped = false) {
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
 	let probeTo = [ null, null, null ];
 	probeTo[axisNum] = pos;
 	try {
+// @ts-expect-error ts-migrate(2552) FIXME: Cannot find name 'controller'. Did you mean 'Contr... Remove this comment to see the full error message
 		let p = await controller.probe(probeTo, feed);
 		return p[axisNum];
 	} catch (err) {
@@ -46,19 +50,28 @@ async function probeAbs(axisNum, pos, throwOnNotTripped = false) {
 	}
 }
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
 async function probeRel(axisNum, offset, throwOnNotTripped = false) {
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
+// @ts-expect-error ts-migrate(2552) FIXME: Cannot find name 'controller'. Did you mean 'Contr... Remove this comment to see the full error message
 	return await probeAbs(axisNum, controller.getPos()[axisNum] + offset, throwOnNotTripped);
 }
 
+// @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
 async function moveAbs(axisNum, pos, feed = null) {
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'axisLabels'.
 	let words = [ [ 'G', feed ? 1 : 0 ], [ axisLabels[axisNum].toUpperCase(), pos ] ];
 	if (feed) words.push([ 'F', feed ]);
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'push'.
 	push(words);
 }
 
+// @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
 async function moveRel(axisNum, offset, feed = null) {
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 	await moveAbs(axisNum, controller.getPos()[axisNum] + offset, feed);
 }
 
@@ -71,27 +84,38 @@ async function moveRel(axisNum, offset, feed = null) {
 // (ie, moving in direction on the axis perpendicular to axisNum should result in touching the pin within maxTravel distance)
 async function probePinCenter(axisNum = 0, direction = -1, maxTravel = null) {
 	let perpAxisNum = axisNum ? 0 : 1;
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	if (!maxTravel) maxTravel = pinDiameter;
 
 	// Probe in the axisNum direction until touching the pin; 
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 	let axisPos1 = controller.getPos()[axisNum];
+// @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
 	let perpAxisPos = await probeRel(perpAxisNum, direction * maxTravel, true);
 	// Back up to a clearance position
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	await moveRel(perpAxisNum, -direction * (Math.max(pinDiameter, probeDiameter) / 2 + extraClearance));
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 	let perpClearancePos = controller.getPos()[perpAxisNum];
 
 	// Move to the negative side along axisNum
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 	let negClearancePos = controller.getPos()[axisNum] - (pinDiameter + probeDiameter + extraClearance);
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 	let posClearancePos = controller.getPos()[axisNum] + (pinDiameter + probeDiameter + extraClearance);
 	await moveAbs(axisNum, negClearancePos);
 	// In most cases, we could use perpAxisPos for the probing along axisNum, except for the edge case where we just probed at the exact center already
 	// To account for this, add a little bit to perpAxisPos.  Half a radius should work.
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	perpAxisPos += direction * pinDiameter / 4;
 	// Move to the probing position on the perpendicular axis
 	await moveAbs(perpAxisNum, perpAxisPos);
 	// Probe toward pin
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	let tripPos1 = await probeAbs(axisNum, axisPos1 + pinDiameter / 2, true);
 	// Back to clearance
 	await moveAbs(axisNum, negClearancePos);
@@ -102,6 +126,7 @@ async function probePinCenter(axisNum = 0, direction = -1, maxTravel = null) {
 	// Move to probing position
 	await moveAbs(perpAxisNum, perpAxisPos);
 	// Probe toward pin
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	let tripPos2 = await probeAbs(axisNum, axisPos1 - pinDiameter / 2, true);
 	// Back to clearance
 	await moveAbs(axisNum, posClearancePos);
@@ -114,34 +139,49 @@ async function probePinCenter(axisNum = 0, direction = -1, maxTravel = null) {
 	// Probe until touching the pin (to determine its location on the perp axis)
 	let perpTouchPos = await probeAbs(perpAxisNum, perpAxisPos, true);
 
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'sync'.
 	await sync();
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDiameter'.
 	return [ center, perpTouchPos + direction * (pinDiameter + probeDiameter) / 2 ];
 }
 
 
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'invertAxes'.
 let pinsAxisNum = invertAxes ? 0 : 1;
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'invertAxes'.
 let otherAxisNum = invertAxes ? 1 : 0;
 
 // Find the otherAxisNum center coord for the first pin
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 let [ pin1OtherAxisCenter, pin1PinsAxisCenter ] = await probePinCenter(otherAxisNum, -1);
 
 // Find other pin
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'pinDistance'.
 let probe2StartPos = pin1PinsAxisCenter + pinDistance - (pinDiameter + probeDiameter) / 2 - pinDiameter / 4;
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 await sync();
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'controller'.
 if (probe2StartPos > controller.getPos()[pinsAxisNum]) {
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 	await moveAbs(pinsAxisNum, probe2StartPos);
 } else {
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 	await moveAbs(pinsAxisNum, pin1PinsAxisCenter + pinDistance / 2);
 }
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 let [ pin2OtherAxisCenter, pin2PinsAxisCenter ] = await probePinCenter(otherAxisNum, 1);
 
 // Calculate center values.  The two otherAxisCenters should be the same, but in case they're slightly off, average them.
 let otherAxisCenter = (pin1OtherAxisCenter + pin2OtherAxisCenter) / 2;
 let pinsAxisCenter = (pin1PinsAxisCenter + pin2PinsAxisCenter) / 2;
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 await moveAbs(pinsAxisNum, pinsAxisCenter);
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 await moveAbs(otherAxisNum, otherAxisCenter);
+// @ts-expect-error ts-migrate(1375) FIXME: 'await' expressions are only allowed at the top le... Remove this comment to see the full error message
 await sync();
 
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'message'.
 message('Pin probe complete.  Pin skew: ' + Math.abs(pin1OtherAxisCenter - pin2OtherAxisCenter));
 
 

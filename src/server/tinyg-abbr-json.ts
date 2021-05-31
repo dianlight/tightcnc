@@ -19,56 +19,77 @@ const strEscapes = {
 	'\\': '\\'
 };
 
+// @ts-expect-error ts-migrate(7034) FIXME: Variable 'idx' implicitly has type 'any' in some l... Remove this comment to see the full error message
 let idx;
+// @ts-expect-error ts-migrate(7034) FIXME: Variable 'str' implicitly has type 'any' in some l... Remove this comment to see the full error message
 let str;
+// @ts-expect-error ts-migrate(7034) FIXME: Variable 'l' implicitly has type 'any' in some loc... Remove this comment to see the full error message
 let l;
 
 function skipWhitespace() {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	while (idx < l && (str[idx] === ' ' || str[idx] === '\t' || str[idx] === '\r' || str[idx] === '\n')) {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		idx++;
 	}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	return idx;
 }
 
 function parseString() {
 	// Skip past the " that has already been parsed
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 	// Parse one character at a time, stopping at a character escape or ending quote
 	let r = '';
 	while (true) {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		let c = str[idx];
 		if (c === '\\') {
 			// note: only basic escapes are accepted right now
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 			c = str[idx];
 			if (c in strEscapes) {
+// @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
 				r += strEscapes[c];
 			} else {
 				throw new Error('TinyG JSON Parse Error: Unknown string escape: \\' + c);
 			}
 		} else if (c === '"') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
 			return r;
 		} else {
 			r += c;
 		}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 	}
 }
 
 function parseUnwrappedString() {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	let start = idx;
 	let c, cc;
 	while (true) {		
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 			let r = str.slice(start);
 			if (!r.length) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 			return r;
 		}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		c = str[idx];
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		cc = str.charCodeAt(idx);
 		if (
 			c !== '_' &&
@@ -76,15 +97,18 @@ function parseUnwrappedString() {
 			(cc < cca || cc > ccz) &&
 			(cc < ccA || cc > ccZ)
 		) {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 			let r = str.slice(start, idx);
 			if (!r.length) throw new Error('TinyG JSON Parse Error: Unexpected token ' + c);
 			return r;
 		}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		idx++;
 	}
 }
 
 function parseObjectKey() {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 	if (str[idx] === '"') {
 		// Parse as string
 		return parseString();
@@ -96,15 +120,20 @@ function parseObjectKey() {
 
 function parseObject() {
 	// skip the beginning curly brace that's already been consumed
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 	let obj = {};
 	while (true) {
 		// Skip whitespace
 		skipWhitespace();
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 		// Check for end of object
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		if (str[idx] === '}') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
 			return obj;
 		}
@@ -112,50 +141,73 @@ function parseObject() {
 		let key = parseObjectKey();
 		skipWhitespace();
 		// Ensure the next character is :
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		if (str[idx] !== ':') throw new Error('TinyG JSON Parse Error: Unexpected token ' + str[idx]);
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		idx++;
 		skipWhitespace();
 		// Parse the value
+// @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
 		obj[key] = parseInternal();
 		skipWhitespace();
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 		// Next character must be , or }
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		if (str[idx] === ',') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		} else if (str[idx] !== '}') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 			throw new Error('TinyG JSON Parse Error: Unexpected token ' + str[idx]);
 		}
 	}
 }
 
+// @ts-expect-error ts-migrate(7023) FIXME: 'parseArray' implicitly has return type 'any' beca... Remove this comment to see the full error message
 function parseArray() {
 	// skip the leading [
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
 	let ar = [];
 	while (true) {
 		skipWhitespace();
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		if (str[idx] === ']') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
 			return ar;
 		}
 		ar.push(parseInternal());
 		skipWhitespace();
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		if (str[idx] === ',') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 			idx++;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		} else if (str[idx] !== ']') {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 			throw new Error('TinyG JSON Parse Error: Unexpected token ' + str[idx]);
 		}
 	}
 }
 
 function parseNumber() {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	let start = idx;
 	while (true) {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		if (idx >= l) break;
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		let c = str[idx];
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 		let cc = str.charCodeAt(idx);
 		if (
 			c !== '-' &&
@@ -165,8 +217,10 @@ function parseNumber() {
 		) {
 			break;
 		}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 		idx++;
 	}
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 	let numStr = str.slice(start, idx);
 	if (!numStr.length || isNaN(numStr)) {
 		throw new Error('TinyG JSON Parse Error: Invalid number ' + numStr);
@@ -174,9 +228,13 @@ function parseNumber() {
 	return parseFloat(numStr);
 }
 
+// @ts-expect-error ts-migrate(7023) FIXME: 'parseInternal' implicitly has return type 'any' b... Remove this comment to see the full error message
 function parseInternal() {
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'idx' implicitly has an 'any' type.
 	if (idx >= l) throw new Error('TinyG JSON Parse Error: Unexpected end of input');
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 	let c = str[idx];
+// @ts-expect-error ts-migrate(7005) FIXME: Variable 'str' implicitly has an 'any' type.
 	let cc = str.charCodeAt(idx);
 	if (c === '{') {
 		// parse object
@@ -200,6 +258,7 @@ function parseInternal() {
 	}
 }
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 's' implicitly has an 'any' type.
 function parse(s) {
 	idx = 0;
 	str = s;
@@ -213,6 +272,7 @@ function parse(s) {
 
 let validShortKeyRegex = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'data' implicitly has an 'any' type.
 function stringify(data, precision = 5) {
 	if (data === undefined) return 'n';
 	if (data === null) return 'n';

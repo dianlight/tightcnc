@@ -1,3 +1,4 @@
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'macroMeta'.
 macroMeta({ params: {
 	spindle: {
 		type: 'boolean',
@@ -17,6 +18,8 @@ macroMeta({ params: {
 	}
 } });
 
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'spindle'.
 if (spindle) push('M5');
+// @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'floodCoolant'.
 if (floodCoolant || mistCoolant) push('M9');
 

@@ -1,9 +1,11 @@
-const { APIRouter, JSONRPCInterface } = require('yaar');
-const express = require('express');
-const config = require('littleconf').getConfig();
-const TightCNCServer = require('./tightcnc-server');
-const { createSchema, Schema } = require('common-schema');
-const XError = require('xerror');
+import { APIRouter, JSONRPCInterface } from 'yaar';
+import express from 'express';
+import littleconf from 'littleconf';
+import TightCNCServer from './tightcnc-server';
+import { createSchema, Schema } from 'common-schema';
+import { XError }  from 'xerror';
+
+const config = littleconf.getConfig()
 
 async function startServer() {
 
@@ -17,6 +19,7 @@ async function startServer() {
 	let tightcnc = new TightCNCServer(config);
 	await tightcnc.initServer();
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
 	function authMiddleware(ctx) {
 		let authHeader = ctx.req.header('Authorization');
 		if (!authHeader) throw new XError(XError.ACCESS_DENIED, 'Authorization header is required.');
@@ -37,6 +40,7 @@ async function startServer() {
 		}
 	}
 
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'operationName' implicitly has an 'any' ... Remove this comment to see the full error message
 	function registerOperationAPICall(operationName, operation) {
 		let paramSchema = operation.getParamSchema();
 		if (paramSchema && !Schema.isSchema(paramSchema)) paramSchema = createSchema(paramSchema);
@@ -46,6 +50,7 @@ async function startServer() {
 				schema: paramSchema
 			},
 			authMiddleware,
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
 			async (ctx) => {
 				let result = await tightcnc.runOperation(operationName, ctx.params);
 				//let result = await operation.run(ctx.params);
@@ -60,6 +65,7 @@ async function startServer() {
 	}
 
 	let serverPort = config.serverPort || 2363;
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
 	app.listen(serverPort, (err) => {
 		if (err) {
 			console.error('Error listening on port ' + serverPort + ': ' + err);

@@ -12,40 +12,48 @@
  * for these clearance movements, including the ability to use different axes.  The default assumes a typical x, y, z
  * axis configuration with clearance on Z at machine position 0 (ie, G53 G0 Z0).
  */
-
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
 const XError = require('xerror');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
 const GcodeProcessor = require('../../lib/gcode-processor');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
 const GcodeLine = require('../../lib/gcode-line');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
 const Operation = require('../server/operation');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
 const objtools = require('objtools');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
 const pasync = require('pasync');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
 const fs = require('fs');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
 const path = require('path');
+// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
 const ListForm = require('../consoleui/list-form');
-
-const getRecoveryFilename = (tightcnc) => {
-	return tightcnc.getFilename('_recovery.json', 'data');
+const getRecoveryFilename = (tightcnc: any) => {
+    return tightcnc.getFilename('_recovery.json', 'data');
 };
-
+// @ts-expect-error ts-migrate(2393) FIXME: Duplicate function implementation.
 function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
-	let currentJob = tightcnc.jobManager.currentJob;
-	if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
-		throw new XError(XError.INTERNAL_ERROR, 'No currently running job');
-	}
-	let gcodeProcessors = currentJob.gcodeProcessors || {};
-	for (let key in gcodeProcessors) {
-		if (gcodeProcessors[key].gcodeProcessorName === name) {
-			return gcodeProcessors[key];
-		}
-	}
-	if (throwOnMissing) {
-		throw new XError(XError.INTERNAL_ERROR, 'No ' + name + ' gcode processor found');
-	} else {
-		return null;
-	}
+    let currentJob = tightcnc.jobManager.currentJob;
+    if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
+        throw new XError(XError.INTERNAL_ERROR, 'No currently running job');
+    }
+    let gcodeProcessors = currentJob.gcodeProcessors || {};
+    for (let key in gcodeProcessors) {
+        if (gcodeProcessors[key].gcodeProcessorName === name) {
+            return gcodeProcessors[key];
+        }
+    }
+    if (throwOnMissing) {
+        throw new XError(XError.INTERNAL_ERROR, 'No ' + name + ' gcode processor found');
+    }
+    else {
+        return null;
+    }
 }
-
 /**
  * This gcode processor is added to a job to periodically save out job state and enable recovery.  It should be
  * positioned in the processor chain at the end of the chain, with the exception of being before a JobRecoveryProcessor
@@ -54,73 +62,72 @@ function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
  * @class JobRecoveryTracker
  */
 class JobRecoveryTracker extends GcodeProcessor {
-
-	constructor(options = {}) {
-		super(options, 'recoverytracker', true);
-		this.vm = new GcodeVM(options);
-		this.recoverySaveInterval = options.recoverySaveInterval || 10;
-		this.hasEnded = false;
-		this.saveData = {
-			jobOptions: this.job && this.job.jobOptions,
-			lineCountOffset: 0,
-			predictedTimeOffset: 0
-		};
-	}
-
-	initProcessor() {
-		if (this.dryRun) return;
-
-		const saveLoop = async() => {
-			while (!this.hasEnded) {
-				await pasync.setTimeout(this.recoverySaveInterval * 1000);
-				if (this.hasEnded) break;
-
-				try {
-					let rproc = findCurrentJobGcodeProcessor(this.tightcnc, 'recoveryprocessor');
-					if (!rproc.startedPassThrough) return; // don't save state before recovery processor starts forwarding through data
-				} catch (err) {}
-
-				let data = JSON.stringify(this.saveData) + '\n';
-				await new Promise((resolve, reject) => {
-					fs.writeFile(getRecoveryFilename(this.tightcnc), data, (err) => {
-						if (err) reject(err);
-						else resolve();
-					});
-				});
-			}
-		};
-		this.job.on('complete', () => {
-			this.hasEnded = true;
-			fs.unlink(getRecoveryFilename(this.tightcnc), () => {});
-		});
-		this.on('end', () => {
-			this.hasEnded = true;
-		});
-		this.on('chainerror', () => {
-			this.hasEnded = true;
-		});
-		saveLoop();
-	}
-
-	processGcode(gline) {
-		if (this.dryRun) return gline; // don't save recovery state during dry runs
-		this.vm.runGcodeLine(gline);
-		let vmState = this.vm.getState();
-		let lineCounter = vmState.lineCounter;
-		let totalTime = vmState.totalTime;
-		gline.hookSync('executed', () => {
-			this.saveData.jobOptions = this.job && this.job.jobOptions;
-			this.saveData.lineCountOffset = lineCounter;
-			this.saveData.predictedTimeOffset = totalTime;
-		});
-		return gline;
-	}
-
+    static DEFAULT_ORDER = 400000;
+    constructor(options = {}) {
+        super(options, 'recoverytracker', true);
+        (this as any).vm = new GcodeVM(options);
+        (this as any).recoverySaveInterval = (options as any).recoverySaveInterval || 10;
+        (this as any).hasEnded = false;
+        (this as any).saveData = {
+            jobOptions: (this as any).job && (this as any).job.jobOptions,
+            lineCountOffset: 0,
+            predictedTimeOffset: 0
+        };
+    }
+    initProcessor() {
+        if ((this as any).dryRun)
+            return;
+        const saveLoop = async () => {
+            while (!(this as any).hasEnded) {
+                await pasync.setTimeout((this as any).recoverySaveInterval * 1000);
+                if ((this as any).hasEnded)
+                    break;
+                try {
+                    let rproc = findCurrentJobGcodeProcessor((this as any).tightcnc, 'recoveryprocessor');
+                    if (!rproc.startedPassThrough)
+                        return; // don't save state before recovery processor starts forwarding through data
+                }
+                catch (err) { }
+                let data = JSON.stringify((this as any).saveData) + '\n';
+                await new Promise<void>((resolve, reject) => {
+                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
+                    fs.writeFile(getRecoveryFilename((this as any).tightcnc), data, (err) => {
+                        if (err)
+                            reject(err);
+                        else
+                            resolve();
+                    });
+                });
+            }
+        };
+        (this as any).job.on('complete', () => {
+            (this as any).hasEnded = true;
+            fs.unlink(getRecoveryFilename((this as any).tightcnc), () => { });
+        });
+        (this as any).on('end', () => {
+            (this as any).hasEnded = true;
+        });
+        (this as any).on('chainerror', () => {
+            (this as any).hasEnded = true;
+        });
+        saveLoop();
+    }
+    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
+    processGcode(gline) {
+        if ((this as any).dryRun)
+            return gline; // don't save recovery state during dry runs
+        (this as any).vm.runGcodeLine(gline);
+        let vmState = (this as any).vm.getState();
+        let lineCounter = vmState.lineCounter;
+        let totalTime = vmState.totalTime;
+        gline.hookSync('executed', () => {
+            (this as any).saveData.jobOptions = (this as any).job && (this as any).job.jobOptions;
+            (this as any).saveData.lineCountOffset = lineCounter;
+            (this as any).saveData.predictedTimeOffset = totalTime;
+        });
+        return gline;
+    }
 }
-
-JobRecoveryTracker.DEFAULT_ORDER = 400000;
-
-
 /**
  * This gcode processor is used to recovery a job that was interrupted before it could be completed.  It loads the
  * recovery file, then skips past all gcode lines in the job up until the recovery point is reached.  Once the recovery
@@ -144,267 +151,250 @@ JobRecoveryTracker.DEFAULT_ORDER = 400000;
  *     clearance position to the position to start recovery.
  */
 class JobRecoveryProcessor extends GcodeProcessor {
-
-	constructor(options = {}) {
-		super(options, 'recoveryprocessor', true);
-		this.vm = new GcodeVM(options);
-		this.recoveryConfig = this.tightcnc.config.recovery;
-		this.recoveryParams = {
-			backUpLines: typeof options.backUpLines === 'number' ? options.backUpLines : this.recoveryConfig.backUpLines,
-			backUpTime: typeof options.backUpTime === 'number' ? options.backUpTime : this.recoveryConfig.backUpTime
-		};
-		this.clearanceParams = {
-			moveToClearance: options.moveToClearance || this.recoveryConfig.moveToClearance,
-			moveToWorkpiece: options.moveToWorkpiece || this.recoveryConfig.moveToWorkpiece
-		};
-		this.maxDwell = 0;
-		// If true, we've passed the point of skipping lines and are now passing everything through.
-		this.startedPassThrough = false;
-		// A rotating buffer of backUpLines glines, so we can back up that number of lines after the resume condition is met.
-		this.recoveryLineBuffer = [];
-	}
-
-	async initProcessor() {
-		// Load recovery file
-		this.recoveryInfo = await new Promise((resolve, reject) => {
-			fs.readFile(getRecoveryFilename(this.tightcnc), { encoding: 'utf8' }, (err, str) => {
-				if (err) return reject(err);
-				try {
-					let j = JSON.parse(str);
-					resolve(j);
-				} catch (err2) {
-					reject(err2);
-				}
-			});
-		});
-	}
-
-	async copyProcessor() {
-		return super.copyProcessor();
-	}
-
-	syncMachineToVMState(vmState) {
-		let lines = this.vm.syncMachineToState({
-			vmState: vmState,
-			include: [ 'motionMode', 'feed', 'arcPlane', 'incremental', 'inverseFeed', 'units', 'spindle', 'coolant', 'tool' ]
-		});
-		for (let line of lines) {
-			this.pushGcode(line);
-		}
-	}
-
-	async clearanceMoves(macro, params) {
-		await this.tightcnc.runMacro(macro, params, { gcodeProcessor: this, waitSync: true });
-	}
-
-	async beginRecovery() {
-		let preRecoveryVMState = this.recoveryLineBuffer[0].vmStateBefore;
-		let moveParams = {};
-		for (let axisNum = 0; axisNum < preRecoveryVMState.pos.length; axisNum++) {
-			if (preRecoveryVMState.axisLabels[axisNum]) {
-				moveParams[preRecoveryVMState.axisLabels[axisNum]] = preRecoveryVMState.pos[axisNum];
-			}
-		}
-
-		// Move to clearance position, "above" workpiece
-		await this.clearanceMoves(this.clearanceParams.moveToClearance, { pos: preRecoveryVMState.pos });
-
-		// Synchronize machine to pre recovery VM state
-		this.syncMachineToVMState(preRecoveryVMState);
-
-		// Run dwell
-		if (this.maxDwell) {
-			this.pushGcode(new GcodeLine('G4 P' + this.maxDwell));
-		}
-
-		// Move to starting position
-		await this.clearanceMoves(this.clearanceParams.moveToWorkpiece, { pos: preRecoveryVMState.pos });
-
-		// Push all the lines in the rotating buffer
-		while (this.recoveryLineBuffer.length) {
-			let { gline } = this.recoveryLineBuffer.shift();
-			this.pushGcode(gline);
-		}
-
-		this.startedPassThrough = true;
-	}
-
-	async processGcode(gline) {
-		if (this.startedPassThrough) return gline;
-		let vmStateBefore = objtools.deepCopy(this.vm.getState());
-		this.vm.runGcodeLine(gline);
-		let vmState = this.vm.getState();
-		if (gline.has('G4') && gline.has('P') && gline.get('P') > this.maxDwell) {
-			this.maxDwell = gline.get('P');
-		}
-
-		// rotate the line buffer
-		if (this.recoveryParams.backUpLines > 0) {
-			this.recoveryLineBuffer.push({
-				gline,
-				vmStateAfter: objtools.deepCopy(vmState),
-				vmStateBefore
-			});
-			if (this.recoveryLineBuffer.length > this.recoveryParams.backUpLines) {
-				this.recoveryLineBuffer.shift();
-			}
-		}
-
-		// check if this meets the time resume condition
-		if (vmState.totalTime >= this.recoveryInfo.predictedTimeOffset) {
-			if (!this.recoveryLineBuffer.length) {
-				this.recoveryLineBuffer.push({
-					gline,
-					vmStateAfter: objtools.deepCopy(vmState),
-					vmStateBefore: vmStateBefore
-				});
-			}
-			await this.beginRecovery();
-		} else {
-			// Blackhole the gline by calling all the hooks on it
-			gline.triggerSync('queued');
-			gline.triggerSync('sent');
-			gline.triggerSync('ack');
-			gline.triggerSync('executing');
-			gline.triggerSync('executed');
-		}
-
-		return undefined;
-	}
-
+    static DEFAULT_ORDER = 500000;
+    constructor(options = {}) {
+        super(options, 'recoveryprocessor', true);
+        (this as any).vm = new GcodeVM(options);
+        (this as any).recoveryConfig = (this as any).tightcnc.config.recovery;
+        (this as any).recoveryParams = {
+            backUpLines: typeof (options as any).backUpLines === 'number' ? (options as any).backUpLines : (this as any).recoveryConfig.backUpLines,
+            backUpTime: typeof (options as any).backUpTime === 'number' ? (options as any).backUpTime : (this as any).recoveryConfig.backUpTime
+        };
+        (this as any).clearanceParams = {
+            moveToClearance: (options as any).moveToClearance || (this as any).recoveryConfig.moveToClearance,
+            moveToWorkpiece: (options as any).moveToWorkpiece || (this as any).recoveryConfig.moveToWorkpiece
+        };
+        (this as any).maxDwell = 0;
+        // If true, we've passed the point of skipping lines and are now passing everything through.
+        (this as any).startedPassThrough = false;
+        // A rotating buffer of backUpLines glines, so we can back up that number of lines after the resume condition is met.
+        (this as any).recoveryLineBuffer = [];
+    }
+    async initProcessor() {
+        // Load recovery file
+        (this as any).recoveryInfo = await new Promise((resolve, reject) => {
+            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
+            fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
+                if (err)
+                    return reject(err);
+                try {
+                    let j = JSON.parse(str);
+                    resolve(j);
+                }
+                catch (err2) {
+                    reject(err2);
+                }
+            });
+        });
+    }
+    async copyProcessor() {
+        return super.copyProcessor();
+    }
+    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'vmState' implicitly has an 'any' type.
+    syncMachineToVMState(vmState) {
+        let lines = (this as any).vm.syncMachineToState({
+            vmState: vmState,
+            include: ['motionMode', 'feed', 'arcPlane', 'incremental', 'inverseFeed', 'units', 'spindle', 'coolant', 'tool']
+        });
+        for (let line of lines) {
+            this.pushGcode(line);
+        }
+    }
+    // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
+    async clearanceMoves(macro, params) {
+        await (this as any).tightcnc.runMacro(macro, params, { gcodeProcessor: this, waitSync: true });
+    }
+    async beginRecovery() {
+        let preRecoveryVMState = (this as any).recoveryLineBuffer[0].vmStateBefore;
+        let moveParams = {};
+        for (let axisNum = 0; axisNum < preRecoveryVMState.pos.length; axisNum++) {
+            if (preRecoveryVMState.axisLabels[axisNum]) {
+                // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+                moveParams[preRecoveryVMState.axisLabels[axisNum]] = preRecoveryVMState.pos[axisNum];
+            }
+        }
+        // Move to clearance position, "above" workpiece
+        await this.clearanceMoves((this as any).clearanceParams.moveToClearance, { pos: preRecoveryVMState.pos });
+        // Synchronize machine to pre recovery VM state
+        this.syncMachineToVMState(preRecoveryVMState);
+        // Run dwell
+        if ((this as any).maxDwell) {
+            this.pushGcode(new GcodeLine('G4 P' + (this as any).maxDwell));
+        }
+        // Move to starting position
+        await this.clearanceMoves((this as any).clearanceParams.moveToWorkpiece, { pos: preRecoveryVMState.pos });
+        // Push all the lines in the rotating buffer
+        while ((this as any).recoveryLineBuffer.length) {
+            let { gline } = (this as any).recoveryLineBuffer.shift();
+            this.pushGcode(gline);
+        }
+        (this as any).startedPassThrough = true;
+    }
+    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
+    async processGcode(gline) {
+        if ((this as any).startedPassThrough)
+            return gline;
+        let vmStateBefore = objtools.deepCopy((this as any).vm.getState());
+        (this as any).vm.runGcodeLine(gline);
+        let vmState = (this as any).vm.getState();
+        if (gline.has('G4') && gline.has('P') && gline.get('P') > (this as any).maxDwell) {
+            (this as any).maxDwell = gline.get('P');
+        }
+        // rotate the line buffer
+        if ((this as any).recoveryParams.backUpLines > 0) {
+            (this as any).recoveryLineBuffer.push({
+                gline,
+                vmStateAfter: objtools.deepCopy(vmState),
+                vmStateBefore
+            });
+            if ((this as any).recoveryLineBuffer.length > (this as any).recoveryParams.backUpLines) {
+                (this as any).recoveryLineBuffer.shift();
+            }
+        }
+        // check if this meets the time resume condition
+        if (vmState.totalTime >= (this as any).recoveryInfo.predictedTimeOffset) {
+            if (!(this as any).recoveryLineBuffer.length) {
+                (this as any).recoveryLineBuffer.push({
+                    gline,
+                    vmStateAfter: objtools.deepCopy(vmState),
+                    vmStateBefore: vmStateBefore
+                });
+            }
+            await this.beginRecovery();
+        }
+        else {
+            // Blackhole the gline by calling all the hooks on it
+            gline.triggerSync('queued');
+            gline.triggerSync('sent');
+            gline.triggerSync('ack');
+            gline.triggerSync('executing');
+            gline.triggerSync('executed');
+        }
+        return undefined;
+    }
 }
-
-JobRecoveryProcessor.DEFAULT_ORDER = 500000;
-
-
 /**
  * This operation attempts to recover the most recent interrupted job.
  *
  * @class JobRecoveryOperation
  */
 class JobRecoveryOperation extends Operation {
-
-	getParamSchema() {
-		return {
-			backUpTime: {
-				type: 'number',
-				description: 'Number of seconds to rewind before restarting the job'
-			}
-		};
-	}
-
-	async run(params) {
-		// Load the recovery file (to get the original job options)
-		let recoveryInfo = await new Promise((resolve, reject) => {
-			fs.readFile(getRecoveryFilename(this.tightcnc), { encoding: 'utf8' }, (err, str) => {
-				if (err) return reject(new XError(XError.INTERNAL_ERROR, 'Could not read job recovery file', err));
-				try {
-					let j = JSON.parse(str);
-					resolve(j);
-				} catch (err2) {
-					reject(err2);
-				}
-			});
-		});
-
-		// Manipulate the gcode processors
-		let jobOptions = recoveryInfo.jobOptions;
-		if (!jobOptions.gcodeProcessors) jobOptions.gcodeProcessors = [];
-		// Remove any existing recovery processors in the gcode processor chain
-		jobOptions.gcodeProcessors = jobOptions.gcodeProcessors.filter((gp) => gp.name !== 'recoveryprocessor');
-		// Add the recovery processor to the chain immediately after the recovery tracker
-		let newprocessor = {
-			name: 'recoveryprocessor',
-			options: {
-				backUpTime: params.backUpTime
-			},
-			order: 500000
-		};
-		let foundRecoveryTracker = false;
-		for (let i = 0; i < jobOptions.gcodeProcessors.length; i++) {
-			if (jobOptions.gcodeProcessors[i].name === 'recoverytracker') {
-				foundRecoveryTracker = true;
-				jobOptions.gcodeProcessors.splice(i + 1, 0, newprocessor);
-				break;
-			}
-		}
-		if (!foundRecoveryTracker) jobOptions.gcodeProcessors.push(newprocessor);
-
-		// Start the recovery job
-		return await this.tightcnc.jobManager.startJob(jobOptions);
-	}
-
+    getParamSchema() {
+        return {
+            backUpTime: {
+                type: 'number',
+                description: 'Number of seconds to rewind before restarting the job'
+            }
+        };
+    }
+    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
+    async run(params) {
+        // Load the recovery file (to get the original job options)
+        let recoveryInfo = await new Promise((resolve, reject) => {
+            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
+            fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
+                if (err)
+                    return reject(new XError(XError.INTERNAL_ERROR, 'Could not read job recovery file', err));
+                try {
+                    let j = JSON.parse(str);
+                    resolve(j);
+                }
+                catch (err2) {
+                    reject(err2);
+                }
+            });
+        });
+        // Manipulate the gcode processors
+        let jobOptions = (recoveryInfo as any).jobOptions;
+        if (!jobOptions.gcodeProcessors)
+            jobOptions.gcodeProcessors = [];
+        // Remove any existing recovery processors in the gcode processor chain
+        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gp' implicitly has an 'any' type.
+        jobOptions.gcodeProcessors = jobOptions.gcodeProcessors.filter((gp) => gp.name !== 'recoveryprocessor');
+        // Add the recovery processor to the chain immediately after the recovery tracker
+        let newprocessor = {
+            name: 'recoveryprocessor',
+            options: {
+                backUpTime: params.backUpTime
+            },
+            order: 500000
+        };
+        let foundRecoveryTracker = false;
+        for (let i = 0; i < jobOptions.gcodeProcessors.length; i++) {
+            if (jobOptions.gcodeProcessors[i].name === 'recoverytracker') {
+                foundRecoveryTracker = true;
+                jobOptions.gcodeProcessors.splice(i + 1, 0, newprocessor);
+                break;
+            }
+        }
+        if (!foundRecoveryTracker)
+            jobOptions.gcodeProcessors.push(newprocessor);
+        // Start the recovery job
+        return await (this as any).tightcnc.jobManager.startJob(jobOptions);
+    }
 }
-
-
 /*
  * This handles recovering a job in the console ui.  It's registered to run on a keypress from the home
  * screen, and just displays a few dialogs before starting the recovery operation.
  */
+// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
 function consoleUIRecoverJob(consoleui) {
-
-	async function doRecover() {
-		// Ask how much time to back up
-		let form = new ListForm(consoleui);
-		let recoverySettings = await form.showEditor(null, {
-			type: 'object',
-			label: 'Job Recovery Settings',
-			doneLabel: '[Start Recovery]',
-			properties: {
-				backUpTime: {
-					type: 'number',
-					label: 'Rewind Time (s)',
-					default: 5,
-					required: true
-				}
-			}
-		});
-
-		// Show confirmation
-		let text = 'Job recovery is about to start.  Please ensure that your recovery settings are correct, particularly with regard to clearance movements and positions.  Also ensure that the device\'s coordinate system is set up to match the original job\'s.  Press ENTER to begin or Esc to cancel.';
-		let confirmed = await consoleui.showConfirm(text, { okLabel: 'Start' });
-		if (!confirmed) return;
-
-		// Start job
-		await consoleui.runWithWait(async() => {
-			await consoleui.client.op('recoverJob', recoverySettings);
-		}, 'Initializing ...');
-		consoleui.showTempMessage('Starting job.');
-
-		// Go to job info mode
-		consoleui.activateMode('jobInfo');
-	}
-
-	doRecover()
-		.catch((err) => {
-			consoleui.clientError(err);
-		});
-
+    async function doRecover() {
+        // Ask how much time to back up
+        let form = new ListForm(consoleui);
+        let recoverySettings = await form.showEditor(null, {
+            type: 'object',
+            label: 'Job Recovery Settings',
+            doneLabel: '[Start Recovery]',
+            properties: {
+                backUpTime: {
+                    type: 'number',
+                    label: 'Rewind Time (s)',
+                    default: 5,
+                    required: true
+                }
+            }
+        });
+        // Show confirmation
+        let text = 'Job recovery is about to start.  Please ensure that your recovery settings are correct, particularly with regard to clearance movements and positions.  Also ensure that the device\'s coordinate system is set up to match the original job\'s.  Press ENTER to begin or Esc to cancel.';
+        let confirmed = await consoleui.showConfirm(text, { okLabel: 'Start' });
+        if (!confirmed)
+            return;
+        // Start job
+        await consoleui.runWithWait(async () => {
+            await consoleui.client.op('recoverJob', recoverySettings);
+        }, 'Initializing ...');
+        consoleui.showTempMessage('Starting job.');
+        // Go to job info mode
+        consoleui.activateMode('jobInfo');
+    }
+    doRecover()
+        .catch((err) => {
+        consoleui.clientError(err);
+    });
 }
-
-
 module.exports.JobRecoveryTracker = JobRecoveryTracker;
 module.exports.JobRecoveryProcessor = JobRecoveryProcessor;
 module.exports.JobRecoveryOperation = JobRecoveryOperation;
-
+// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerServerComponents = function (tightcnc) {
-	tightcnc.registerGcodeProcessor('recoverytracker', JobRecoveryTracker);
-	tightcnc.registerGcodeProcessor('recoveryprocessor', JobRecoveryProcessor);
-	tightcnc.registerOperation('recoverJob', JobRecoveryOperation);
+    tightcnc.registerGcodeProcessor('recoverytracker', JobRecoveryTracker);
+    tightcnc.registerGcodeProcessor('recoveryprocessor', JobRecoveryProcessor);
+    tightcnc.registerOperation('recoverJob', JobRecoveryOperation);
 };
-
+// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerConsoleUIComponents = function (consoleui) {
-	// Automatically add recovery tracker to all jobs created in the console UI
-	consoleui.on('newJobObject', (jobOptions) => {
-		if (!jobOptions.gcodeProcessors) jobOptions.gcodeProcessors = [];
-		jobOptions.gcodeProcessors.push({
-			name: 'recoverytracker',
-			options: {},
-			order: 400000
-		});
-	});
-
-	// Add a key to recover a job to the home screen
-	consoleui.registerHomeKey([ 'r', 'R' ], 'r', 'Recover Job', () => consoleUIRecoverJob(consoleui));
+    // Automatically add recovery tracker to all jobs created in the console UI
+    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
+    consoleui.on('newJobObject', (jobOptions) => {
+        if (!jobOptions.gcodeProcessors)
+            jobOptions.gcodeProcessors = [];
+        jobOptions.gcodeProcessors.push({
+            name: 'recoverytracker',
+            options: {},
+            order: 400000
+        });
+    });
+    // Add a key to recover a job to the home screen
+    consoleui.registerHomeKey(['r', 'R'], 'r', 'Recover Job', () => consoleUIRecoverJob(consoleui));
 };
-
