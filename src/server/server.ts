@@ -3,7 +3,7 @@ import express from 'express';
 import littleconf from 'littleconf';
 import TightCNCServer from './tightcnc-server';
 import { createSchema, Schema } from 'common-schema';
-import { XError }  from 'xerror';
+import XError  from 'xerror';
 
 const config = littleconf.getConfig()
 

@@ -1,12 +1,11 @@
-class LoggerMem {
+export default class LoggerMem {
     constructor(config = {}) {
         (this as any).linesToKeep = (config as any).size || 5000;
         (this as any).shiftBatchSize = (config as any).shiftBatchSize || Math.ceil((this as any).linesToKeep / 10);
         (this as any).lines = [];
         (this as any).nextNum = 1;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'type' implicitly has an 'any' type.
-    log(type, msg) {
+    log(type:string, msg?:string) {
         if (msg === undefined) {
             // single argument given - log raw line
             msg = type;
@@ -80,4 +79,3 @@ class LoggerMem {
         return (this as any).lines.slice(startIdx, endIdx);
     }
 }
-module.exports = LoggerMem;

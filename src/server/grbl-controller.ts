@@ -1,89 +1,131 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Controller... Remove this comment to see the full error message
-const Controller = require('./controller');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'SerialPort... Remove this comment to see the full error message
-const SerialPort = require('serialport');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
+import  Controller from './controller';
+import  SerialPort, { OpenOptions } from 'serialport';
+import  XError from 'xerror';
+import  pasync from 'pasync';
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'CrispHooks... Remove this comment to see the full error message
-const CrispHooks = require('crisphooks');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
+import CrispHooks from 'crisphooks';
+import objtools from 'objtools';
+import TightCNCServer from './tightcnc-server';
 const GcodeVM = require('../../lib/gcode-vm');
-class GRBLController extends Controller {
+
+export default class GRBLController extends Controller {
+    serial?:SerialPort;
+    _initializing = false;
+    _resetting = false;
+    _serialListeners: {
+        [key:string]: (data?:any)=>void
+    } = {};
+    sendQueue:any[] = [];
+    // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
+    sendQueueIdxToSend = 0;
+    // This is the index into sendQueue of the next entry that has been sent but a response is expected for.
+    sendQueueIdxToReceive = 0;
+    // Total number of chars that might be in the grbl serial buffer
+    unackedCharCount = 0;
+    // For certain operations, this interface class uses the concept of a "machine timestamp".  It's kinda
+    // like an epoch timestamp, but start at the time this class was instantiated, and does not include
+    // time spent in a feed hold.  These variables are involved in calculating machine time.
+    machineTimeBaseline = new Date().getTime();
+    totalHeldMachineTime = 0;
+    lastHoldStartTime=0;
+    // The machine timestamp that the most recent line began executing
+    lastLineExecutingTime?:number;
+    timeEstVM = new GcodeVM({ maxFeed: [1000, 1000, 1000], acceleration: [36000, 36000, 36000] });
+    _checkExecutedLoopTimeout?:NodeJS.Timeout;
+    // Number of blocks in sendQueue to send immediately even if it would exceed normal backpressure
+    sendImmediateCounter = 0;
+    _disableSending = false;
+    currentStatusReport: {
+        machineState?:any
+    } = {};
+    axisMaxFeeds = [500, 500, 500];
+    // Mapping from a parameter key to its value (keys include things like G54, PRB, as well as VER, OPT - values are parsed)
+    receivedDeviceParameters: {
+        [key:string]: any
+    } = {};
+    grblSettings:{
+        [key:string]:any
+    } = {}
+    toolLengthOffset = 0;
+    grblDeviceVersion?:string; // main device version, from welcome message
+    grblVersionDetails = null; // version details, from VER feedback message
+    grblBuildOptions: {
+        [key:string]:any
+    } = {}; // build option flags and values, from OPT feedback message
+    _lastRecvSrOrAck?:string; // used as part of sync detection
+    // used for jogging
+    realTimeMovesTimeStart = [0, 0, 0, 0, 0, 0];
+    realTimeMovesCounter = [0, 0, 0, 0, 0, 0];
+    lastMessage?:string;
+    tightcnc?: TightCNCServer;
+    _wpos?: any
+    grblReportInches?: any
+    spindleSpeedMax ?:number;
+    spindleSpeedMin?: number;
+    _ignoreUnlockedMessage?: boolean
+    _ignoreUnlockPromptMessage?: boolean
+    _waitingToRetry?: boolean
+    _welcomeMessageWaiter?: any
+    _statusUpdateLoops: NodeJS.Timeout[] = []
+    serialReceiveBuf?:string
+    _retryConnectFlag?:boolean
+
+    /** REGEXP */
+            // received message regexes
+            _regexWelcome = /^Grbl v?([^ ]+)/; // works for both 0.9 and 1.1
+            _regexOk = /^ok(:(.*))?/; // works for both 0.9 and 1.1
+            _regexError = /^error: ?(.*)$/; // works for both 0.9 and 1.1
+            _regexStartupLineOk = /^>.*:ok$/; // works for 1.1; not sure about 0.9
+            _regexStartupLineError = /^>.*:error:(.*)$/; // works for 1.1
+            _regexStatusReport = /^<(.*)>$/; // works for both 0.9 and 1.1
+            _regexAlarm = /^ALARM:(.*)$/; // works for both 0.9 and 1.1
+            _regexIgnore = /^\[HLP:.*\]$|^\[echo:.*/; // regex of messages we don't care about but are valid responses from grbl
+            _regexSetting = /^\$([0-9]+)=(-?[0-9.]+)/; // works forboth 0.9 and 1.1
+            _regexStartupLineSetting = /^\$N([0-9]+)=(.*)$/; // works for 1.1; not sure about 0.9
+            _regexMessage = /^\[MSG:(.*)\]$/; // 1.1 only
+            _regexParserState = /^\[GC:(.*)\]$/; // 1.1 only
+            _regexParserState09 = /^\[(([A-Z]-?[0-9.]+ ?){4,})\]$/; // 0.9 only
+            _regexParamValue = /^\[(G5[4-9]|G28|G30|G92|TLO|PRB|VER|OPT):(.*)\]$/; // 1.1 only
+            _regexVersion09 = /^\[([0-9.]+[a-zA-Z]?\.[0-9]+:.*)\]$/; // 0.9 only
+            _regexFeedback = /^\[(.*)\]$/;
+            // regex for splitting status report elements
+            _regexSrSplit = /^([^:]*):(.*)$/;
+            // regex for parsing outgoing settings commands
+            _regexSettingsCommand = /^\$(N?[0-9]+)=(.*)$/;
+            _regexRstCommand = /^\$RST=(.*)$/;
+    
+
     constructor(config = {}) {
         super(config);
-        (this as any).serial = null;
-        (this as any)._initializing = false;
-        (this as any)._resetting = false;
-        (this as any)._serialListeners = {};
-        (this as any).sendQueue = [];
-        // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
-        (this as any).sendQueueIdxToSend = 0;
-        // This is the index into sendQueue of the next entry that has been sent but a response is expected for.
-        (this as any).sendQueueIdxToReceive = 0;
-        // Total number of chars that might be in the grbl serial buffer
-        (this as any).unackedCharCount = 0;
-        // For certain operations, this interface class uses the concept of a "machine timestamp".  It's kinda
-        // like an epoch timestamp, but start at the time this class was instantiated, and does not include
-        // time spent in a feed hold.  These variables are involved in calculating machine time.
-        (this as any).machineTimeBaseline = new Date().getTime();
-        (this as any).totalHeldMachineTime = 0;
-        (this as any).lastHoldStartTime = null;
-        // The machine timestamp that the most recent line began executing
-        (this as any).lastLineExecutingTime = null;
-        (this as any).timeEstVM = new GcodeVM({ maxFeed: [1000, 1000, 1000], acceleration: [36000, 36000, 36000] });
-        (this as any)._checkExecutedLoopTimeout = null;
-        // Number of blocks in sendQueue to send immediately even if it would exceed normal backpressure
-        (this as any).sendImmediateCounter = 0;
-        (this as any)._disableSending = false;
-        (this as any).currentStatusReport = {};
-        (this as any).axisLabels = ['x', 'y', 'z'];
-        (this as any).usedAxes = (config as any).usedAxes || [true, true, true];
-        (this as any).homableAxes = (config as any).homableAxes || [true, true, true];
-        (this as any).axisMaxFeeds = (config as any).axisMaxFeeds || [500, 500, 500];
-        // Mapping from a parameter key to its value (keys include things like G54, PRB, as well as VER, OPT - values are parsed)
-        (this as any).receivedDeviceParameters = {};
+        this.axisLabels = ['x', 'y', 'z'];
+        this.usedAxes = (config as any).usedAxes || [true, true, true];
+        this.homableAxes = (config as any).homableAxes || [true, true, true];
+        this.axisMaxFeeds = (config as any).axisMaxFeeds || [500, 500, 500];
         // Mapping from a grbl settings index (numeric) to its value
-        (this as any).grblSettings = {};
-        this._makeRegexes();
-        (this as any).toolLengthOffset = 0;
-        (this as any).grblDeviceVersion = null; // main device version, from welcome message
-        (this as any).grblVersionDetails = null; // version details, from VER feedback message
-        (this as any).grblBuildOptions = {}; // build option flags and values, from OPT feedback message
-        (this as any)._lastRecvSrOrAck = null; // used as part of sync detection
-        // used for jogging
-        (this as any).realTimeMovesTimeStart = [0, 0, 0, 0, 0, 0];
-        (this as any).realTimeMovesCounter = [0, 0, 0, 0, 0, 0];
-        (this as any).lastMessage = null;
     }
     _getCurrentMachineTime() {
         let ctime = new Date().getTime();
-        let mtime = ctime - (this as any).machineTimeBaseline;
-        mtime -= (this as any).totalHeldMachineTime;
-        if ((this as any).held && (this as any).lastHoldStartTime) {
-            mtime -= (ctime - (this as any).lastHoldStartTime);
+        let mtime = ctime - this.machineTimeBaseline;
+        mtime -= this.totalHeldMachineTime;
+        if (this.held && this.lastHoldStartTime) {
+            mtime -= (ctime - this.lastHoldStartTime);
         }
         return mtime;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     debug(str) {
         const enableDebug = false;
-        if ((this as any).tightcnc)
-            (this as any).tightcnc.debug('GRBL: ' + str);
+        if (this.tightcnc)
+            this.tightcnc.debug('GRBL: ' + str);
         else if (enableDebug)
             console.log('Debug: ' + str);
     }
-    _commsReset(err = null) {
+    _commsReset(err?:XError) {
         this.debug('_commsReset()');
         if (!err)
             err = new XError(XError.INTERNAL_ERROR, 'Communications reset');
         // Call the error hook on anything in sendQueue
-        for (let entry of (this as any).sendQueue) {
+        for (let entry of this.sendQueue) {
             if (entry.hooks) {
                 this.debug('_commsReset triggering error hook on sendQueue entry');
                 entry.hooks.triggerSync('error', err);
@@ -91,27 +133,27 @@ class GRBLController extends Controller {
         }
         this.debug('_commsReset() done triggering error hooks');
         // Reset all the variables
-        (this as any).sendQueue = [];
-        (this as any).sendQueueIdxToSend = 0;
-        (this as any).sendQueueIdxToReceive = 0;
-        (this as any).unackedCharCount = 0;
-        (this as any).sendImmediateCounter = 0;
-        if ((this as any)._checkExecutedLoopTimeout !== null) {
-            clearTimeout((this as any)._checkExecutedLoopTimeout);
-            (this as any)._checkExecutedLoopTimeout = null;
+        this.sendQueue = [];
+        this.sendQueueIdxToSend = 0;
+        this.sendQueueIdxToReceive = 0;
+        this.unackedCharCount = 0;
+        this.sendImmediateCounter = 0;
+        if (this._checkExecutedLoopTimeout) {
+            clearTimeout(this._checkExecutedLoopTimeout);
+            this._checkExecutedLoopTimeout = undefined;
         }
-        (this as any).emit('_sendQueueDrain');
+        this.emit('_sendQueueDrain');
     }
     getPos() {
-        if ((this as any)._wpos)
-            return (this as any)._wpos;
+        if (this._wpos)
+            return this._wpos;
         else
             return super.getPos();
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
     _handleStatusUpdate(obj) {
         let changed = false;
-        let wasReady = (this as any).ready;
+        let wasReady = this.ready;
         for (let key in obj) {
             if (!objtools.deepEquals(obj[key], objtools.getPath(this, key))) {
                 objtools.setPath(this, key, obj[key]);
@@ -119,9 +161,9 @@ class GRBLController extends Controller {
             }
         }
         if (changed)
-            (this as any).emit('statusUpdate');
-        if (!wasReady && (this as any).ready && !(this as any)._initializing && !(this as any)._resetting)
-            (this as any).emit('ready');
+            this.emit('statusUpdate');
+        if (!wasReady && this.ready && !this._initializing && !this._resetting)
+            this.emit('ready');
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'srString' implicitly has an 'any' type.
     _handleReceiveStatusReport(srString) {
@@ -157,11 +199,11 @@ class GRBLController extends Controller {
             }
             else {
                 // Split into key and value, then split value on comma if present, parsing numbers
-                let matches = (this as any)._regexSrSplit.exec(part);
-                let key = matches[1];
+                let matches = this._regexSrSplit.exec(part);
+                let key = matches?matches[1]:undefined;
                 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 's' implicitly has an 'any' type.
-                let val = matches[2].split(',').map((s) => {
-                    if (s !== '' && !isNaN(s)) {
+                let val:any = matches[2].split(',').map((s) => {
+                    if (s !== '' && !isNaN(parseFloat(s))) {
                         return parseFloat(s);
                     }
                     else {
@@ -191,7 +233,7 @@ class GRBLController extends Controller {
         // Update this.currentStatusReport
         for (let key in statusReport) {
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-            (this as any).currentStatusReport[key] = statusReport[key];
+            this.currentStatusReport[key] = statusReport[key];
         }
         // Update the class properties
         let obj = {};
@@ -232,11 +274,11 @@ class GRBLController extends Controller {
                         (obj as any).held = false;
                         (obj as any).moving = false;
                         (obj as any).error = true;
-                        if (!(this as any).errorData && !(obj as any).errorData) {
+                        if (!this.errorData && !(obj as any).errorData) {
                             // got status of alarm without a previous ALARM message indicating the type of alarm (which happens in some cases)
-                            if ((this as any).lastMessage) {
+                            if (this.lastMessage) {
                                 // infer the alarm state from the most recent message received
-                                (obj as any).errorData = this._msgToError((this as any).lastMessage);
+                                (obj as any).errorData = this._msgToError(this.lastMessage);
                             }
                             if (!(obj as any).errorData)
                                 (obj as any).errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
@@ -356,9 +398,9 @@ class GRBLController extends Controller {
                     (obj as any).mpos.push((statusReport as any).WPos[i] + (statusReport as any).WCO[i]);
             }
         }
-        (this as any)._lastRecvSrOrAck = 'sr';
+        this._lastRecvSrOrAck = 'sr';
         this._handleStatusUpdate(obj);
-        (this as any).emit('statusReportReceived', statusReport);
+        this.emit('statusReportReceived', statusReport);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'setting' implicitly has an 'any' type.
     _handleSettingFeedback(setting, value) {
@@ -366,67 +408,43 @@ class GRBLController extends Controller {
         if (value && !isNaN(value))
             value = parseFloat(value);
         // store in this.grblSettings
-        let oldVal = (this as any).grblSettings[setting];
-        (this as any).grblSettings[setting] = value;
+        let oldVal = this.grblSettings[setting];
+        this.grblSettings[setting] = value;
         // check if setting requires updating other status properties
         if (setting === 13)
-            (this as any).grblReportInches = value;
+            this.grblReportInches = value;
         if (setting === 22)
-            (this as any).homableAxes = value ? ((this as any).config.homableAxes || [true, true, true]) : [false, false, false];
+            this.homableAxes = value ? (this.config.homableAxes || [true, true, true]) : [false, false, false];
         if (setting === 30)
-            (this as any).spindleSpeedMax = value;
+            this.spindleSpeedMax = value;
         if (setting === 31)
-            (this as any).spindleSpeedMin = value;
+            this.spindleSpeedMin = value;
         if (setting === 110) {
-            (this as any).axisMaxFeeds[0] = value;
-            (this as any).timeEstVM.options.maxFeed[0] = value;
+            this.axisMaxFeeds[0] = value;
+            this.timeEstVM.options.maxFeed[0] = value;
         }
         if (setting === 111) {
-            (this as any).axisMaxFeeds[1] = value;
-            (this as any).timeEstVM.options.maxFeed[1] = value;
+            this.axisMaxFeeds[1] = value;
+            this.timeEstVM.options.maxFeed[1] = value;
         }
         if (setting === 112) {
-            (this as any).axisMaxFeeds[2] = value;
-            (this as any).timeEstVM.options.maxFeed[2] = value;
+            this.axisMaxFeeds[2] = value;
+            this.timeEstVM.options.maxFeed[2] = value;
         }
         if (setting === 120) {
-            (this as any).timeEstVM.options.acceleration[0] = value * 3600;
+            this.timeEstVM.options.acceleration[0] = value * 3600;
         }
         if (setting === 121) {
-            (this as any).timeEstVM.options.acceleration[1] = value * 3600;
+            this.timeEstVM.options.acceleration[1] = value * 3600;
         }
         if (setting === 122) {
-            (this as any).timeEstVM.options.acceleration[2] = value * 3600;
+            this.timeEstVM.options.acceleration[2] = value * 3600;
         }
         // fire event
         if (value !== oldVal) {
-            (this as any).emit('statusUpdate');
-            (this as any).emit('settingsUpdate');
+            this.emit('statusUpdate');
+            this.emit('settingsUpdate');
         }
-    }
-    _makeRegexes() {
-        // received message regexes
-        (this as any)._regexWelcome = /^Grbl v?([^ ]+)/; // works for both 0.9 and 1.1
-        (this as any)._regexOk = /^ok(:(.*))?/; // works for both 0.9 and 1.1
-        (this as any)._regexError = /^error: ?(.*)$/; // works for both 0.9 and 1.1
-        (this as any)._regexStartupLineOk = /^>.*:ok$/; // works for 1.1; not sure about 0.9
-        (this as any)._regexStartupLineError = /^>.*:error:(.*)$/; // works for 1.1
-        (this as any)._regexStatusReport = /^<(.*)>$/; // works for both 0.9 and 1.1
-        (this as any)._regexAlarm = /^ALARM:(.*)$/; // works for both 0.9 and 1.1
-        (this as any)._regexIgnore = /^\[HLP:.*\]$|^\[echo:.*/; // regex of messages we don't care about but are valid responses from grbl
-        (this as any)._regexSetting = /^\$([0-9]+)=(-?[0-9.]+)/; // works forboth 0.9 and 1.1
-        (this as any)._regexStartupLineSetting = /^\$N([0-9]+)=(.*)$/; // works for 1.1; not sure about 0.9
-        (this as any)._regexMessage = /^\[MSG:(.*)\]$/; // 1.1 only
-        (this as any)._regexParserState = /^\[GC:(.*)\]$/; // 1.1 only
-        (this as any)._regexParserState09 = /^\[(([A-Z]-?[0-9.]+ ?){4,})\]$/; // 0.9 only
-        (this as any)._regexParamValue = /^\[(G5[4-9]|G28|G30|G92|TLO|PRB|VER|OPT):(.*)\]$/; // 1.1 only
-        (this as any)._regexVersion09 = /^\[([0-9.]+[a-zA-Z]?\.[0-9]+:.*)\]$/; // 0.9 only
-        (this as any)._regexFeedback = /^\[(.*)\]$/;
-        // regex for splitting status report elements
-        (this as any)._regexSrSplit = /^([^:]*):(.*)$/;
-        // regex for parsing outgoing settings commands
-        (this as any)._regexSettingsCommand = /^\$(N?[0-9]+)=(.*)$/;
-        (this as any)._regexRstCommand = /^\$RST=(.*)$/;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'alarm' implicitly has an 'any' type.
     _alarmCodeToError(alarm) {
@@ -609,54 +627,54 @@ class GRBLController extends Controller {
     _handleReceiveSerialDataLine(line) {
         let matches;
         //this.debug('receive line ' + line);
-        (this as any).emit('received', line);
+        this.emit('received', line);
         // Check for ok
-        if ((this as any)._regexOk.test(line)) {
-            (this as any)._lastRecvSrOrAck = 'ack';
+        if (this._regexOk.test(line)) {
+            this._lastRecvSrOrAck = 'ack';
             this._commsHandleAckResponseReceived();
             return;
         }
         // Check for status report
-        matches = (this as any)._regexStatusReport.exec(line);
+        matches = this._regexStatusReport.exec(line);
         if (matches) {
             this._handleReceiveStatusReport(matches[1]);
             return;
         }
         // Check for ignored line
-        if ((this as any)._regexIgnore.test(line))
+        if (this._regexIgnore.test(line))
             return;
         // Check for error
-        matches = (this as any)._regexError.exec(line);
+        matches = this._regexError.exec(line);
         if (matches) {
-            (this as any)._lastRecvSrOrAck = 'ack';
+            this._lastRecvSrOrAck = 'ack';
             this._commsHandleAckResponseReceived(this._responseCodeToError(matches[1]));
             return;
         }
         // Check for welcome message
-        matches = (this as any)._regexWelcome.exec(line);
+        matches = this._regexWelcome.exec(line);
         if (matches) {
-            (this as any).grblDeviceVersion = matches[1];
-            (this as any).error = false;
-            (this as any).errorData = null;
-            (this as any).lastMessage = null;
-            if ((this as any)._initializing && (this as any)._welcomeMessageWaiter) {
+            this.grblDeviceVersion = matches[1];
+            this.error = false;
+            this.errorData = undefined;
+            this.lastMessage = undefined;
+            if (this._initializing && this._welcomeMessageWaiter) {
                 // Complete initialization
-                (this as any)._welcomeMessageWaiter.resolve();
+                this._welcomeMessageWaiter.resolve();
                 return;
             }
-            else if ((this as any)._resetting) {
+            else if (this._resetting) {
                 // Ready again after reset
                 this._cancelRunningOps(new XError(XError.MACHINE_ERROR, 'Machine reset'));
                 this._commsReset();
-                (this as any)._disableSending = false;
-                (this as any)._resetting = false;
+                this._disableSending = false;
+                this._resetting = false;
                 this._initMachine()
                     .then(() => {
-                    (this as any)._resetting = false;
-                    (this as any).emit('initialized');
-                    if ((this as any).ready)
-                        (this as any).emit('ready');
-                    (this as any).emit('statusUpdate');
+                    this._resetting = false;
+                    this.emit('initialized');
+                    if (this.ready)
+                        this.emit('ready');
+                    this.emit('statusUpdate');
                     this.debug('Done resetting');
                 })
                     .catch((err) => {
@@ -672,7 +690,7 @@ class GRBLController extends Controller {
                 this.debug('Machine reset unexpectedly');
                 let err = new XError(XError.CANCELLED, 'Machine reset');
                 this.close(err);
-                if (!(this as any)._initializing) {
+                if (!this._initializing) {
                     this.debug('calling _retryConnect() after receive welcome message');
                     this._retryConnect();
                 }
@@ -680,69 +698,69 @@ class GRBLController extends Controller {
             }
         }
         // Check if it's a startup line result
-        if ((this as any)._regexStartupLineOk.test(line))
+        if (this._regexStartupLineOk.test(line))
             return; // ignore
-        matches = (this as any)._regexStartupLineError.exec(line);
+        matches = this._regexStartupLineError.exec(line);
         if (matches) {
-            (this as any).emit('message', 'Startup line error: ' + line);
+            this.emit('message', 'Startup line error: ' + line);
             return;
         }
         // Check if it's an alarm
-        matches = (this as any)._regexAlarm.exec(line);
+        matches = this._regexAlarm.exec(line);
         if (matches) {
-            (this as any).error = true;
-            (this as any).ready = false;
-            (this as any).moving = false;
+            this.error = true;
+            this.ready = false;
+            this.moving = false;
             let err = this._alarmCodeToError(matches[1]);
-            (this as any).errorData = err;
+            this.errorData = err;
             // Don't cancel ops or emit error on routine probe alarms
             if (err.code !== XError.PROBE_NOT_TRIPPED) {
                 this._cancelRunningOps(err);
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err);
+                if (!this._initializing)
+                    this.emit('error', err);
             }
             return;
         }
         // Check if it's a settings response
-        matches = (this as any)._regexSetting.exec(line);
+        matches = this._regexSetting.exec(line);
         if (matches) {
             this._handleSettingFeedback(parseInt(matches[1]), matches[2]);
             return;
         }
-        matches = (this as any)._regexStartupLineSetting.exec(line);
+        matches = this._regexStartupLineSetting.exec(line);
         if (matches) {
             this._handleSettingFeedback('N' + matches[1], matches[2]);
             return;
         }
         // Check if it's a message
-        matches = (this as any)._regexMessage.exec(line);
+        matches = this._regexMessage.exec(line);
         if (matches) {
-            (this as any).lastMessage = matches[1];
+            this.lastMessage = matches[1];
             this._handleReceivedMessage(matches[1], false);
             return;
         }
         // Check if it's parser state feedback
-        matches = (this as any)._regexParserState.exec(line);
+        matches = this._regexParserState.exec(line);
         if (!matches)
-            matches = (this as any)._regexParserState09.exec(line);
+            matches = this._regexParserState09.exec(line);
         if (matches) {
             this._handleDeviceParserUpdate(matches[1]);
             return;
         }
         // Check if it's a parameter value
-        matches = (this as any)._regexParamValue.exec(line);
+        matches = this._regexParamValue.exec(line);
         if (matches) {
             this._handleDeviceParameterUpdate(matches[1], matches[2]);
             return;
         }
         // Version data for 0.9
-        matches = (this as any)._regexVersion09.exec(line);
+        matches = this._regexVersion09.exec(line);
         if (matches) {
             this._handleDeviceParameterUpdate('VER', matches[1]);
             return;
         }
         // Check if it's some other feedback value
-        matches = (this as any)._regexFeedback.exec(line);
+        matches = this._regexFeedback.exec(line);
         if (matches) {
             this._handleReceivedMessage(matches[1], true);
             return;
@@ -767,22 +785,22 @@ class GRBLController extends Controller {
     _handleReceivedMessage(str, unwrapped = false) {
         // suppress some messages during certain operations where the messages are handled automatically and
         // don't need to be reported to the user
-        if ((this as any)._ignoreUnlockedMessage && str === 'Caution: Unlocked')
+        if (this._ignoreUnlockedMessage && str === 'Caution: Unlocked')
             return;
-        if ((this as any)._ignoreUnlockPromptMessage && str === "'$H'|'$X' to unlock")
+        if (this._ignoreUnlockPromptMessage && str === "'$H'|'$X' to unlock")
             return;
-        (this as any).emit('message', this._humanReadableMessage(str));
+        this.emit('message', this._humanReadableMessage(str));
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     _handleDeviceParserUpdate(str) {
         // Ignore this if there's anything in the sendQueue with gcode attached (so we know the controller's parser is in sync)
-        for (let entry of (this as any).sendQueue) {
+        for (let entry of this.sendQueue) {
             if (entry.gcode)
                 return;
         }
         // Parse the whole response as a gcode line and run it through the gcode vm
         let gline = new GcodeLine(str);
-        (this as any).timeEstVM.runGcodeLine(gline);
+        this.timeEstVM.runGcodeLine(gline);
         let statusUpdates = {};
         // Fetch gcodes from each relevant modal group and update state vars accordingly
         let activeCoordSys = gline.get('G', 'G54');
@@ -886,60 +904,60 @@ class GRBLController extends Controller {
                 'W': 'disableSyncOnWCOChange',
                 'L': 'powerUpLockWithoutHoming'
             };
-            (this as any).grblBuildOptions = {};
+            this.grblBuildOptions = {};
             let optChars = value[0].toUpperCase();
             for (let c of optChars) {
-                (this as any).grblBuildOptions[c] = true;
+                this.grblBuildOptions[c] = true;
                 if (c in optCharMap) {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                    (this as any).grblBuildOptions[optCharMap[c]] = true;
+                    this.grblBuildOptions[optCharMap[c]] = true;
                 }
             }
             for (let c in optCharMap) {
-                if (!(this as any).grblBuildOptions[c]) {
-                    (this as any).grblBuildOptions[c] = false;
+                if (!this.grblBuildOptions[c]) {
+                    this.grblBuildOptions[c] = false;
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                    (this as any).grblBuildOptions[optCharMap[c]] = false;
+                    this.grblBuildOptions[optCharMap[c]] = false;
                 }
             }
-            (this as any).grblBuildOptions.blockBufferSize = value[1];
-            (this as any).grblBuildOptions.rxBufferSize = value[2];
+            this.grblBuildOptions.blockBufferSize = value[1];
+            this.grblBuildOptions.rxBufferSize = value[2];
         }
         this._handleStatusUpdate(statusObj);
         // Update parameters mapping
-        (this as any).receivedDeviceParameters[name] = value;
-        (this as any).emit('deviceParamUpdate', name, value);
+        this.receivedDeviceParameters[name] = value;
+        this.emit('deviceParamUpdate', name, value);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'strOrBuf' implicitly has an 'any' type.
     _writeToSerial(strOrBuf) {
-        if (!(this as any).serial)
+        if (!this.serial)
             return;
-        (this as any).serial.write(strOrBuf);
+        this.serial.write(strOrBuf);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
     _cancelRunningOps(err) {
         this.debug('_cancelRunningOps()');
         this._commsReset(err);
         this.debug('_cancelRunningOps() emitting cancelRunningOps');
-        (this as any).emit('cancelRunningOps', err);
+        this.emit('cancelRunningOps', err);
         this.debug('_cancelRunningOps() done');
     }
     initConnection(retry = true) {
         this.debug('initConnection()');
-        if ((this as any)._initializing) {
+        if (this._initializing) {
             this.debug('skipping, already initializing');
             return;
         }
-        (this as any)._retryConnectFlag = retry;
-        (this as any).ready = false;
-        (this as any)._initializing = true;
-        (this as any).emit('statusUpdate');
-        if ((this as any).serial || (this as any).sendQueue.length) {
+        this._retryConnectFlag = retry;
+        this.ready = false;
+        this._initializing = true;
+        this.emit('statusUpdate');
+        if (this.serial || this.sendQueue.length) {
             this.close();
         }
         const doInit = async () => {
             // Set up options for serial connection.  (Set defaults, then apply configs on top.)
-            let serialOptions = {
+            let serialOptions:OpenOptions = {
                 autoOpen: true,
                 baudRate: 115200,
                 dataBits: 8,
@@ -948,18 +966,18 @@ class GRBLController extends Controller {
                 rtscts: false,
                 xany: false
             };
-            for (let key in (this as any).config) {
+            for (let key in this.config) {
                 if (key in serialOptions) {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                    serialOptions[key] = (this as any).config[key];
+                    serialOptions[key] = this.config[key];
                 }
             }
-            let port = (this as any).config.port || '/dev/ttyACM1';
+            let port = this.config.port || '/dev/ttyACM1';
             // Try to open the serial port
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-                (this as any).serial = new SerialPort(port, serialOptions, (err) => {
+                console.log(serialOptions)
+                this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
                     else
@@ -971,7 +989,7 @@ class GRBLController extends Controller {
             // we need to be able to reject this and exit initialization if an error occurs while paused.
             let initializationPauseWaiter = pasync.waiter();
             // Initialize serial buffers and initial variables
-            (this as any).serialReceiveBuf = '';
+            this.serialReceiveBuf = '';
             this.debug('initConnection calling _commsReset()');
             this._commsReset();
             // Set up serial port communications handlers
@@ -979,8 +997,8 @@ class GRBLController extends Controller {
             const onSerialError = (err) => {
                 this.debug('Serial error ' + err);
                 err = new XError(XError.COMM_ERROR, 'Serial port communication error', err);
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
+                if (!this._initializing)
+                    this.emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
                 this.close(err);
                 this._retryConnect();
             };
@@ -988,8 +1006,8 @@ class GRBLController extends Controller {
                 this.debug('Serial close');
                 // Note that this isn't called during intended closures via this.close(), since this.close() first removes all handlers
                 let err = new XError(XError.COMM_ERROR, 'Serial port closed unexpectedly');
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err);
+                if (!this._initializing)
+                    this.emit('error', err);
                 this.close(err);
                 this._retryConnect();
             };
@@ -1005,16 +1023,16 @@ class GRBLController extends Controller {
                     }
                 }
                 buf = newBuf.slice(0, newBufIdx);
-                let str = (this as any).serialReceiveBuf + buf.toString('utf8');
+                let str = this.serialReceiveBuf + buf.toString('utf8');
                 let strlines = str.split(/[\r\n]+/);
                 if (!strlines[strlines.length - 1].trim()) {
                     // Received data ended in a newline, so don't need to buffer anything
                     strlines.pop();
-                    (this as any).serialReceiveBuf = '';
+                    this.serialReceiveBuf = '';
                 }
                 else {
                     // Last line did not end in a newline, so add to buffer
-                    (this as any).serialReceiveBuf = strlines.pop();
+                    this.serialReceiveBuf = strlines.pop();
                 }
                 // Process each received line
                 for (let line of strlines) {
@@ -1024,8 +1042,8 @@ class GRBLController extends Controller {
                             this._handleReceiveSerialDataLine(line);
                         }
                         catch (err) {
-                            if (!(this as any)._initializing)
-                                (this as any).emit('error', err);
+                            if (!this._initializing)
+                                this.emit('error', err);
                             this.close(err);
                             this._retryConnect();
                             break;
@@ -1033,22 +1051,22 @@ class GRBLController extends Controller {
                     }
                 }
             };
-            (this as any)._serialListeners = {
+            this._serialListeners = {
                 error: onSerialError,
                 close: onSerialClose,
                 data: onSerialData
             };
-            for (let eventName in (this as any)._serialListeners)
-                (this as any).serial.on(eventName, (this as any)._serialListeners[eventName]);
-            (this as any)._welcomeMessageWaiter = pasync.waiter();
+            for (let eventName in this._serialListeners)
+                this.serial?.on(eventName, this._serialListeners[eventName]);
+            this._welcomeMessageWaiter = pasync.waiter();
             // Wait for the welcome message to be received; if not received in 5 seconds, send a soft reset
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             const welcomeWaitCancelRunningOpsHandler = (err) => {
-                if ((this as any)._welcomeMessageWaiter) {
-                    (this as any)._welcomeMessageWaiter.reject(err);
+                if (this._welcomeMessageWaiter) {
+                    this._welcomeMessageWaiter.reject(err);
                 }
             };
-            (this as any).on('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
+            this.on('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
             let finishedWelcomeWait = false;
             setTimeout(() => {
                 if (!finishedWelcomeWait) {
@@ -1056,46 +1074,46 @@ class GRBLController extends Controller {
                 }
             }, 5000);
             try {
-                await (this as any)._welcomeMessageWaiter.promise;
+                await this._welcomeMessageWaiter.promise;
             }
             finally {
                 finishedWelcomeWait = true;
-                (this as any).removeListener('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
+                this.removeListener('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
             }
             // Initialize all the machine state properties
             await this._initMachine();
             // Initialization succeeded
-            (this as any)._initializing = false;
-            (this as any).emit('connected');
-            (this as any).emit('initialized');
-            if ((this as any).ready)
-                (this as any).emit('ready');
-            (this as any).emit('statusUpdate');
+            this._initializing = false;
+            this.emit('connected');
+            this.emit('initialized');
+            if (this.ready)
+                this.emit('ready');
+            this.emit('statusUpdate');
             this.debug('initConnection() done');
         };
         doInit()
             .catch((err) => {
             this.debug('initConnection() error ' + err);
             console.log(err);
-            (this as any).emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
+            this.emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
             this.close(err);
-            (this as any)._initializing = false;
+            this._initializing = false;
             this._retryConnect();
         });
     }
     _retryConnect() {
         this.debug('_retryConnect()');
-        if (!(this as any)._retryConnectFlag) {
+        if (!this._retryConnectFlag) {
             this.debug('Skipping, retry connect disabled');
             return;
         }
-        if ((this as any)._waitingToRetry) {
+        if (this._waitingToRetry) {
             this.debug('Skipping, already waiting to retry');
             return;
         }
-        (this as any)._waitingToRetry = true;
+        this._waitingToRetry = true;
         setTimeout(() => {
-            (this as any)._waitingToRetry = false;
+            this._waitingToRetry = false;
             this.debug('_retryConnect() calling initConnection()');
             this.initConnection(true);
         }, 5000);
@@ -1138,9 +1156,9 @@ class GRBLController extends Controller {
                 if (condition && !condition(...args))
                     return;
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'eventHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
-                (this as any).removeListener(eventName, eventHandler);
+                this.removeListener(eventName, eventHandler);
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'errorHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
-                (this as any).removeListener('cancelRunningOps', errorHandler);
+                this.removeListener('cancelRunningOps', errorHandler);
                 finished = true;
                 resolve(args[0]);
             };
@@ -1149,25 +1167,25 @@ class GRBLController extends Controller {
                 if (finished)
                     return;
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'eventHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
-                (this as any).removeListener(eventName, eventHandler);
+                this.removeListener(eventName, eventHandler);
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'errorHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
-                (this as any).removeListener('cancelRunningOps', errorHandler);
+                this.removeListener('cancelRunningOps', errorHandler);
                 finished = true;
                 reject(err);
             };
-            (this as any).on(eventName, eventHandler);
-            (this as any).on('cancelRunningOps', errorHandler);
+            this.on(eventName, eventHandler);
+            this.on('cancelRunningOps', errorHandler);
         });
     }
     _startStatusUpdateLoops() {
-        if ((this as any)._statusUpdateLoops)
+        if (this._statusUpdateLoops)
             return;
-        (this as any)._statusUpdateLoops = [];
+        this._statusUpdateLoops = [];
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'interval' implicitly has an 'any' type.
         const startUpdateLoop = (interval, fn) => {
             let fnIsRunning = false;
             let ival = setInterval(() => {
-                if (!(this as any).serial)
+                if (!this.serial)
                     return;
                 if (fnIsRunning)
                     return;
@@ -1176,21 +1194,21 @@ class GRBLController extends Controller {
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .then(() => { fnIsRunning = false; }, (err) => { fnIsRunning = false; throw err; })
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-                    .catch((err) => (this as any).emit('error', err));
+                    .catch((err) => this.emit('error', err));
             }, interval);
-            (this as any)._statusUpdateLoops.push(ival);
+            this._statusUpdateLoops.push(ival);
         };
-        startUpdateLoop((this as any).config.statusUpdateInterval || 250, async () => {
-            if ((this as any).serial)
+        startUpdateLoop(this.config.statusUpdateInterval || 250, async () => {
+            if (this.serial)
                 this.send('?');
         });
     }
     _stopStatusUpdateLoops() {
-        if (!(this as any)._statusUpdateLoops)
+        if (!this._statusUpdateLoops)
             return;
-        for (let ival of (this as any)._statusUpdateLoops)
+        for (let ival of this._statusUpdateLoops)
             clearInterval(ival);
-        (this as any)._statusUpdateLoops = null;
+        this._statusUpdateLoops = [];
     }
     async fetchUpdateStatusReport() {
         this.send('?');
@@ -1212,20 +1230,20 @@ class GRBLController extends Controller {
         await this.fetchUpdateSettings();
         await this.fetchUpdateStatusReport();
         await this.fetchUpdateParserParameters();
-        (this as any).timeEstVM.syncStateToMachine({ controller: this });
+        this.timeEstVM.syncStateToMachine({ controller: this });
         this._startStatusUpdateLoops();
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
     _sendBlock(block, immediate = false) {
         //this.debug('_sendBlock() ' + block.str);
-        if (!(this as any).serial)
+        if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
         block.responseExpected = true; // note: real-time commands are picked off earlier and not handled here
         if (immediate) {
             this._sendBlockImmediate(block);
             return;
         }
-        (this as any).sendQueue.push(block);
+        this.sendQueue.push(block);
         //this.debug('In _sendBlock(), queue: ' + this.sendQueue.map((e) => [ e.str, e.duration, e.timeExecuted ].join(',')).join(' | '));
         if (block.hooks)
             block.hooks.triggerSync('queued', block);
@@ -1235,22 +1253,22 @@ class GRBLController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
     _sendBlockImmediate(block) {
         //this.debug('_sendBlockImmediate() ' + block.str);
-        if (!(this as any).serial)
+        if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
         block.responseExpected = true;
         // Insert the block where it needs to go in the send queue (as the next to send)
-        (this as any).sendQueue.splice((this as any).sendQueueIdxToSend, 0, block);
+        this.sendQueue.splice(this.sendQueueIdxToSend, 0, block);
         if (block.hooks)
             block.hooks.triggerSync('queued', block);
         // Force sending this block
-        (this as any).sendImmediateCounter++;
+        this.sendImmediateCounter++;
         this._checkSendLoop();
     }
     // Will continue looping (asynchronously) and shifting off the front of sendQueue as long
     // as there's stuff to shift off.
     _commsCheckExecutedLoop() {
         //this.debug('_commsCheckExecutedLoop()');
-        if ((this as any)._checkExecutedLoopTimeout !== null) {
+        if (this._checkExecutedLoopTimeout !== null) {
             // there's already a timeout running
             //this.debug('Check executed loop already running');
             return;
@@ -1259,12 +1277,12 @@ class GRBLController extends Controller {
         let mtime = this._getCurrentMachineTime();
         // If the grbl planner block buffer is full, don't shift here (we can more accurately determine execution time by when we receive the next ack)
         // This only works in certain circumstances
-        if (!((this as any).grblBuildOptions.blockBufferSize && // we can only reliably do this if we definitively know grbl's planner buffer size
-            (this as any).sendQueueIdxToReceive >= (this as any).grblBuildOptions.blockBufferSize && // check if grbl's planner is full
-            (this as any).sendQueueIdxToSend > (this as any).sendQueueIdxToReceive // at least 1 unacked thing must be present, because the check to shift sendQueue occurs on ack
+        if (!(this.grblBuildOptions.blockBufferSize && // we can only reliably do this if we definitively know grbl's planner buffer size
+            this.sendQueueIdxToReceive >= this.grblBuildOptions.blockBufferSize && // check if grbl's planner is full
+            this.sendQueueIdxToSend > this.sendQueueIdxToReceive // at least 1 unacked thing must be present, because the check to shift sendQueue occurs on ack
         )) {
             let shiftedAny = false;
-            while ((this as any).sendQueueIdxToReceive > 0 && (this as any).sendQueue[0].timeExecuted <= mtime) {
+            while (this.sendQueueIdxToReceive > 0 && this.sendQueue[0].timeExecuted <= mtime) {
                 //this.debug('_commsCheckExecutedLoop() shifting send queue');
                 this._commsShiftSendQueue();
                 shiftedAny = true;
@@ -1273,118 +1291,118 @@ class GRBLController extends Controller {
                 this._checkSendLoop();
         }
         // if there's something queued at the front of sendQueue, wait until then
-        if ((this as any).sendQueueIdxToReceive > 0 && (this as any)._checkExecutedLoopTimeout === null) {
+        if (this.sendQueueIdxToReceive > 0 && this._checkExecutedLoopTimeout === null) {
             const minWait = 100;
             const maxWait = 1000;
-            let twait = (this as any).sendQueue[0].timeExecuted - mtime;
+            let twait = this.sendQueue[0].timeExecuted - mtime;
             if (twait < minWait)
                 twait = minWait;
             if (twait > maxWait)
                 twait = maxWait;
             //this.debug('_commsCheckExecutedLoop() scheduling another loop in ' + twait);
-            (this as any)._checkExecutedLoopTimeout = setTimeout(() => {
+            this._checkExecutedLoopTimeout = setTimeout(() => {
                 //this.debug('Retrying _commsCheckExecutedLoop');
-                (this as any)._checkExecutedLoopTimeout = null;
+                this._checkExecutedLoopTimeout = undefined;
                 this._commsCheckExecutedLoop();
             }, twait);
         }
     }
     _commsShiftSendQueue() {
         //this.debug('_commsShiftSendQueue()');
-        if (!(this as any).sendQueue.length || !(this as any).sendQueueIdxToReceive)
+        if (!this.sendQueue.length || !this.sendQueueIdxToReceive)
             return;
-        let entry = (this as any).sendQueue.shift();
-        (this as any).sendQueueIdxToSend--;
-        (this as any).sendQueueIdxToReceive--;
+        let entry = this.sendQueue.shift();
+        this.sendQueueIdxToSend--;
+        this.sendQueueIdxToReceive--;
         if (entry.hooks)
             entry.hooks.triggerSync('executed', entry);
-        if ((this as any).sendQueue.length && (this as any).sendQueueIdxToReceive) {
-            (this as any).lastLineExecutingTime = this._getCurrentMachineTime();
+        if (this.sendQueue.length && this.sendQueueIdxToReceive) {
+            this.lastLineExecutingTime = this._getCurrentMachineTime();
             //this.debug('_commsShiftSendQueue triggering executing hook: ' + this.sendQueue[0].str);
-            if ((this as any).sendQueue[0].hooks)
-                (this as any).sendQueue[0].hooks.triggerSync('executing', (this as any).sendQueue[0]);
+            if (this.sendQueue[0].hooks)
+                this.sendQueue[0].hooks.triggerSync('executing', this.sendQueue[0]);
         }
-        if (!(this as any).sendQueue.length)
-            (this as any).emit('_sendQueueDrain');
+        if (!this.sendQueue.length)
+            this.emit('_sendQueueDrain');
     }
-    _commsHandleAckResponseReceived(error = null) {
+    _commsHandleAckResponseReceived(error?:XError) {
         //this.debug('_commsHandleAckResponseReceived');
-        if ((this as any).sendQueueIdxToReceive >= (this as any).sendQueueIdxToSend) {
+        if (this.sendQueueIdxToReceive >= this.sendQueueIdxToSend) {
             // Got a response we weren't expecting; ignore it
             return;
         }
-        let entry = (this as any).sendQueue[(this as any).sendQueueIdxToReceive];
+        let entry = this.sendQueue[this.sendQueueIdxToReceive];
         if (entry.charCount === undefined)
             throw new XError(XError.INTERNAL_ERROR, 'GRBL communications desync');
-        (this as any).unackedCharCount -= entry.charCount;
+        this.unackedCharCount -= entry.charCount;
         if (error === null) {
             if (entry.hooks)
                 entry.hooks.triggerSync('ack', entry);
-            (this as any).emit('receivedOk', entry);
+            this.emit('receivedOk', entry);
             // If we're not expecting this to go onto the planner queue, splice it out of the list now.  Otherwise,
             // increment the receive pointer.
             const everythingToPlanner = true; // makes gline hooks execute in order
-            if (entry.goesToPlanner || (everythingToPlanner && (this as any).sendQueueIdxToReceive > 0)) {
+            if (entry.goesToPlanner || (everythingToPlanner && this.sendQueueIdxToReceive > 0)) {
                 // Bump this index to move the entry along the sendQueue
-                (this as any).sendQueueIdxToReceive++;
+                this.sendQueueIdxToReceive++;
                 // Estimate how long this block will take to run once it starts executing
                 let estBlockDuration = 0;
                 if (entry.gcode) {
-                    let { time } = (this as any).timeEstVM.runGcodeLine(entry.gcode);
+                    let { time } = this.timeEstVM.runGcodeLine(entry.gcode);
                     if (time)
                         estBlockDuration = time * 1000;
                 }
                 entry.duration = estBlockDuration;
                 // Estimate a machine timestamp of when this block will have executed
-                if ((this as any).sendQueueIdxToReceive >= 2 && (this as any).lastLineExecutingTime) {
+                if (this.sendQueueIdxToReceive >= 2 && this.lastLineExecutingTime) {
                     // there's a line currently executing, so base eta off of that line's executing time
-                    entry.timeExecuted = (this as any).lastLineExecutingTime;
+                    entry.timeExecuted = this.lastLineExecutingTime;
                     // add in everything in the planner buffer between the head and this instructions (including this instruction)
                     // TODO: optimize out this loop by storing this value as a running tally
-                    for (let i = 0; i < (this as any).sendQueueIdxToReceive; i++)
-                        entry.timeExecuted += (this as any).sendQueue[i].duration;
+                    for (let i = 0; i < this.sendQueueIdxToReceive; i++)
+                        entry.timeExecuted += this.sendQueue[i].duration;
                 }
                 else {
                     // this line will start to execute right now, so base eta on current time
                     entry.timeExecuted = this._getCurrentMachineTime() + estBlockDuration;
                 }
                 // Handle case that the entry is at the head of the sendQueue
-                if ((this as any).sendQueueIdxToReceive === 1) {
+                if (this.sendQueueIdxToReceive === 1) {
                     // just received response for entry at head of send queue, so assume it's executing now.
-                    (this as any).lastLineExecutingTime = this._getCurrentMachineTime();
+                    this.lastLineExecutingTime = this._getCurrentMachineTime();
                     //this.debug('_commsHandleAckResponseReceived calling executing hook at head of sendQueue: ' + entry.str);
                     if (entry.hooks)
                         entry.hooks.triggerSync('executing', entry);
                 }
                 // If our estimated size of grbl's planner queue is larger than its max size, shift off the front of sendQueue until down to size
                 let grblMaxPlannerFill = 18;
-                if ((this as any).grblBuildOptions.blockBufferSize)
-                    grblMaxPlannerFill = (this as any).grblBuildOptions.blockBufferSize;
-                while ((this as any).sendQueueIdxToReceive > grblMaxPlannerFill) {
+                if (this.grblBuildOptions.blockBufferSize)
+                    grblMaxPlannerFill = this.grblBuildOptions.blockBufferSize;
+                while (this.sendQueueIdxToReceive > grblMaxPlannerFill) {
                     this._commsShiftSendQueue();
                 }
             }
             else {
                 // No response is expected, or we're at the head of the sendQueue.  So splice the entry out of the queue and call the relevant hooks.
-                (this as any).sendQueue.splice((this as any).sendQueueIdxToReceive, 1);
-                (this as any).sendQueueIdxToSend--; // need to adjust this for the splice
+                this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
+                this.sendQueueIdxToSend--; // need to adjust this for the splice
                 // Run through VM
                 if (entry.gcode)
-                    (this as any).timeEstVM.runGcodeLine(entry.gcode);
+                    this.timeEstVM.runGcodeLine(entry.gcode);
                 if (entry.hooks) {
-                    (this as any).lastLineExecutingTime = this._getCurrentMachineTime();
+                    this.lastLineExecutingTime = this._getCurrentMachineTime();
                     //this.debug('_commsHandleAckResponseReceived calling executing hook; second case: ' + entry.str);
                     entry.hooks.triggerSync('executing', entry);
                     entry.hooks.triggerSync('executed', entry);
                 }
-                if (!(this as any).sendQueue.length)
-                    (this as any).emit('_sendQueueDrain');
+                if (!this.sendQueue.length)
+                    this.emit('_sendQueueDrain');
             }
         }
         else {
             // Got an error on the request.  Splice it out of sendQueue, and call the error hook on the gcode line
-            (this as any).sendQueue.splice((this as any).sendQueueIdxToReceive, 1);
-            (this as any).sendQueueIdxToSend--; // need to adjust this for the splice
+            this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
+            this.sendQueueIdxToSend--; // need to adjust this for the splice
             // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             if (!error.data)
                 // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
@@ -1399,11 +1417,11 @@ class GRBLController extends Controller {
                 this._cancelRunningOps(error);
             }
             else {
-                if (!(this as any).sendQueue.length)
-                    (this as any).emit('_sendQueueDrain');
+                if (!this.sendQueue.length)
+                    this.emit('_sendQueueDrain');
             }
             // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
-            (this as any).emit('message', error.message);
+            this.emit('message', error.message);
         }
         //this.debug('_commsHandleAckResponseReceived calling _commsCheckExecutedLoop');
         this._commsCheckExecutedLoop();
@@ -1411,23 +1429,23 @@ class GRBLController extends Controller {
     }
     _checkSendLoop() {
         //this.debug('_checkSendLoop()');
-        while ((this as any).sendQueueIdxToSend < (this as any).sendQueue.length && this._checkSendToDevice((this as any).sendQueue[(this as any).sendQueueIdxToSend].str.length + 1, (this as any).sendImmediateCounter > 0)) {
+        while (this.sendQueueIdxToSend < this.sendQueue.length && this._checkSendToDevice(this.sendQueue[this.sendQueueIdxToSend].str.length + 1, this.sendImmediateCounter > 0)) {
             //this.debug('_checkSendLoop() iteration');
-            let entry = (this as any).sendQueue[(this as any).sendQueueIdxToSend];
+            let entry = this.sendQueue[this.sendQueueIdxToSend];
             this._writeToSerial(entry.str + '\n');
             entry.charCount = entry.str.length + 1;
-            (this as any).unackedCharCount += entry.charCount;
-            (this as any).sendQueueIdxToSend++;
-            if ((this as any).sendImmediateCounter > 0)
-                (this as any).sendImmediateCounter--;
+            this.unackedCharCount += entry.charCount;
+            this.sendQueueIdxToSend++;
+            if (this.sendImmediateCounter > 0)
+                this.sendImmediateCounter--;
             if (entry.hooks) {
                 entry.hooks.triggerSync('sent', entry);
             }
-            (this as any).emit('sent', entry.str);
+            this.emit('sent', entry.str);
         }
         // If the next entry queued to receive a response doesn't actually expect a response, generate a "fake" response for it
         // Since _commsHandleAckResponseReceived() calls _checkSendLoop() after it's finished, this process continues for subsequent entries
-        if ((this as any).sendQueueIdxToReceive < (this as any).sendQueueIdxToSend && !(this as any).sendQueue[(this as any).sendQueueIdxToReceive].responseExpected) {
+        if (this.sendQueueIdxToReceive < this.sendQueueIdxToSend && !this.sendQueue[this.sendQueueIdxToReceive].responseExpected) {
             //this.debug('_checkSendLoop() call _commsHandleAckResponseReceived');
             this._commsHandleAckResponseReceived();
         }
@@ -1437,24 +1455,24 @@ class GRBLController extends Controller {
     _checkSendToDevice(charCount, preferImmediate = false) {
         let bufferMaxFill = 115;
         let absoluteBufferMaxFill = 128;
-        if ((this as any).grblBuildOptions.rxBufferSize) {
-            absoluteBufferMaxFill = (this as any).grblBuildOptions.rxBufferSize;
+        if (this.grblBuildOptions.rxBufferSize) {
+            absoluteBufferMaxFill = this.grblBuildOptions.rxBufferSize;
             bufferMaxFill = absoluteBufferMaxFill - 13;
         }
-        if ((this as any)._disableSending && !preferImmediate)
+        if (this._disableSending && !preferImmediate)
             return false;
         // Don't send in cases where line requests fullSync
-        if ((this as any).sendQueue.length > (this as any).sendQueueIdxToSend && (this as any).sendQueueIdxToSend > 0 && (this as any).sendQueue[(this as any).sendQueueIdxToSend].fullSync) {
+        if (this.sendQueue.length > this.sendQueueIdxToSend && this.sendQueueIdxToSend > 0 && this.sendQueue[this.sendQueueIdxToSend].fullSync) {
             // If next line to send requires fullSync, do not send it until the rest of sendQueue is empty (indicating all previously sent lines have been executed)
             return false;
         }
-        if ((this as any).sendQueue.length && (this as any).sendQueue[0].fullSync && (this as any).sendQueueIdxToSend > 0) {
+        if (this.sendQueue.length && this.sendQueue[0].fullSync && this.sendQueueIdxToSend > 0) {
             // If a fullSync line is currently running, do not send anything more until it finishes
             return false;
         }
-        if ((this as any).unackedCharCount === 0)
+        if (this.unackedCharCount === 0)
             return true; // edge case to handle if charCount is greater than the buffer size; shouldn't happen, but this prevents it from getting "stuck"
-        if ((this as any).unackedCharCount + charCount > (preferImmediate ? absoluteBufferMaxFill : bufferMaxFill))
+        if (this.unackedCharCount + charCount > (preferImmediate ? absoluteBufferMaxFill : bufferMaxFill))
             return false;
         return true;
     }
@@ -1467,39 +1485,39 @@ class GRBLController extends Controller {
     _handleSendImmediateCommand(str) {
         str = str.trim();
         this._writeToSerial(str);
-        (this as any).emit('sent', str);
+        this.emit('sent', str);
         if (str === '?') {
             // status report request; no current additional action
         }
         else if (str === '!') {
-            if (!(this as any).held) {
-                (this as any).held = true;
-                (this as any).lastHoldStartTime = new Date().getTime();
+            if (!this.held) {
+                this.held = true;
+                this.lastHoldStartTime = new Date().getTime();
             }
         }
         else if (str === '~') {
-            if ((this as any).held) {
-                (this as any).totalHeldMachineTime += new Date().getTime() - (this as any).lastHoldStartTime;
-                (this as any).lastHoldStartTime = null;
-                (this as any).held = false;
+            if (this.held) {
+                this.totalHeldMachineTime += new Date().getTime() - this.lastHoldStartTime;
+                this.lastHoldStartTime = 0;
+                this.held = false;
             }
         }
         else if (str === '\x18') {
             // reset held state and timer(s)
-            if ((this as any).held) {
-                (this as any).totalHeldMachineTime += new Date().getTime() - (this as any).lastHoldStartTime;
-                (this as any).lastHoldStartTime = null;
-                (this as any).held = false;
+            if (this.held) {
+                this.totalHeldMachineTime += new Date().getTime() - this.lastHoldStartTime;
+                this.lastHoldStartTime = 0;
+                this.held = false;
             }
-            if (!this._isSynced() && !(this as any).held) {
+            if (!this._isSynced() && !this.held) {
                 this.homed = [false, false, false];
             }
             // disable sending until welcome message is received
-            (this as any)._disableSending = true;
-            (this as any).emit('_sendingDisabled');
-            (this as any)._resetting = true;
-            (this as any).ready = false;
-            (this as any).emit('statusUpdate');
+            this._disableSending = true;
+            this.emit('_sendingDisabled');
+            this._resetting = true;
+            this.ready = false;
+            this.emit('statusUpdate');
             // wait for welcome message to be received; rest of reset is handled in received line handler
         }
     }
@@ -1507,7 +1525,7 @@ class GRBLController extends Controller {
     sendExtendedAsciiCommand(code) {
         let buf = Buffer.from([code]);
         this._writeToSerial(buf);
-        (this as any).emit('sent', '<<' + code + '>>');
+        this.emit('sent', '<<' + code + '>>');
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
     _gcodeLineRequiresSync(gline) {
@@ -1566,14 +1584,14 @@ class GRBLController extends Controller {
         // Once homing is complete, set homing status
         if (cmd === '$H') {
             this.homed = [];
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++)
-                this.homed.push(!!(this as any).usedAxes[axisNum]);
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++)
+                this.homed.push(!!this.usedAxes[axisNum]);
         }
-        matches = (this as any)._regexSettingsCommand.exec(cmd);
+        matches = this._regexSettingsCommand.exec(cmd);
         if (matches) {
             this._handleSettingFeedback(matches[1], matches[2]);
         }
-        matches = (this as any)._regexRstCommand.exec(cmd);
+        matches = this._regexRstCommand.exec(cmd);
         if (matches) {
             // update all local state after a $RST
             this.send('$$');
@@ -1588,7 +1606,7 @@ class GRBLController extends Controller {
         // Do not update state components that we have definite values for from status reports based on if we've ever received such a key in this.currentStatusReport
         let statusUpdates = {};
         // Need to handle F even in the case of simple moves (in case grbl doesn't report it back to us), so do that first
-        if (gline.has('F') && !('F' in (this as any).currentStatusReport || 'FS' in (this as any).currentStatusReport)) {
+        if (gline.has('F') && !('F' in this.currentStatusReport || 'FS' in this.currentStatusReport)) {
             (statusUpdates as any).feed = gline.get('F');
         }
         // Shortcut case for simple common moves which don't need to be tracked here
@@ -1608,14 +1626,14 @@ class GRBLController extends Controller {
             return;
         }
         let zeropoint = [];
-        for (let i = 0; i < (this as any).axisLabels.length; i++)
+        for (let i = 0; i < this.axisLabels.length; i++)
             zeropoint.push(0);
         if (gline.has('G10') && gline.has('L2') && gline.has('P')) {
             let csys = gline.get('P') - 1;
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             statusUpdates['coordSysOffsets.' + csys] = [];
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 let val = 0;
                 if (gline.has(axis))
                     val = gline.get(axis);
@@ -1627,13 +1645,13 @@ class GRBLController extends Controller {
             let csys = gline.get('P') - 1;
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             statusUpdates['coordSysOffsets.' + csys] = [];
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 let val = 0;
                 if (gline.has(axis))
                     val = gline.get(axis);
                 // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                statusUpdates['coordSysOffsets.' + csys][axisNum] = (this as any).mpos[axisNum] - val;
+                statusUpdates['coordSysOffsets.' + csys][axisNum] = this.mpos[axisNum] - val;
             }
         }
         if (gline.has('G20') || gline.has('G21')) {
@@ -1642,7 +1660,7 @@ class GRBLController extends Controller {
         if (gline.has('G28.1') || gline.has('G30.1')) {
             let posnum = gline.has('G28.1') ? 0 : 1;
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-            statusUpdates['storedPositions.' + posnum] = (this as any).mpos.slice();
+            statusUpdates['storedPositions.' + posnum] = this.mpos.slice();
         }
         let csysCode = gline.get('G', 'G54');
         if (csysCode && csysCode >= 54 && csysCode <= 59 && Math.floor(csysCode) === csysCode) {
@@ -1653,8 +1671,8 @@ class GRBLController extends Controller {
         }
         if (gline.has('G92')) {
             (statusUpdates as any).offset = [];
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 if (gline.has(axis))
                     (statusUpdates as any).offset[axisNum] = gline.get(axis);
                 else
@@ -1698,32 +1716,32 @@ class GRBLController extends Controller {
         }
         this._handleStatusUpdate(statusUpdates);
     }
-    close(err = null) {
+    close(err?:XError) {
         this.debug('close() ' + err);
         this._stopStatusUpdateLoops();
-        if (err && !(this as any).error) {
-            (this as any).error = true;
-            (this as any).errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
+        if (err && !this.error) {
+            this.error = true;
+            this.errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
         }
-        (this as any).ready = false;
+        this.ready = false;
         this.debug('close() calling _cancelRunningOps()');
         this._cancelRunningOps(err || new XError(XError.CANCELLED, 'Operations cancelled due to close'));
-        if ((this as any).serial) {
+        if (this.serial) {
             this.debug('close() removing listeners from serial');
-            for (let key in (this as any)._serialListeners) {
-                (this as any).serial.removeListener(key, (this as any)._serialListeners[key]);
+            for (let key in this._serialListeners) {
+                this.serial.removeListener(key, this._serialListeners[key]);
             }
-            (this as any)._serialListeners = [];
-            (this as any).serial.on('error', () => { }); // swallow errors on this port that we're discarding
+            this._serialListeners = {};
+            this.serial.on('error', () => { }); // swallow errors on this port that we're discarding
             this.debug('close() Trying to close serial');
             try {
-                (this as any).serial.close();
+                this.serial.close();
             }
             catch (err2) { }
             this.debug('close() done closing serial');
-            delete (this as any).serial;
+            delete this.serial;
         }
-        (this as any).emit('statusUpdate');
+        this.emit('statusUpdate');
         this.debug('close() complete');
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'stream' implicitly has an 'any' type.
@@ -1731,12 +1749,12 @@ class GRBLController extends Controller {
         let waiter = pasync.waiter();
         // Bounds within which to stop and start reading from the stream.  These correspond to the number of queued lines
         // not yet sent to the controller.
-        let sendQueueHighWater = (this as any).config.streamSendQueueHighWaterMark || 20;
-        let sendQueueLowWater = (this as any).config.streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
+        let sendQueueHighWater = this.config.streamSendQueueHighWaterMark || 20;
+        let sendQueueLowWater = this.config.streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
         let streamPaused = false;
         let canceled = false;
         const numUnsentLines = () => {
-            return (this as any).sendQueue.length - (this as any).sendQueueIdxToSend;
+            return this.sendQueue.length - this.sendQueueIdxToSend;
         };
         const sentListener = () => {
             // Check if paused stream can be resumed
@@ -1747,8 +1765,8 @@ class GRBLController extends Controller {
         };
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
         const cancelHandler = (err) => {
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             canceled = true;
             waiter.reject(err);
             stream.emit('error', err);
@@ -1757,12 +1775,12 @@ class GRBLController extends Controller {
         stream.on(stream._isZStream ? 'chainerror' : 'error', (err) => {
             if (canceled)
                 return;
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             waiter.reject(err);
             canceled = true;
         });
-        (this as any).on('sent', sentListener);
+        this.on('sent', sentListener);
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'chunk' implicitly has an 'any' type.
         stream.on('data', (chunk) => {
             if (canceled)
@@ -1779,18 +1797,18 @@ class GRBLController extends Controller {
         stream.on('end', () => {
             if (canceled)
                 return;
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             this.waitSync()
                 .then(() => waiter.resolve(), (err) => waiter.reject(err));
         });
-        (this as any).on('cancelRunningOps', cancelHandler);
+        this.on('cancelRunningOps', cancelHandler);
         return waiter.promise;
     }
     _isSynced() {
-        return (this as any).currentStatusReport.machineState.toLowerCase() === 'idle' &&
-            ((this as any).sendQueue.length === 0 || ((this as any)._disableSending && (this as any).sendQueueIdxToReceive === (this as any).sendQueueIdxToSend)) &&
-            (this as any)._lastRecvSrOrAck === 'sr';
+        return this.currentStatusReport.machineState.toLowerCase() === 'idle' &&
+            (this.sendQueue.length === 0 || (this._disableSending && this.sendQueueIdxToReceive === this.sendQueueIdxToSend)) &&
+            this._lastRecvSrOrAck === 'sr';
     }
     waitSync() {
         // Consider the machine to be synced when all of these conditions hold:
@@ -1800,15 +1818,15 @@ class GRBLController extends Controller {
         //
         // Check if these conditions hold immediately.  If not, send out a status report request, and
         // wait until the conditions become true.
-        if ((this as any).error)
-            return Promise.reject((this as any).errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+        if (this.error)
+            return Promise.reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
         this.send('G4 P0.01'); // grbl won't ack this until its planner buffer is empty
         //if (this._isSynced()) return Promise.resolve();	
         //this.send('?');
         return new Promise<void>((resolve, reject) => {
             const checkSyncHandler = () => {
-                if ((this as any).error) {
-                    reject((this as any).errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+                if (this.error) {
+                    reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
                     removeListeners();
                 }
                 else if (this._isSynced()) {
@@ -1826,17 +1844,17 @@ class GRBLController extends Controller {
                 this.send('?');
             };
             const removeListeners = () => {
-                (this as any).removeListener('cancelRunningOps', checkSyncErrorHandler);
-                (this as any).removeListener('_sendQueueDrain', checkSyncHandler);
-                (this as any).removeListener('_sendingDisabled', checkSyncHandler);
-                (this as any).removeListener('receivedOk', okHandler);
+                this.removeListener('cancelRunningOps', checkSyncErrorHandler);
+                this.removeListener('_sendQueueDrain', checkSyncHandler);
+                this.removeListener('_sendingDisabled', checkSyncHandler);
+                this.removeListener('receivedOk', okHandler);
             };
-            (this as any).on('cancelRunningOps', checkSyncErrorHandler);
+            this.on('cancelRunningOps', checkSyncErrorHandler);
             // events that can cause a sync: sr received, this.sendQueue drain, sending disabled
-            (this as any).on('statusReportReceived', checkSyncHandler);
-            (this as any).on('_sendQueueDrain', checkSyncHandler);
-            (this as any).on('_sendingDisabled', checkSyncHandler);
-            (this as any).on('receivedOk', okHandler);
+            this.on('statusReportReceived', checkSyncHandler);
+            this.on('_sendQueueDrain', checkSyncHandler);
+            this.on('_sendingDisabled', checkSyncHandler);
+            this.on('receivedOk', okHandler);
         });
     }
     hold() {
@@ -1858,51 +1876,51 @@ class GRBLController extends Controller {
         //    may actually be expected on cancel.
         const doCancel = async () => {
             // Execute feed hold
-            if (!(this as any).held)
+            if (!this.held)
                 this.hold();
             // Wait for status report to confirm feed hold
             // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '() => any' is not assignable to ... Remove this comment to see the full error message
-            await this._waitForEvent('statusReportReceived', () => (this as any).held && (this as any).currentStatusReport.machineState.toLowerCase() !== 'hold:1');
+            await this._waitForEvent('statusReportReceived', () => this.held && this.currentStatusReport.machineState.toLowerCase() !== 'hold:1');
             // If on an older version of grbl that doesn't support the 'hold complete' substate, wait an additional delay
-            if ((this as any).currentStatusReport.machineState.toLowerCase() !== 'hold:0') {
+            if (this.currentStatusReport.machineState.toLowerCase() !== 'hold:0') {
                 await pasync.setTimeout(500);
             }
             // Copy relevant parser state to restore later
             let restoreHomed = objtools.deepCopy(this.homed);
             let restoreState = {
-                activeCoordSys: (this as any).activeCoordSys,
-                units: (this as any).units,
-                feed: (this as any).feed,
-                incremental: (this as any).incremental,
-                inverseFeed: (this as any).inverseFeed
+                activeCoordSys: this.activeCoordSys,
+                units: this.units,
+                feed: this.feed,
+                incremental: this.incremental,
+                inverseFeed: this.inverseFeed
             };
             // Perform the reset (inside a try so we can make sure to restore the ignored messages)
-            (this as any)._ignoreUnlockPromptMessage = true;
+            this._ignoreUnlockPromptMessage = true;
             try {
                 this.reset();
                 // Wait for the reset to complete.  Can't use _waitForEvent for this because _waitForEvent fails if
                 // operations are cancelled during it, and a reset performs an operation cancel.
                 await new Promise<void>((resolve, reject) => {
                     const readyHandler = () => {
-                        (this as any).removeListener('initialized', readyHandler);
+                        this.removeListener('initialized', readyHandler);
                         resolve();
                     };
                     // use 'initialized' instead of 'ready' because ready isn't necessarily fired if resetting into an alarm state
-                    (this as any).on('initialized', readyHandler);
+                    this.on('initialized', readyHandler);
                 });
             }
             finally {
-                (this as any)._ignoreUnlockPromptMessage = false;
+                this._ignoreUnlockPromptMessage = false;
             }
             // If alarmed due to a loss of position, assume the alarm is erroneous (since we did a feed hold before
             // the reset) and clear it.
-            if ((this as any).error && (this as any).errorData && (this as any).errorData.code === XError.MACHINE_ERROR && (this as any).errorData.data && (this as any).errorData.data.subcode === 'position_unknown') {
-                (this as any)._ignoreUnlockedMessage = true;
+            if (this.error && this.errorData && this.errorData.code === XError.MACHINE_ERROR && this.errorData.data && (this.errorData as any).data.subcode === 'position_unknown') {
+                this._ignoreUnlockedMessage = true;
                 try {
                     await this.request('$X');
                 }
                 finally {
-                    (this as any)._ignoreUnlockedMessage = false;
+                    this._ignoreUnlockedMessage = false;
                 }
             }
             // Restore parser state after reset.  Uses timeEstVM but substitutes our own state object
@@ -1913,16 +1931,16 @@ class GRBLController extends Controller {
         doCancel().catch(() => { }); // ignore errors (errors in this process get reported in other ways)
     }
     reset() {
-        if (!(this as any).serial)
+        if (!this.serial)
             return; // no reason to soft-reset GRBL without active connection
-        if (!(this as any)._initializing && !(this as any)._resetting) {
+        if (!this._initializing && !this._resetting) {
             this.sendLine('\x18');
         }
     }
     clearError() {
-        if (!(this as any).serial)
+        if (!this.serial)
             return;
-        if ((this as any).errorData && (this as any).errorData.code === XError.SAFETY_INTERLOCK) {
+        if (this.errorData && this.errorData.code === XError.SAFETY_INTERLOCK) {
             this.sendExtendedAsciiCommand(0x84);
         }
         else {
@@ -1930,8 +1948,7 @@ class GRBLController extends Controller {
         }
     }
     async home() {
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'v' implicitly has an 'any' type.
-        if (!(this as any).homableAxes || !(this as any).homableAxes.some((v) => v)) {
+        if (!this.homableAxes || !this.homableAxes.some((v) => v)) {
             throw new XError(XError.INVALID_ARGUMENT, 'No axes configured to be homed');
         }
         await this.request('$H');
@@ -1941,35 +1958,35 @@ class GRBLController extends Controller {
         let gcode = feed ? 'G1' : 'G0';
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
             if (typeof pos[axisNum] === 'number') {
-                gcode += ' ' + (this as any).axisLabels[axisNum].toUpperCase() + pos[axisNum];
+                gcode += ' ' + this.axisLabels[axisNum].toUpperCase() + pos[axisNum];
             }
         }
         await this.request(gcode);
         await this.waitSync();
     }
     _numInFlightRequests() {
-        return (this as any).sendQueue.length - (this as any).sendQueueIdxToReceive;
+        return this.sendQueue.length - this.sendQueueIdxToReceive;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
     realTimeMove(axisNum, inc) {
         // Make sure there aren't too many requests in the queue
-        if (this._numInFlightRequests() > ((this as any).config.realTimeMovesMaxQueued || 8))
+        if (this._numInFlightRequests() > (this.config.realTimeMovesMaxQueued || 8))
             return false;
         // Rate-limit real time move requests according to feed rate
-        let rtmTargetFeed = ((this as any).axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
-        let counterDecrement = (new Date().getTime() - (this as any).realTimeMovesTimeStart[axisNum]) / 1000 * rtmTargetFeed / 60;
-        (this as any).realTimeMovesCounter[axisNum] -= counterDecrement;
-        if ((this as any).realTimeMovesCounter[axisNum] < 0) {
-            (this as any).realTimeMovesCounter[axisNum] = 0;
+        let rtmTargetFeed = (this.axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
+        let counterDecrement = (new Date().getTime() - this.realTimeMovesTimeStart[axisNum]) / 1000 * rtmTargetFeed / 60;
+        this.realTimeMovesCounter[axisNum] -= counterDecrement;
+        if (this.realTimeMovesCounter[axisNum] < 0) {
+            this.realTimeMovesCounter[axisNum] = 0;
         }
-        (this as any).realTimeMovesTimeStart[axisNum] = new Date().getTime();
-        let maxOvershoot = ((this as any).config.realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
-        if ((this as any).realTimeMovesCounter[axisNum] > maxOvershoot)
+        this.realTimeMovesTimeStart[axisNum] = new Date().getTime();
+        let maxOvershoot = (this.config.realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
+        if (this.realTimeMovesCounter[axisNum] > maxOvershoot)
             return false;
-        (this as any).realTimeMovesCounter[axisNum] += Math.abs(inc);
+        this.realTimeMovesCounter[axisNum] += Math.abs(inc);
         // Send the move
         this.send('G91');
-        let gcode = 'G0 ' + (this as any).axisLabels[axisNum].toUpperCase() + inc;
+        let gcode = 'G0 ' + this.axisLabels[axisNum].toUpperCase() + inc;
         this.send(gcode);
         this.send('G90');
     }
@@ -1983,8 +2000,8 @@ class GRBLController extends Controller {
         let gcode = new GcodeLine('G38.2 F' + feed);
         let cpos = this.getPos();
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
-            if ((this as any).usedAxes[axisNum] && typeof pos[axisNum] === 'number' && pos[axisNum] !== cpos[axisNum]) {
-                gcode.set((this as any).axisLabels[axisNum], pos[axisNum]);
+            if (this.usedAxes[axisNum] && typeof pos[axisNum] === 'number' && pos[axisNum] !== cpos[axisNum]) {
+                gcode.set(this.axisLabels[axisNum], pos[axisNum]);
             }
         }
         if ((gcode as any).words.length < 3)
@@ -1997,17 +2014,17 @@ class GRBLController extends Controller {
                 this.send('$#');
             }
         };
-        (this as any).on('receivedOk', ackHandler);
+        this.on('receivedOk', ackHandler);
         try {
             // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '(paramName: any) => boolean' is ... Remove this comment to see the full error message
             await this._waitForEvent('deviceParamUpdate', (paramName) => paramName === 'PRB');
         }
         finally {
-            (this as any).removeListener('receivedOk', ackHandler);
+            this.removeListener('receivedOk', ackHandler);
         }
-        let [tripPos, probeTripped] = (this as any).receivedDeviceParameters.PRB;
+        let [tripPos, probeTripped] = this.receivedDeviceParameters.PRB;
         if (!probeTripped) {
-            (this as any)._ignoreUnlockedMessage = true;
+            this._ignoreUnlockedMessage = true;
             try {
                 // Assume we're in an alarm state now and reset the alarm
                 await this.request('$X');
@@ -2015,25 +2032,24 @@ class GRBLController extends Controller {
                 await this.fetchUpdateStatusReport();
             }
             finally {
-                (this as any)._ignoreUnlockedMessage = false;
+                this._ignoreUnlockedMessage = false;
             }
-            (this as any).timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
+            this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
             throw new XError(XError.PROBE_NOT_TRIPPED, 'Probe was not tripped during probing');
         }
         // If the probe was successful, move back to the position the probe tripped
         await this.move(tripPos);
         // Sync the time estimation vm position to the new pos after probing
-        (this as any).timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
+        this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
         return tripPos;
     }
     getStatus() {
         let o = super.getStatus();
         (o as any).comms = {
-            sendQueueLength: (this as any).sendQueue.length,
-            sendQueueIdxToSend: (this as any).sendQueueIdxToSend,
-            sendQueueIdxToReceive: (this as any).sendQueueIdxToReceive
+            sendQueueLength: this.sendQueue.length,
+            sendQueueIdxToSend: this.sendQueueIdxToSend,
+            sendQueueIdxToReceive: this.sendQueueIdxToReceive
         };
         return o;
     }
 }
-module.exports = GRBLController;

@@ -1,21 +1,13 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
+import XError from 'xerror';
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
+import pasync from 'pasync';
 const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
-const path = require('path');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'zstreams'.
-const zstreams = require('zstreams');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'createSche... Remove this comment to see the full error message
-const { createSchema } = require('common-schema');
-class Macros {
+import fs from 'fs';
+import path from 'path';
+import zstreams from 'zstreams';
+import objtools from 'objtools';
+import { createSchema } from 'common-schema';
+export default class Macros {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
     constructor(tightcnc) {
         (this as any).tightcnc = tightcnc;
@@ -109,7 +101,6 @@ class Macros {
         }
         let fo = (this as any).macroCache[macroName];
         let stat = await new Promise((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.stat(fo.absPath, (err, stat) => {
                 if (err)
                     reject(err);
@@ -134,7 +125,6 @@ class Macros {
         for (let dir of dirs) {
             try {
                 let files = await new Promise<string[]>((resolve, reject) => {
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     fs.readdir(dir, (err, files) => {
                         if (err)
                             reject(err);
@@ -147,7 +137,6 @@ class Macros {
                         try {
                             let absPath = path.resolve(dir, file);
                             let stat = await new Promise((resolve, reject) => {
-                                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                                 fs.stat(absPath, (err, stat) => {
                                     if (err)
                                         reject(err);
@@ -350,7 +339,6 @@ class Macros {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'filename' implicitly has an 'any' type.
     _readFile(filename) {
         return new Promise((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.readFile(filename, { encoding: 'utf8' }, (err, data) => {
                 if (err) {
                     if (err && err.code === 'ENOENT') {
@@ -493,4 +481,3 @@ class MacroGcodeSourceStream extends zstreams.Readable {
         }
     }
 }
-module.exports = Macros;

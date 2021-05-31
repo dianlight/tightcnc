@@ -1,13 +1,37 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'EventEmitt... Remove this comment to see the full error message
-const EventEmitter = require('events');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'zstreams'.
-const zstreams = require('zstreams');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Controller... Remove this comment to see the full error message
-class Controller extends EventEmitter {
+import EventEmitter from 'events';
+import XError from 'xerror';
+import fs from 'fs';
+import zstreams from 'zstreams';
+export default class Controller extends EventEmitter {
+
+    axisLabels=['x', 'y', 'z'];
+    ready = false;
+    usedAxes = [true, true, true];
+    homableAxes = [true, true, true];
+    mpos = [0, 0, 0];
+    activeCoordSys?:number = 0;
+    coordSysOffsets = [[0, 0, 0]];
+    offset = [0, 0, 0];
+    offsetEnabled = false;
+    storedPositions = [[0, 0, 0], [0, 0, 0]];
+    homed = [false, false, false];
+    held = false;
+    units = 'mm';
+    feed = 0;
+    incremental = false;
+    moving = false;
+    coolant = 0;
+    spindle = false;
+    line = 0;
+    error = false;
+    errorData?:XError;
+    programRunning = false;
+    spindleDirection = 1;
+    spindleSpeed = null;
+    inverseFeed = false;
+
+
+    
     /**
      * Base class for CNC controllers.  Each subclass corresponds to a type of CNC controller and manages the connection
      * to that controller.
@@ -25,10 +49,8 @@ class Controller extends EventEmitter {
      * @param {Object} config - Controller-specific configuration blob
      */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'config' implicitly has an 'any' type.
-    constructor(config) {
+    constructor(public config) {
         super();
-        // Configuration for the controller.  The format of this is entirely dependent on the subclass.
-        (this as any).config = config;
         // See resetState() for property definitions.
         this.resetState();
     }
@@ -40,20 +62,20 @@ class Controller extends EventEmitter {
      */
     getCoordOffsets() {
         let offsets = [];
-        for (let i = 0; i < (this as any).axisLabels.length; i++)
+        for (let i = 0; i < this.axisLabels.length; i++)
             offsets[i] = 0;
-        if (typeof (this as any).activeCoordSys === 'number' && (this as any).activeCoordSys >= 0) {
+        if (typeof this.activeCoordSys === 'number' && this.activeCoordSys >= 0) {
             // Not machine coordinates; set offsets from this coord system
-            let csysOffsets = this.coordSysOffsets[(this as any).activeCoordSys];
+            let csysOffsets = this.coordSysOffsets[this.activeCoordSys];
             if (csysOffsets) {
                 for (let i = 0; i < csysOffsets.length; i++) {
                     offsets[i] += csysOffsets[i];
                 }
             }
         }
-        if ((this as any).offsetEnabled && (this as any).offset) {
-            for (let i = 0; i < (this as any).offset.length; i++) {
-                offsets[i] += (this as any).offset[i];
+        if (this.offsetEnabled && this.offset) {
+            for (let i = 0; i < this.offset.length; i++) {
+                offsets[i] += this.offset[i];
             }
         }
         return offsets;
@@ -67,9 +89,9 @@ class Controller extends EventEmitter {
     getPos() {
         let off = this.getCoordOffsets();
         let r = [];
-        for (let i = 0; i < (this as any).mpos.length; i++) {
+        for (let i = 0; i < this.mpos.length; i++) {
             let o = off[i] || 0;
-            r.push((this as any).mpos[i] - o);
+            r.push(this.mpos[i] - o);
         }
         return r;
     }
@@ -80,55 +102,55 @@ class Controller extends EventEmitter {
      */
     resetState() {
         // Whether or not the machine is connected and ready to accept input
-        (this as any).ready = false;
+        this.ready = false;
         // Labels for each of the axes
-        (this as any).axisLabels = ['x', 'y', 'z'];
+        this.axisLabels = ['x', 'y', 'z'];
         // Which axes are actually used
-        (this as any).usedAxes = [true, true, true];
+        this.usedAxes = [true, true, true];
         // Which axes can be automatically homed
-        (this as any).homableAxes = [true, true, true];
+        this.homableAxes = [true, true, true];
         // Current coordinates in machine position for each of the axes
-        (this as any).mpos = [0, 0, 0];
+        this.mpos = [0, 0, 0];
         // Currently active coordinate system.  0 corresponds to G54, 1 to G55, etc.  null means G53 machine coordinates.
-        (this as any).activeCoordSys = 0;
+        this.activeCoordSys = 0;
         // For each coordinate system, the offsets for that system to the machine coordinates
         this.coordSysOffsets = [[0, 0, 0]];
         // Configured offset (set by G92)
-        (this as any).offset = [0, 0, 0];
+        this.offset = [0, 0, 0];
         // Whether the current G92 offset is enabled
-        (this as any).offsetEnabled = false;
+        this.offsetEnabled = false;
         // Stored machine positions; 0 corresponds to G28, 1 corresponds to G30
-        (this as any).storedPositions = [[0, 0, 0], [0, 0, 0]];
+        this.storedPositions = [[0, 0, 0], [0, 0, 0]];
         // Whether machine is homed, for each axis
         this.homed = [false, false, false];
         // If the machine is currently paused / feed hold
-        (this as any).held = false;
+        this.held = false;
         // Current units configured for machine; 'mm' or 'in'
-        (this as any).units = 'mm';
+        this.units = 'mm';
         // Current feed rate for machine
-        (this as any).feed = 0;
+        this.feed = 0;
         // Whether machine is currently in incremental mode
-        (this as any).incremental = false;
+        this.incremental = false;
         // If the machine is currently moving
-        (this as any).moving = false;
+        this.moving = false;
         // If coolant is running.  Can also be 1 or 2 for mist or flood coolant, or 3 for both.
-        (this as any).coolant = false;
+        this.coolant = 0;
         // If spindle is running
-        (this as any).spindle = false;
+        this.spindle = false;
         // Last line number executed
-        (this as any).line = 0;
+        this.line = 0;
         // true if the machine is in an error/alarm state
-        (this as any).error = false;
+        this.error = false;
         // Additional information about the error.  Must be an XError object.
-        (this as any).errorData = null;
+        this.errorData = undefined;
         // true if a program is running
-        (this as any).programRunning = false;
+        this.programRunning = false;
         // 1 for CW, -1 for CCW
-        (this as any).spindleDirection = 1;
+        this.spindleDirection = 1;
         // Speed of spindle, if known
-        (this as any).spindleSpeed = null;
+        this.spindleSpeed = null;
         // True for inverse feedrate mode
-        (this as any).inverseFeed = false;
+        this.inverseFeed = false;
     }
     /**
      * Initialize and connect to CNC machine.  Should update machine state properties as much as is possible.
@@ -313,17 +335,17 @@ class Controller extends EventEmitter {
     }
     listUsedAxisNumbers() {
         let ret = [];
-        for (let axisNum = 0; axisNum < (this as any).usedAxes.length; axisNum++) {
-            if ((this as any).usedAxes[axisNum])
+        for (let axisNum = 0; axisNum < this.usedAxes.length; axisNum++) {
+            if (this.usedAxes[axisNum])
                 ret.push(axisNum);
         }
         return ret;
     }
     listUsedAxisLabels() {
         let ret = [];
-        for (let axisNum = 0; axisNum < (this as any).usedAxes.length; axisNum++) {
-            if ((this as any).usedAxes[axisNum]) {
-                ret.push((this as any).axisLabels[axisNum]);
+        for (let axisNum = 0; axisNum < this.usedAxes.length; axisNum++) {
+            if (this.usedAxes[axisNum]) {
+                ret.push(this.axisLabels[axisNum]);
             }
         }
         return ret;
@@ -345,4 +367,3 @@ XError.registerErrorCode('probe_initial_state', { message: 'Probe initial state 
 // Error when a safety interlock or door is disengaged
 XError.registerErrorCode('safety_interlock', { message: 'Safety interlock disengaged' });
 XError.registerErrorCode('limit_hit', { message: 'Limit switch hit' });
-module.exports = Controller;

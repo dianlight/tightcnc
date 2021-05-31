@@ -2,7 +2,11 @@
 
 This fork scope is to upgrate TightCNC to better use in my GCODEGO project. 
 Planned task upgrade:
-- [ ] Typescript Migration (ts-migrate)
+- [x] Typescript Migration (ts-migrate)
+ - [ ] Code cleanup
+  - [ ] Use import not required
+ - [ ] Remove not Typescript friendly dependencies 
+ - [ ] Typescritp Migration ot lib ( ts-migrate )
 - [ ] Support for raw socket comunication
 - [ ] Support fro websocket comunication
 - [ ] Support start without config

@@ -9,12 +9,24 @@ declare module 'xerror' {
         aliasOf?: string
     }
     
-    export class XError {
+    export default class XError {
 
-        static [key: string]: unknown
+        static [key: string]: string
 
         static NOT_FOUND: string
         static ACCESS_DENIED: string
+        static INVALID_ARGUMENT: string
+        static CANCELLED: string
+        static INTERNAL_ERROR: string
+        static UNSUPPORTED_OPERATION: string
+        static PROBE_NOT_TRIPPED: string
+        static COMM_ERROR: string
+        static MACHINE_ERROR: string
+        static PARSE_ERROR: string
+        static SAFETY_INTERLOCK: string
+        static LIMIT_HIT: string
+        static PROBE_INITIAL_STATE: string
+        static BAD_REQUEST: string
 
         code: string; //  The string error code, like internal_error
         message: string; // - Human-readable error message
@@ -24,11 +36,11 @@ declare module 'xerror' {
         stack?: string; // - Stack trace of where this error is constructed
 
         constructor(message: string)
+        constructor(message: string, cause?: Error | XError)
         constructor(code: string, message?: string,  data?: unknown, privateData?: unknown, cause?: Error | XError)
         
-        static wrap(cause: Error | XError): XError
-
-        
+        static wrap(cause: Error | XError): XError;
+    
         static registerErrorCode(code: string, options: RegisterOption ): void;
         
         static registerErrorCodes(codes:{
@@ -38,5 +50,7 @@ declare module 'xerror' {
         static getErrorCode(code: string): string;
  
         static listErrorCodes(): string[];
+
+        static isXError(error: Error | XError): boolean;
     }
 }

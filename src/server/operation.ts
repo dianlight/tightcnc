@@ -1,13 +1,11 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
+import  XError from 'xerror';
 /**
  * Base class for an operation that can be performed.  Operations pretty much map
  * one-to-one to API calls.
  *
  * @class Operation
  */
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-class Operation {
+export default class Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
     constructor(tightcnc, config) {
         (this as any).tightcnc = tightcnc;

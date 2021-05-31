@@ -1,10 +1,7 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'mkdirp'.
-const mkdirp = require('mkdirp');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
-const path = require('path');
-class LoggerDisk {
+import mkdirp from 'mkdirp';
+import fs from 'fs';
+import path from 'path';
+export default class LoggerDisk {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
     constructor(config = {}, tightcnc) {
         (this as any).logDir = tightcnc.getFilename(null, 'log', true, true, true);
@@ -24,7 +21,6 @@ class LoggerDisk {
         });
         // Get list of all log files currently in directory
         let files = await new Promise<string[]>((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.readdir((this as any).logDir, (err, files) => {
                 if (err)
                     reject(err);
@@ -38,7 +34,6 @@ class LoggerDisk {
             if (matches) {
                 let num = parseInt(matches[1], 10);
                 let stats = await new Promise((resolve, reject) => {
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     fs.stat(path.join((this as any).logDir, f), (err, stats) => {
                         if (err)
                             reject(err);
@@ -90,7 +85,6 @@ class LoggerDisk {
             (this as any).curStream = fs.createWriteStream(path.join((this as any).logDir, newFilename), { flags: 'w' });
             while ((this as any).curFiles.length > (this as any).keepFiles) {
                 let fileToDelete = (this as any).curFiles.shift();
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                 fs.unlink(path.join((this as any).logDir, fileToDelete.filename), (err) => {
                     if (err)
                         console.error('LoggerDisk error removing file', err);
@@ -99,4 +93,3 @@ class LoggerDisk {
         }
     }
 }
-module.exports = LoggerDisk;

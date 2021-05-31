@@ -1,36 +1,25 @@
-const cross = require('cross');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-const Operation = require('../server/operation');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'commonSche... Remove this comment to see the full error message
-const commonSchema = require('common-schema');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-const KDTree = require('kd-tree-javascript').kdTree;
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
+import  cross from 'cross';
+import  Operation from '../server/operation';
+import  commonSchema from 'common-schema';
+import  XError from 'xerror';
+import  objtools from'objtools';
+import { kdTree } from 'kd-tree-javascript';
+import fs from 'fs';
 const GcodeProcessor = require('../../lib/gcode-processor');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'MoveSplitt... Remove this comment to see the full error message
-const { MoveSplitter } = require('./move-splitter');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'JobOption'... Remove this comment to see the full error message
+import { MoveSplitter } from './move-splitter';
 const JobOption = require('../consoleui/job-option');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
 const ListForm = require('../consoleui/list-form');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
-const blessed = require('blessed');
-const moment = require('moment');
-class SurfaceLevelMap {
+import  blessed from 'blessed';
+import  moment from 'moment';
+export class SurfaceLevelMap {
     constructor(points = []) {
         (this as any).pointList = points.slice(); // An array of [x, y, z] points where the z is the probed height
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'a' implicitly has an 'any' type.
         const dist = (a, b) => {
             return Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2);
         };
-        (this as any).kdtree = new KDTree(points, dist, [0, 1]);
+        (this as any).kdtree = new kdTree(points, dist, [0, 1]);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
     addPoint(point) {
@@ -420,7 +409,6 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
         if ((this as any).tightcnc)
             (this as any).surfaceMapFilename = (this as any).tightcnc.getFilename((this as any).surfaceMapFilename, 'data');
         return new Promise<void>((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.readFile((this as any).surfaceMapFilename, (err, data) => {
                 if (err)
                     return reject(new XError('Error loading surface map', err));

@@ -1,13 +1,8 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
+import XError from 'xerror';
 const GcodeProcessor = require('../../lib/gcode-processor');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
+import  objtools from 'objtools';
 /**
  * This gcode processor will split long linear moves into a series of shorter ones.
  *
@@ -16,8 +11,7 @@ const objtools = require('objtools');
  * @param {Object} options
  *   @param {Number} options.maxMoveLength=10
  */
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'MoveSplitt... Remove this comment to see the full error message
-class MoveSplitter extends GcodeProcessor {
+export class MoveSplitter extends GcodeProcessor {
     constructor(options = {}) {
         super(options, 'movesplitter', true);
         (this as any).maxMoveLength = (options as any).maxMoveLength || 10;
@@ -99,7 +93,6 @@ class MoveSplitter extends GcodeProcessor {
         return undefined;
     }
 }
-module.exports.MoveSplitter = MoveSplitter;
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerServerComponents = function (tightcnc) {
     tightcnc.registerGcodeProcessor('movesplitter', MoveSplitter);

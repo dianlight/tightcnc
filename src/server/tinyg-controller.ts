@@ -1,16 +1,11 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Controller... Remove this comment to see the full error message
-const Controller = require('./controller');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'SerialPort... Remove this comment to see the full error message
-const SerialPort = require('serialport');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
+import Controller from './controller';
+import SerialPort from 'serialport';
+import XError from 'xerror';
+import pasync from 'pasync';
 const GcodeLine = require('../../lib/gcode-line');
 const AbbrJSON = require('./tinyg-abbr-json');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'CrispHooks... Remove this comment to see the full error message
-const CrispHooks = require('crisphooks');
+import CrispHooks from 'crisphooks';
+import { time } from 'console';
 /**
  * This is the controller interface class for TinyG.
  *
@@ -41,10 +36,58 @@ const CrispHooks = require('crisphooks');
  *
  * @class TinyGController
  */
-class TinyGController extends Controller {
+export default class TinyGController extends Controller {
+    serial: any;
+
+    sendQueue:any[] = [];
+    // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
+    sendQueueIdxToSend = 0;
+    // This is the index into sendQueue of the next entry that has been sent but a response is expected for.
+    sendQueueIdxToReceive = 0;
+    // This array mirrors the device's planner queue.  Each entry is a range [ low, high ] (inclusive) of 0 or more gcode line ids that we think correspond to
+    // that planner queue entry (such that the gcode line's execute hook will fire after it's pushed off the planner queue).
+    plannerMirror:any[] = [];
+    // This is the value of sendQueueIdxToReceive at the time that the more recent queue report was received (adjusted for shifting off the front of the queue)
+    sendQueueIdxToRecvAtLastQr = 0;
+    // Number of planner queue buffers free as off last received queue report
+    lastQrNumFree = 28;
+    // Number of blocks in sendQueue to send immediately even if it would exceed normal backpressure
+    sendImmediateCounter = 0;
+    // Counter storing the next free line id to use
+    lineIdCounter = 1;
+    resetOnConnect = false;
+    synced?:boolean = true;
+    axisLabels = ['x', 'y', 'z', 'a', 'b', 'c'];
+    usedAxes = (this.config as any).usedAxes || [true, true, true, false, false, false];
+    homableAxes = (this.config as any).homableAxes || [true, true, true];
+    axisMaxFeeds = [500, 500, 500, 500, 500, 500]; // initial values, set later during initialization
+    _waitingForSync = false;
+    _disableSending = false; // flag to disable sending data using normal channels (_sendImmediate still works)
+    _disableResponseErrorEvent = false; // flag to disable error events in cases where errors are expected
+    currentStatusReport:{
+        [key: string]: unknown
+    } = {};
+    plannerQueueSize = 28; // Total size of planner queue
+    plannerQueueFree = 28; // Number of buffers in the tinyg planner queue currently open
+    realTimeMovesTimeStart = [0, 0, 0, 0, 0, 0];
+    realTimeMovesCounter = [0, 0, 0, 0, 0, 0];
+    receivedLineCounter = 0; // is incremented each time a line is received
+    lastResponseReceivedCounter?:number; // set to receivedLineCounter when response is received
+    lastStatusReportCounter?:number; // set to receivedLineCounter when status report is received
+    lastResponseReceivedTime?:Date; // set to a Date object when a response is received
+    _serialListeners: {
+        [key: string]: unknown
+    } = {}; // mapping from serial port event names to listener functions; used to remove listeners during cleanup
+    tightcnc: any;
+    _initializing = false;
+    _retryConnectFlag = false;
+    serialReceiveBuf?: string;
+    _waitingToRetry = false;
+    _timeoutCheckSynced = false;
+
     constructor(config = {}) {
         super(config);
-        (this as any).serial = null; // Instance of SerialPort stream interface class
+        this.serial = null; // Instance of SerialPort stream interface class
         // This send queue serves multiple different purposes.  It contains entries that have not yet been sent, entries that have been sent but have not yet had responses
         // received, and entries that have had responses received but are still in the device's planner queue.  Entries in this queue are objects with several properties:
         // - str - The string of the raw line to send.  Should not include newline at end.
@@ -62,57 +105,22 @@ class TinyGController extends Controller {
         // - responseExpected - If an ack is expected from the device
         // - fullSync - If true, only send block once all previous blocks have finished executing, and only send next block once this has exceuted.  Used for lines that modify eeprom.
         // Note that the sendQueue does not contain "front panel control" instructions like feed hold, as these are sent and processed immediately, and give no feedback.
-        (this as any).sendQueue = [];
-        // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
-        (this as any).sendQueueIdxToSend = 0;
-        // This is the index into sendQueue of the next entry that has been sent but a response is expected for.
-        (this as any).sendQueueIdxToReceive = 0;
-        // This array mirrors the device's planner queue.  Each entry is a range [ low, high ] (inclusive) of 0 or more gcode line ids that we think correspond to
-        // that planner queue entry (such that the gcode line's execute hook will fire after it's pushed off the planner queue).
-        (this as any).plannerMirror = [];
-        // This is the value of sendQueueIdxToReceive at the time that the more recent queue report was received (adjusted for shifting off the front of the queue)
-        (this as any).sendQueueIdxToRecvAtLastQr = 0;
-        // Number of planner queue buffers free as off last received queue report
-        (this as any).lastQrNumFree = 28;
-        // Number of blocks in sendQueue to send immediately even if it would exceed normal backpressure
-        (this as any).sendImmediateCounter = 0;
-        // Counter storing the next free line id to use
-        (this as any).lineIdCounter = 1;
-        (this as any).resetOnConnect = false;
-        (this as any).synced = true;
-        (this as any).axisLabels = ['x', 'y', 'z', 'a', 'b', 'c'];
-        (this as any).usedAxes = (config as any).usedAxes || [true, true, true, false, false, false];
-        (this as any).homableAxes = (config as any).homableAxes || [true, true, true];
-        (this as any).axisMaxFeeds = [500, 500, 500, 500, 500, 500]; // initial values, set later during initialization
-        (this as any)._waitingForSync = false;
-        (this as any)._disableSending = false; // flag to disable sending data using normal channels (_sendImmediate still works)
-        (this as any)._disableResponseErrorEvent = false; // flag to disable error events in cases where errors are expected
-        (this as any).currentStatusReport = {};
-        (this as any).plannerQueueSize = 28; // Total size of planner queue
-        (this as any).plannerQueueFree = 28; // Number of buffers in the tinyg planner queue currently open
-        (this as any).realTimeMovesTimeStart = [0, 0, 0, 0, 0, 0];
-        (this as any).realTimeMovesCounter = [0, 0, 0, 0, 0, 0];
-        (this as any).receivedLineCounter = 0; // is incremented each time a line is received
-        (this as any).lastResponseReceivedCounter = null; // set to receivedLineCounter when response is received
-        (this as any).lastStatusReportCounter = null; // set to receivedLineCounter when status report is received
-        (this as any).lastResponseReceivedTime = null; // set to a Date object when a response is received
-        (this as any)._serialListeners = {}; // mapping from serial port event names to listener functions; used to remove listeners during cleanup
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     debug(str) {
         const enableDebug = false;
-        if ((this as any).tightcnc)
-            (this as any).tightcnc.debug('TinyG: ' + str);
+        if (this.tightcnc)
+            this.tightcnc.debug('TinyG: ' + str);
         else if (enableDebug)
             console.log('Debug: ' + str);
     }
     // Resets all the communications-related state variables, and errors out any in-flight requests
-    _commsReset(err = null) {
+    _commsReset(err?:XError) {
         this.debug('_commsReset()');
         if (!err)
             err = new XError(XError.INTERNAL_ERROR, 'Communications reset');
         // Call the error hook on anything in sendQueue
-        for (let entry of (this as any).sendQueue) {
+        for (let entry of this.sendQueue) {
             if (entry.hooks) {
                 this.debug('_commsReset triggering error hook on sendQueue entry');
                 entry.hooks.triggerSync('error', err);
@@ -120,28 +128,28 @@ class TinyGController extends Controller {
         }
         this.debug('_commsReset() done triggering error hooks');
         // Reset all the variables
-        (this as any).sendQueue = [];
-        (this as any).sendQueueIdxToSend = 0;
-        (this as any).sendQueueIdxToReceive = 0;
-        (this as any).plannerMirror = [];
-        (this as any).sendQueueIdxToRecvAtLastQr = 0;
-        (this as any).lastQrNumFree = 28;
-        (this as any).receivedLineCounter = 0;
-        (this as any).lastResponseReceivedCounter = null;
-        (this as any).lastStatusReportCounter = null;
-        (this as any).lastResponseReceivedTime = null;
-        (this as any).sendImmediateCounter = 0;
+        this.sendQueue = [];
+        this.sendQueueIdxToSend = 0;
+        this.sendQueueIdxToReceive = 0;
+        this.plannerMirror = [];
+        this.sendQueueIdxToRecvAtLastQr = 0;
+        this.lastQrNumFree = 28;
+        this.receivedLineCounter = 0;
+        this.lastResponseReceivedCounter = undefined;
+        this.lastStatusReportCounter = undefined;
+        this.lastResponseReceivedTime = undefined;
+        this.sendImmediateCounter = 0;
     }
     // Calls executing hooks corresponding to front entry in planner mirror
     _commsCallExecutingHooks(minLineId = -1) {
         //this.debug('_commsCallExecutingHooks() ' + minLineId);
-        let lineidRange = (this as any).plannerMirror[0];
+        let lineidRange = this.plannerMirror[0];
         if (lineidRange) {
             let topLineId = lineidRange[1]; // max line id inclusive
             // Call hook on each line in the send queue until we've exceeded the top line id
             let sqIdx = 0;
-            while (sqIdx < (this as any).sendQueue.length && (this as any).sendQueue[sqIdx].lineid <= topLineId) {
-                let sqEntry = (this as any).sendQueue[sqIdx];
+            while (sqIdx < this.sendQueue.length && this.sendQueue[sqIdx].lineid <= topLineId) {
+                let sqEntry = this.sendQueue[sqIdx];
                 sqIdx++;
                 // run hooks if present
                 if (sqEntry.hooks && sqEntry.lineid >= minLineId) {
@@ -156,13 +164,13 @@ class TinyGController extends Controller {
         //this.debug('_commsSyncPlannerMirror()');
         // shift everything off the planner queue
         let syncedAny = false;
-        while ((this as any).plannerMirror.length > 0) {
+        while (this.plannerMirror.length > 0) {
             this._commsShiftPlannerMirror();
             syncedAny = true;
         }
         // if there's anything left in sendQueue that never made its way onto the planner queue after being acked (ie, no qr was received after), handle that
-        if ((this as any).sendQueueIdxToReceive > 0) {
-            (this as any).plannerMirror.push([(this as any).sendQueue[0].lineid, (this as any).sendQueue[(this as any).sendQueueIdxToReceive - 1].lineid]);
+        if (this.sendQueueIdxToReceive > 0) {
+            this.plannerMirror.push([this.sendQueue[0].lineid, this.sendQueue[this.sendQueueIdxToReceive - 1].lineid]);
             this._commsCallExecutingHooks();
             this._commsShiftPlannerMirror();
             syncedAny = true;
@@ -175,20 +183,20 @@ class TinyGController extends Controller {
     _commsShiftPlannerMirror() {
         //this.debug('_commsShiftPlannerMirror() plannerMirror.length ' + this.plannerMirror.length);
         // Shift off the front entry of the planner queue, and handle each line id range
-        let lineidRange = (this as any).plannerMirror.shift();
+        let lineidRange = this.plannerMirror.shift();
         if (lineidRange) {
             let topLineId = lineidRange[1]; // max line id to "resolve", inclusive
             //this.debug('Shifted top line id ' + topLineId);
             // Resolve each line in the send queue until we've exceeded the top line id
-            while ((this as any).sendQueue.length > 0 && (this as any).sendQueue[0].lineid <= topLineId) {
+            while (this.sendQueue.length > 0 && this.sendQueue[0].lineid <= topLineId) {
                 //this.debug('shifting sendQueue');
-                let sqEntry = (this as any).sendQueue.shift();
+                let sqEntry = this.sendQueue.shift();
                 // adjust pointers after shifting
-                (this as any).sendQueueIdxToSend--;
-                (this as any).sendQueueIdxToReceive--;
-                (this as any).sendQueueIdxToRecvAtLastQr--;
-                if ((this as any).sendQueueIdxToRecvAtLastQr < 0)
-                    (this as any).sendQueueIdxToRecvAtLastQr = 0; // necessary to handle some cases
+                this.sendQueueIdxToSend--;
+                this.sendQueueIdxToReceive--;
+                this.sendQueueIdxToRecvAtLastQr--;
+                if (this.sendQueueIdxToRecvAtLastQr < 0)
+                    this.sendQueueIdxToRecvAtLastQr = 0; // necessary to handle some cases
                 // these are not necessary as long as the algorithm is functioning properly; so they are left commented here so problems don't stay hidden
                 //if (this.sendQueueIdxToReceive < 0) this.sendQueueIdxToReceive = 0;
                 //if (this.sendQueueIdxToSend < 0) this.sendQueueIdxToSend = 0;
@@ -199,7 +207,7 @@ class TinyGController extends Controller {
             }
         }
         // Call executing hooks corresponding to next planner queue entry
-        if ((this as any).plannerMirror.length > 0) {
+        if (this.plannerMirror.length > 0) {
             //this.debug('calling executing hooks');
             this._commsCallExecutingHooks();
         }
@@ -215,20 +223,20 @@ class TinyGController extends Controller {
         // Each of these entries should correspond to 0 or more gcode line IDs.
         // The range of gcode lines in the queue that correspond to this range of qi is sendQueueIdxToRecvAtLastQr (inclusive) to sendQueueIdxToReceive (exclusive)
         //this.debug('qi pushes');
-        let sendQueueIdxRangeStart = (this as any).sendQueueIdxToRecvAtLastQr;
-        let sendQueueIdxRangeEnd = (this as any).sendQueueIdxToReceive;
+        let sendQueueIdxRangeStart = this.sendQueueIdxToRecvAtLastQr;
+        let sendQueueIdxRangeEnd = this.sendQueueIdxToReceive;
         for (let qiCtr = 0; qiCtr < qi; qiCtr++) {
             let qisLeft = qi - qiCtr;
             let sendQueuesLeft = sendQueueIdxRangeEnd - sendQueueIdxRangeStart;
             let numGcodesThisQi = Math.floor(sendQueuesLeft / qisLeft);
             if (numGcodesThisQi === 0) {
-                (this as any).plannerMirror.push(null);
+                this.plannerMirror.push(null);
                 continue;
             }
-            let lineIdStart = (this as any).sendQueue[sendQueueIdxRangeStart].lineid;
-            let lineIdEnd = (this as any).sendQueue[sendQueueIdxRangeStart + numGcodesThisQi - 1].lineid;
-            (this as any).plannerMirror.push([lineIdStart, lineIdEnd]);
-            if ((this as any).plannerMirror.length === 1) {
+            let lineIdStart = this.sendQueue[sendQueueIdxRangeStart].lineid;
+            let lineIdEnd = this.sendQueue[sendQueueIdxRangeStart + numGcodesThisQi - 1].lineid;
+            this.plannerMirror.push([lineIdStart, lineIdEnd]);
+            if (this.plannerMirror.length === 1) {
                 this._commsCallExecutingHooks();
             }
             sendQueueIdxRangeStart += numGcodesThisQi;
@@ -239,33 +247,33 @@ class TinyGController extends Controller {
         let shiftPlannerMirrorExtra = 0;
         if (qi < 1 && sendQueueIdxRangeEnd > sendQueueIdxRangeStart) {
             //this.debug('handle extra responses');
-            let lineIdStart = (this as any).sendQueue[sendQueueIdxRangeStart].lineid;
-            let lineIdEnd = (this as any).sendQueue[sendQueueIdxRangeEnd - 1].lineid;
-            if ((this as any).plannerMirror.length > 1) {
+            let lineIdStart = this.sendQueue[sendQueueIdxRangeStart].lineid;
+            let lineIdEnd = this.sendQueue[sendQueueIdxRangeEnd - 1].lineid;
+            if (this.plannerMirror.length > 1) {
                 // Combine it with the range of the most recent entry pushed onto plannerMirror
-                if ((this as any).plannerMirror[(this as any).plannerMirror.length - 1]) {
-                    let pmentry = (this as any).plannerMirror[(this as any).plannerMirror.length - 1];
+                if (this.plannerMirror[this.plannerMirror.length - 1]) {
+                    let pmentry = this.plannerMirror[this.plannerMirror.length - 1];
                     if (pmentry[1] < lineIdEnd) {
                         pmentry[1] = lineIdEnd;
                     }
                     // call executing hooks if first in queue (minLineId is passed here to prevent calling the executing hook again on existing members)
-                    if ((this as any).plannerMirror.length === 1)
+                    if (this.plannerMirror.length === 1)
                         this._commsCallExecutingHooks(lineIdStart);
                 }
                 else {
-                    (this as any).plannerMirror[(this as any).plannerMirror.length - 1] = [lineIdStart, lineIdEnd];
+                    this.plannerMirror[this.plannerMirror.length - 1] = [lineIdStart, lineIdEnd];
                     // call executing hooks if first in queue
-                    if ((this as any).plannerMirror.length === 1)
+                    if (this.plannerMirror.length === 1)
                         this._commsCallExecutingHooks();
                 }
             }
             else {
                 // There's no planner queue mirror entry to associate these with, so add one.  This will cause
                 // plannerMirror to become desynced from the qis and qos, so also shift an additional entry off later.
-                (this as any).plannerMirror.push([lineIdStart, lineIdEnd]);
+                this.plannerMirror.push([lineIdStart, lineIdEnd]);
                 shiftPlannerMirrorExtra++;
                 // call executing hooks if first in queue
-                if ((this as any).plannerMirror.length === 1)
+                if (this.plannerMirror.length === 1)
                     this._commsCallExecutingHooks();
             }
         }
@@ -277,24 +285,24 @@ class TinyGController extends Controller {
         //this.debug('qo shifts');
         let plannerEntriesToShift = qo + shiftPlannerMirrorExtra;
         // Make sure we're not shifting off more than the total size of our planner queue
-        if (plannerEntriesToShift > (this as any).plannerMirror.length)
-            plannerEntriesToShift = (this as any).plannerMirror.length;
+        if (plannerEntriesToShift > this.plannerMirror.length)
+            plannerEntriesToShift = this.plannerMirror.length;
         while (plannerEntriesToShift > 0) {
             this._commsShiftPlannerMirror();
             plannerEntriesToShift--;
         }
         // Shift even more if qi/qo have gotten desynced from the actual planner queue fill
         //this.debug('handle possible planner queue desync');
-        let plannerQueueFill = (this as any).plannerQueueSize - qr;
+        let plannerQueueFill = this.plannerQueueSize - qr;
         if (plannerQueueFill < 0)
             plannerQueueFill = 0;
-        while ((this as any).plannerMirror.length > plannerQueueFill) {
+        while (this.plannerMirror.length > plannerQueueFill) {
             this._commsShiftPlannerMirror();
         }
         // Store qr so we know how many free queue entries there are
-        (this as any).lastQrNumFree = qr;
+        this.lastQrNumFree = qr;
         // Update this pointer
-        (this as any).sendQueueIdxToRecvAtLastQr = (this as any).sendQueueIdxToReceive;
+        this.sendQueueIdxToRecvAtLastQr = this.sendQueueIdxToReceive;
         // See if we can send more stuff
         this._checkSendLoop();
     }
@@ -305,23 +313,23 @@ class TinyGController extends Controller {
         //this.debug('_commsHandleAckResponseReceived()');
         // Make sure we're actually expecting a response.  If not, assume it's a bug (like with probing) and just
         // ignore the response.
-        if ((this as any).sendQueueIdxToSend <= (this as any).sendQueueIdxToReceive)
+        if (this.sendQueueIdxToSend <= this.sendQueueIdxToReceive)
             return;
         let responseStatusCode = r.f ? r.f[1] : 0;
         // Fire off the ack hook
-        let entry = (this as any).sendQueue[(this as any).sendQueueIdxToReceive];
+        let entry = this.sendQueue[this.sendQueueIdxToReceive];
         if (entry.hooks)
             entry.hooks.triggerSync('ack', entry, r);
         if (responseStatusCode === 0) {
             // If we're not expecting this to go onto the planner queue, splice it out of the list now.  Otherwise,
             // increment the receive pointer.
             const everythingToPlanner = true; // makes gline hooks execute in order
-            if (entry.goesToPlanner || (everythingToPlanner && (this as any).sendQueueIdxToReceive > 0)) {
-                (this as any).sendQueueIdxToReceive++;
+            if (entry.goesToPlanner || (everythingToPlanner && this.sendQueueIdxToReceive > 0)) {
+                this.sendQueueIdxToReceive++;
             }
             else {
-                (this as any).sendQueue.splice((this as any).sendQueueIdxToReceive, 1);
-                (this as any).sendQueueIdxToSend--; // need to adjust this for the splice
+                this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
+                this.sendQueueIdxToSend--; // need to adjust this for the splice
                 if (entry.hooks) {
                     entry.hooks.triggerSync('executing', entry);
                     entry.hooks.triggerSync('executed', entry);
@@ -330,8 +338,8 @@ class TinyGController extends Controller {
         }
         else {
             // Got an error on the request.  Splice it out of sendQueue, and call the error hook on the gcode line
-            (this as any).sendQueue.splice((this as any).sendQueueIdxToReceive, 1);
-            (this as any).sendQueueIdxToSend--; // need to adjust this for the splice
+            this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
+            this.sendQueueIdxToSend--; // need to adjust this for the splice
             if (entry.hooks) {
                 entry.hooks.triggerSync('error', new XError(XError.INTERNAL_ERROR, 'Received error code from request to TinyG: ' + responseStatusCode));
             }
@@ -340,58 +348,58 @@ class TinyGController extends Controller {
     }
     // Checks the send queue to see if there's anything more that can be sent to the device.  Returns true if it can.
     _checkSendToDevice() {
-        if ((this as any)._disableSending)
+        if (this._disableSending)
             return false; // don't send anything more until state has synchronized
         // Don't send in cases where line requests fullSync
-        if ((this as any).sendQueue.length > (this as any).sendQueueIdxToSend && (this as any).sendQueueIdxToSend > 0 && (this as any).sendQueue[(this as any).sendQueueIdxToSend].fullSync) {
+        if (this.sendQueue.length > this.sendQueueIdxToSend && this.sendQueueIdxToSend > 0 && this.sendQueue[this.sendQueueIdxToSend].fullSync) {
             // If next line to send requires fullSync, do not send it until the rest of sendQueue is empty (indicating all previously sent lines have been executed)
             return false;
         }
-        if ((this as any).sendQueue.length && (this as any).sendQueue[0].fullSync && (this as any).sendQueueIdxToSend > 0) {
+        if (this.sendQueue.length && this.sendQueue[0].fullSync && this.sendQueueIdxToSend > 0) {
             // If a fullSync line is currently running, do not send anything more until it finishes
             return false;
         }
         // Don't send more if we haven't received responses for more than a threshold number
-        const maxUnackedRequests = (this as any).config.maxUnackedRequests || 32;
-        let numUnackedRequests = (this as any).sendQueueIdxToSend - (this as any).sendQueueIdxToReceive;
+        const maxUnackedRequests = this.config.maxUnackedRequests || 32;
+        let numUnackedRequests = this.sendQueueIdxToSend - this.sendQueueIdxToReceive;
         if (numUnackedRequests >= maxUnackedRequests)
             return false;
         // We can send more if either 1) The serial receive buffer is filled less than 4 lines (recommended as per tinyg docs), or 2) The planner
         // queue is expected to have fewer than 24 entries in it
         // The number of slots in the receive buffer expected to be filled is equal to the number of responses we have not yet received for requests.
-        let receiveBufferFilled = (this as any).sendQueueIdxToSend - (this as any).sendQueueIdxToReceive;
+        let receiveBufferFilled = this.sendQueueIdxToSend - this.sendQueueIdxToReceive;
         const receiveBufferMaxFill = 4;
         if (receiveBufferFilled < receiveBufferMaxFill)
             return true;
         // Check how many planner buffers are free.  We start with the number free as of the last qr and deduct the worse case
         // scenario of buffers per line.  Send more lines if there's room for 1 more gcode line in the planner buffer.
-        let effectiveFreePlannerBuffers = (this as any).lastQrNumFree - 3; // subtract 3 because it looks like the tinyg won't parse a line unless there are at least 4 open planner buffers
+        let effectiveFreePlannerBuffers = this.lastQrNumFree - 3; // subtract 3 because it looks like the tinyg won't parse a line unless there are at least 4 open planner buffers
         // for each unacked line sent since the last queue report, deduce the number of planner queue entries it's expected to use
         // TODO: track this count as a separate state variable to avoid doing this loop every time
-        for (let i = (this as any).sendQueueIdxToRecvAtLastQr; i < (this as any).sendQueueIdxToSend && i < (this as any).sendQueue.length; i++) {
-            effectiveFreePlannerBuffers -= (this as any).sendQueue[i].goesToPlanner;
+        for (let i = this.sendQueueIdxToRecvAtLastQr; i < this.sendQueueIdxToSend && i < this.sendQueue.length; i++) {
+            effectiveFreePlannerBuffers -= this.sendQueue[i].goesToPlanner;
         }
         // send another line if that line is expected to fit in planner queue
-        let nextLinePlannerBuffers = ((this as any).sendQueueIdxToSend < (this as any).sendQueue.length) ? (this as any).sendQueue[(this as any).sendQueueIdxToSend].goesToPlanner : 4;
+        let nextLinePlannerBuffers = (this.sendQueueIdxToSend < this.sendQueue.length) ? this.sendQueue[this.sendQueueIdxToSend].goesToPlanner : 4;
         return effectiveFreePlannerBuffers >= nextLinePlannerBuffers;
     }
     _checkSendLoop() {
         //this.debug('_checkSendLoop()');
-        while (((this as any).sendImmediateCounter > 0 || this._checkSendToDevice()) && (this as any).sendQueueIdxToSend < (this as any).sendQueue.length) {
+        while ((this.sendImmediateCounter > 0 || this._checkSendToDevice()) && this.sendQueueIdxToSend < this.sendQueue.length) {
             //this.debug('_checkSendLoop() iteration');
-            let entry = (this as any).sendQueue[(this as any).sendQueueIdxToSend];
+            let entry = this.sendQueue[this.sendQueueIdxToSend];
             this._writeToSerial(entry.str + '\n');
-            (this as any).sendQueueIdxToSend++;
-            if ((this as any).sendImmediateCounter > 0)
-                (this as any).sendImmediateCounter--;
+            this.sendQueueIdxToSend++;
+            if (this.sendImmediateCounter > 0)
+                this.sendImmediateCounter--;
             if (entry.hooks) {
                 entry.hooks.triggerSync('sent', entry);
             }
-            (this as any).emit('sent', entry.str);
+            this.emit('sent', entry.str);
         }
         // If the next entry queued to receive a response doesn't actually expect a response, generate a "fake" response for it
         // Since _commsHandleAckResponseReceived() calls _checkSendLoop() after it's finished, this process continues for subsequent entries
-        while ((this as any).sendQueueIdxToReceive < (this as any).sendQueueIdxToSend && !(this as any).sendQueue[(this as any).sendQueueIdxToReceive].responseExpected) {
+        while (this.sendQueueIdxToReceive < this.sendQueueIdxToSend && !this.sendQueue[this.sendQueueIdxToReceive].responseExpected) {
             //this.debug('_checkSendLoop() call _commsHandleAckResponseReceived');
             this._commsHandleAckResponseReceived({});
         }
@@ -403,15 +411,15 @@ class TinyGController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
     _sendBlock(block, immediate = false) {
         //this.debug('_sendBlock() ' + block.str);
-        if (!(this as any).serial)
+        if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
         block.responseExpected = !!block.str.trim();
         if (immediate) {
             this._sendBlockImmediate(block);
             return;
         }
-        block.lineid = (this as any).lineIdCounter++;
-        (this as any).sendQueue.push(block);
+        block.lineid = this.lineIdCounter++;
+        this.sendQueue.push(block);
         if (block.hooks)
             block.hooks.triggerSync('queued', block);
         this._checkSendLoop();
@@ -420,44 +428,44 @@ class TinyGController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
     _sendBlockImmediate(block) {
         //this.debug('_sendBlockImmediate() ' + block.str);
-        if (!(this as any).serial)
+        if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
         block.responseExpected = !!block.str.trim();
         // Need to insert the block immediately after the most recently sent block
         // Determine the line id based on its position
         let newLineId;
-        let sendQueueIdxLastSent = (this as any).sendQueueIdxToSend - 1;
+        let sendQueueIdxLastSent = this.sendQueueIdxToSend - 1;
         if (sendQueueIdxLastSent < 0) {
             // The most recently sent block has already been shifted off the sendQueue
-            if ((this as any).sendQueue.length) {
+            if (this.sendQueue.length) {
                 // There are more entries queued to be sent; pick a lineid a bit below the the next block to be sent
-                newLineId = (this as any).sendQueue[0].lineid - 0.5;
+                newLineId = this.sendQueue[0].lineid - 0.5;
             }
             else {
                 // There are no more entries queued to be sent; increment the id counter as normal
-                newLineId = (this as any).lineIdCounter++;
+                newLineId = this.lineIdCounter++;
             }
         }
         else {
             // We know the lineid of the last sent block
-            let lineidLastSent = (this as any).sendQueue[sendQueueIdxLastSent].lineid;
-            if ((this as any).sendQueue.length > (this as any).sendQueueIdxToSend) {
+            let lineidLastSent = this.sendQueue[sendQueueIdxLastSent].lineid;
+            if (this.sendQueue.length > this.sendQueueIdxToSend) {
                 // There are more entries queued to be sent
-                let lineidNextSent = (this as any).sendQueue[(this as any).sendQueueIdxToSend].lineid;
+                let lineidNextSent = this.sendQueue[this.sendQueueIdxToSend].lineid;
                 newLineId = (lineidNextSent + lineidLastSent) / 2;
             }
             else {
                 // There are not yet any more entries queued to be sent
-                newLineId = (this as any).lineIdCounter++;
+                newLineId = this.lineIdCounter++;
             }
         }
         block.lineid = newLineId;
         // Insert the block where it needs to go in the send queue (as the next to send)
-        (this as any).sendQueue.splice((this as any).sendQueueIdxToSend, 0, block);
+        this.sendQueue.splice(this.sendQueueIdxToSend, 0, block);
         if (block.hooks)
             block.hooks.triggerSync('queued', block);
         // Force sending this block
-        (this as any).sendImmediateCounter++;
+        this.sendImmediateCounter++;
         this._checkSendLoop();
     }
     // This function is called when a gcode line starts executing on the controller.  It is
@@ -492,98 +500,98 @@ class TinyGController extends Controller {
          * M7/M8/M9 - Changes coolant state
         */
         let zeropoint = [];
-        for (let i = 0; i < (this as any).axisLabels.length; i++)
+        for (let i = 0; i < this.axisLabels.length; i++)
             zeropoint.push(0);
         if (gline.has('G10') && gline.has('L2') && gline.has('P')) {
             let csys = gline.get('P') - 1;
             if (!this.coordSysOffsets[csys])
                 this.coordSysOffsets[csys] = zeropoint;
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 if (gline.has(axis))
                     this.coordSysOffsets[csys][axisNum] = gline.get(axis);
             }
-            (this as any).emit('statusUpdate');
+            this.emit('statusUpdate');
         }
         if (gline.has('G20') || gline.has('G21')) {
-            (this as any).units = gline.has('G20') ? 'in' : 'mm';
-            (this as any).emit('statusUpdate');
+            this.units = gline.has('G20') ? 'in' : 'mm';
+            this.emit('statusUpdate');
         }
         if (gline.has('G28.1') || gline.has('G30.1')) {
             let posnum = gline.has('G28.1') ? 0 : 1;
-            (this as any).storedPositions[posnum] = (this as any).mpos.slice();
-            (this as any).emit('statusUpdate');
+            this.storedPositions[posnum] = this.mpos.slice();
+            this.emit('statusUpdate');
         }
         if (gline.has('G28.2') || gline.has('G28.3')) {
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 if (gline.has(axis))
                     this.homed[axisNum] = true;
             }
-            (this as any).emit('statusUpdate');
+            this.emit('statusUpdate');
         }
         let csysCode = gline.get('G', 'G54');
         if (csysCode && csysCode >= 54 && csysCode <= 59 && Math.floor(csysCode) === csysCode) {
-            (this as any).activeCoordSys = csysCode - 54;
-            (this as any).emit('statusUpdate');
+            this.activeCoordSys = csysCode - 54;
+            this.emit('statusUpdate');
         }
         if (gline.has('G90') || gline.has('G91')) {
-            (this as any).incremental = gline.has('G91');
-            (this as any).emit('statusUpdate');
+            this.incremental = gline.has('G91');
+            this.emit('statusUpdate');
         }
         if (gline.has('G92')) {
-            if (!(this as any).offset)
-                (this as any).offset = zeropoint;
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum].toUpperCase();
+            if (!this.offset)
+                this.offset = zeropoint;
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum].toUpperCase();
                 if (gline.has(axis))
-                    (this as any).offset[axisNum] = gline.get(axis);
+                    this.offset[axisNum] = gline.get(axis);
             }
-            (this as any).offsetEnabled = true;
-            (this as any).emit('statusUpdate');
+            this.offsetEnabled = true;
+            this.emit('statusUpdate');
         }
         if (gline.has('G92.1')) {
-            (this as any).offset = zeropoint;
-            (this as any).offsetEnabled = false;
-            (this as any).emit('statusUpdate');
+            this.offset = zeropoint;
+            this.offsetEnabled = false;
+            this.emit('statusUpdate');
         }
         if (gline.has('G92.2')) {
-            (this as any).offsetEnabled = false;
-            (this as any).emit('statusUpdate');
+            this.offsetEnabled = false;
+            this.emit('statusUpdate');
         }
         if (gline.has('G92.3')) {
-            (this as any).offsetEnabled = true;
-            (this as any).emit('statusUpdate');
+            this.offsetEnabled = true;
+            this.emit('statusUpdate');
         }
         if (gline.has('G93') || gline.has('G94')) {
-            (this as any).inverseFeed = gline.has('G93');
-            (this as any).emit('statusUpdate');
+            this.inverseFeed = gline.has('G93');
+            this.emit('statusUpdate');
         }
         if (gline.has('M2') || gline.has('M30')) {
-            (this as any).offset = zeropoint;
-            (this as any).offsetEnabled = false;
-            (this as any).activeCoordSys = 0;
-            (this as any).incremental = false;
-            (this as any).spindle = false;
-            (this as any).coolant = false;
-            (this as any).emit('statusUpdate');
+            this.offset = zeropoint;
+            this.offsetEnabled = false;
+            this.activeCoordSys = 0;
+            this.incremental = false;
+            this.spindle = false;
+            this.coolant = 0;
+            this.emit('statusUpdate');
             this.sendLine({ coor: null }, { immediate: true });
             this.sendLine({ unit: null }, { immediate: true });
         }
         if (gline.has('M3') || gline.has('M4') || gline.has('M5')) {
-            (this as any).spindle = !gline.has('M5');
-            (this as any).spindleDirection = gline.has('M4') ? -1 : 1;
-            (this as any).spindleSpeed = gline.get('S') || null;
-            (this as any).emit('statusUpdate');
+            this.spindle = !gline.has('M5');
+            this.spindleDirection = gline.has('M4') ? -1 : 1;
+            this.spindleSpeed = gline.get('S') || null;
+            this.emit('statusUpdate');
         }
         if (gline.has('M7') || gline.has('M8') || gline.has('M9')) {
             if (gline.has('M7'))
-                (this as any).coolant = 1;
+                this.coolant = 1;
             else if (gline.has('M8'))
-                (this as any).coolant = 2;
+                this.coolant = 2;
             else
-                (this as any).coolant = false;
-            (this as any).emit('statusUpdate');
+                this.coolant = 0;
+            this.emit('statusUpdate');
         }
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
@@ -634,7 +642,7 @@ class TinyGController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
     _gcodeLineRequiresPlanner(gline) {
         let containsCoordinates = false;
-        for (let label of (this as any).axisLabels) {
+        for (let label of this.axisLabels) {
             if (gline.has(label)) {
                 containsCoordinates = true;
                 break;
@@ -671,9 +679,9 @@ class TinyGController extends Controller {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     _writeToSerial(str) {
-        if (!(this as any).serial)
+        if (!this.serial)
             return;
-        (this as any).serial.write(str);
+        this.serial.write(str);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     _isImmediateCommand(str) {
@@ -683,11 +691,11 @@ class TinyGController extends Controller {
     // Temporarily disable sending anything to the machine for a period of time to wait for it to catch up or something
     _tempDisableSending(time = 3500) {
         this.debug('_tempDisableSending');
-        let origDisableSending = (this as any)._disableSending;
-        (this as any)._disableSending = true;
+        let origDisableSending = this._disableSending;
+        this._disableSending = true;
         setTimeout(() => {
-            if ((this as any)._disableSending === true)
-                (this as any)._disableSending = origDisableSending;
+            if (this._disableSending === true)
+                this._disableSending = origDisableSending;
             this._checkSendLoop();
         }, time);
     }
@@ -695,23 +703,23 @@ class TinyGController extends Controller {
     _handleSendImmediateCommand(str) {
         this._writeToSerial('\n' + str + '\n');
         str = str.trim();
-        (this as any).emit('sent', str);
+        this.emit('sent', str);
         if (str === '!') {
-            (this as any).held = true;
+            this.held = true;
         }
         else if (str === '~') {
-            (this as any).held = false;
+            this.held = false;
         }
         else if (str === '%') {
             this._cancelRunningOps(new XError(XError.CANCELLED, 'Operation cancelled'));
-            (this as any).held = false;
+            this.held = false;
             // I've found that things sent very shortly after a % can somehow get "lost".  So wait a while before sending anything more.
             this._tempDisableSending();
         }
         else if (str === '\x18') {
             this.debug('Handling Ctrl-X send -> _cancelRunningOps');
             this._cancelRunningOps(new XError(XError.CANCELLED, 'Machine reset'));
-            (this as any).ready = false; // will be set back to true once SYSTEM READY message received
+            this.ready = false; // will be set back to true once SYSTEM READY message received
             this._tempDisableSending();
         }
     }
@@ -740,15 +748,15 @@ class TinyGController extends Controller {
     }
     initConnection(retry = true) {
         this.debug('initConnection()');
-        if ((this as any)._initializing) {
+        if (this._initializing) {
             this.debug('skipping, already initializing');
             return;
         }
-        (this as any)._retryConnectFlag = retry;
-        (this as any).ready = false;
-        (this as any)._initializing = true;
-        (this as any).emit('statusUpdate');
-        if ((this as any).serial || (this as any).sendQueue.length) {
+        this._retryConnectFlag = retry;
+        this.ready = false;
+        this._initializing = true;
+        this.emit('statusUpdate');
+        if (this.serial || this.sendQueue.length) {
             // @ts-expect-error ts-migrate(2554) FIXME: Expected 1 arguments, but got 0.
             this.close();
         }
@@ -764,18 +772,18 @@ class TinyGController extends Controller {
                 rtscts: true,
                 xany: false
             };
-            for (let key in (this as any).config) {
+            for (let key in this.config) {
                 if (key in serialOptions) {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                    serialOptions[key] = (this as any).config[key];
+                    serialOptions[key] = this.config[key];
                 }
             }
-            let port = (this as any).config.port || '/dev/ttyUSB0';
+            let port = this.config.port || '/dev/ttyUSB0';
             // Try to open the serial port
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
                 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-                (this as any).serial = new SerialPort(port, serialOptions, (err) => {
+                this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
                     else
@@ -783,20 +791,20 @@ class TinyGController extends Controller {
                 });
             });
             this.debug('Serial port opened');
-            if ((this as any).resetOnConnect) {
+            if (this.resetOnConnect) {
                 this.debug('resetOnConnect flag set; sending reset');
-                (this as any).resetOnConnect = false;
-                (this as any).serial.write('\x18\n');
+                this.resetOnConnect = false;
+                this.serial.write('\x18\n');
                 await pasync.setTimeout(5000);
                 this.debug('draining serial buffer');
-                (this as any).serial.read(); // drain the serial buffer
+                this.serial.read(); // drain the serial buffer
             }
             // This waiter is used for the pause during initialization later.  It's needed because
             // we need to be able to reject this and exit initialization if an error occurs while paused.
             let initializationPauseWaiter = pasync.waiter();
             // Initialize serial buffers and initial variables
-            (this as any).serialReceiveBuf = '';
-            (this as any).currentStatusReport = {};
+            this.serialReceiveBuf = '';
+            this.currentStatusReport = {};
             this.debug('initConnection calling _commsReset()');
             this._commsReset();
             // Set up serial port communications handlers
@@ -804,8 +812,8 @@ class TinyGController extends Controller {
             const onSerialError = (err) => {
                 this.debug('Serial error ' + err);
                 err = new XError(XError.COMM_ERROR, 'Serial port communication error', err);
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
+                if (!this._initializing)
+                    this.emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
                 this.close(err);
                 this._retryConnect();
             };
@@ -813,8 +821,8 @@ class TinyGController extends Controller {
                 this.debug('Serial close');
                 // Note that this isn't called during intended closures via this.close(), since this.close() first removes all handlers
                 let err = new XError(XError.COMM_ERROR, 'Serial port closed unexpectedly');
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err);
+                if (!this._initializing)
+                    this.emit('error', err);
                 this.close(err);
                 this._retryConnect();
             };
@@ -830,16 +838,16 @@ class TinyGController extends Controller {
                     }
                 }
                 buf = newBuf.slice(0, newBufIdx);
-                let str = (this as any).serialReceiveBuf + buf.toString('utf8');
+                let str = this.serialReceiveBuf + buf.toString('utf8');
                 let strlines = str.split(/[\r\n]+/);
                 if (!strlines[strlines.length - 1].trim()) {
                     // Received data ended in a newline, so don't need to buffer anything
                     strlines.pop();
-                    (this as any).serialReceiveBuf = '';
+                    this.serialReceiveBuf = '';
                 }
                 else {
                     // Last line did not end in a newline, so add to buffer
-                    (this as any).serialReceiveBuf = strlines.pop();
+                    this.serialReceiveBuf = strlines.pop();
                 }
                 // Process each received line
                 for (let line of strlines) {
@@ -849,8 +857,8 @@ class TinyGController extends Controller {
                             this._handleReceiveSerialDataLine(line);
                         }
                         catch (err) {
-                            if (!(this as any)._initializing)
-                                (this as any).emit('error', err);
+                            if (!this._initializing)
+                                this.emit('error', err);
                             this.close(err);
                             this._retryConnect();
                             break;
@@ -858,13 +866,13 @@ class TinyGController extends Controller {
                     }
                 }
             };
-            (this as any)._serialListeners = {
+            this._serialListeners = {
                 error: onSerialError,
                 close: onSerialClose,
                 data: onSerialData
             };
-            for (let eventName in (this as any)._serialListeners)
-                (this as any).serial.on(eventName, (this as any)._serialListeners[eventName]);
+            for (let eventName in this._serialListeners)
+                this.serial.on(eventName, this._serialListeners[eventName]);
             // This handles the case that the app might have been killed with a partially sent serial buffer.  Send a newline
             // to "flush" it, then wait a short period of time for any possible response to be received (and ignored).
             this._writeToSerial('\n');
@@ -882,79 +890,79 @@ class TinyGController extends Controller {
                     initializationPauseWaiter = null;
                 }
             };
-            (this as any).on('cancelRunningOps', pauseCancelRunningOpsHandler);
+            this.on('cancelRunningOps', pauseCancelRunningOpsHandler);
             try {
                 await initializationPauseWaiter.promise;
             }
             finally {
-                (this as any).removeListener('cancelRunningOps', pauseCancelRunningOpsHandler);
+                this.removeListener('cancelRunningOps', pauseCancelRunningOpsHandler);
             }
             // Initialize all the machine state properties
             await this._initMachine();
             // Initialization succeeded
-            (this as any).ready = true;
-            (this as any)._initializing = false;
-            (this as any).emit('connected');
-            (this as any).emit('ready');
-            (this as any).emit('statusUpdate');
+            this.ready = true;
+            this._initializing = false;
+            this.emit('connected');
+            this.emit('ready');
+            this.emit('statusUpdate');
             this.debug('initConnection() done');
         };
         doInit()
             .catch((err) => {
             this.debug('initConnection() error ' + err);
-            (this as any).emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
+            this.emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
             this.close(err);
-            (this as any)._initializing = false;
+            this._initializing = false;
             this._retryConnect();
         });
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
     close(err) {
         this.debug('close() ' + err);
-        if (err && !(this as any).error) {
-            (this as any).error = true;
-            (this as any).errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
+        if (err && !this.error) {
+            this.error = true;
+            this.errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
         }
-        (this as any).ready = false;
+        this.ready = false;
         this.debug('close() calling _cancelRunningOps()');
         this._cancelRunningOps(err || new XError(XError.CANCELLED, 'Operations cancelled due to close'));
-        if ((this as any).serial) {
+        if (this.serial) {
             this.debug('close() removing listeners from serial');
-            for (let key in (this as any)._serialListeners) {
-                (this as any).serial.removeListener(key, (this as any)._serialListeners[key]);
+            for (let key in this._serialListeners) {
+                this.serial.removeListener(key, this._serialListeners[key]);
             }
-            (this as any)._serialListeners = [];
-            (this as any).serial.on('error', () => { }); // swallow errors on this port that we're discarding
+            this._serialListeners = {};
+            this.serial.on('error', () => { }); // swallow errors on this port that we're discarding
             this.debug('close() Trying to close serial');
             try {
-                (this as any).serial.close();
+                this.serial.close();
             }
             catch (err2) { }
             this.debug('close() done closing serial');
-            delete (this as any).serial;
+            delete this.serial;
         }
-        (this as any).emit('statusUpdate');
+        this.emit('statusUpdate');
         this.debug('close() complete');
     }
     _retryConnect() {
         this.debug('_retryConnect()');
-        if (!(this as any)._retryConnectFlag) {
+        if (!this._retryConnectFlag) {
             this.debug('Skipping, retry connect disabled');
             return;
         }
-        if ((this as any)._waitingToRetry) {
+        if (this._waitingToRetry) {
             this.debug('Skipping, already waiting to retry');
             return;
         }
-        (this as any)._waitingToRetry = true;
+        this._waitingToRetry = true;
         setTimeout(() => {
-            (this as any)._waitingToRetry = false;
+            this._waitingToRetry = false;
             this.debug('_retryConnect() calling initConnection()');
             this.initConnection(true);
         }, 5000);
     }
     _numInFlightRequests() {
-        return (this as any).sendQueue.length - (this as any).sendQueueIdxToReceive;
+        return this.sendQueue.length - this.sendQueueIdxToReceive;
     }
     // Check to see if the machine state is synchronized to local state, and the machine stopped.
     _checkSynced() {
@@ -964,17 +972,17 @@ class TinyGController extends Controller {
         // 2. There are no sent lines for which responses have not been received.
         // 3. There is nothing queued to be sent (or sending is paused)
         // 4. We're sure our last received status report is up to date (either we've received a sr since the last response, or it has been more than X amount of time since last response)
-        let wasSynced = (this as any).synced;
+        let wasSynced = this.synced;
         const respTimeThreshold = 500;
-        let exceededRespTimeThreshold = (this as any).lastResponseReceivedTime && (this as any).lastResponseReceivedTime.getTime() + respTimeThreshold <= new Date().getTime();
-        let hasReliableSR = (this as any).lastStatusReportCounter !== null && ((this as any).lastResponseReceivedCounter === null || (this as any).lastStatusReportCounter >= (this as any).lastResponseReceivedCounter || (this as any).lastResponseReceivedTime === null || exceededRespTimeThreshold);
-        let machineSynced = ((this as any).currentStatusReport.stat === 3 || (this as any).currentStatusReport.stat === 4 || (this as any).currentStatusReport.stat === 1) &&
-            (this as any).sendQueueIdxToReceive >= (this as any).sendQueueIdxToSend &&
+        let exceededRespTimeThreshold = this.lastResponseReceivedTime && this.lastResponseReceivedTime?.getTime() + respTimeThreshold <= new Date().getTime();
+        let hasReliableSR = this.lastStatusReportCounter !== null && (this.lastResponseReceivedCounter === null || (this.lastStatusReportCounter && this.lastResponseReceivedCounter && this.lastStatusReportCounter >= this.lastResponseReceivedCounter) || this.lastResponseReceivedTime === null || exceededRespTimeThreshold);
+        let machineSynced = (this.currentStatusReport.stat === 3 || this.currentStatusReport.stat === 4 || this.currentStatusReport.stat === 1) &&
+            this.sendQueueIdxToReceive >= this.sendQueueIdxToSend &&
             hasReliableSR;
         // only consider things truly synced if the machine has synchronized to our instructions, and we have no more instructions to give it
         // but we still need to track machineSynced for proper planner mirror syncing behavior
         let nowSynced = machineSynced &&
-            ((this as any).sendQueueIdxToSend >= (this as any).sendQueue.length || (this as any)._disableSending);
+            (this.sendQueueIdxToSend >= this.sendQueue.length || this._disableSending);
         // Call hooks on all gcode lines once machine has stopped (fixes some desyncs with queue reports)
         if (machineSynced)
             this._commsSyncPlannerMirror();
@@ -983,21 +991,21 @@ class TinyGController extends Controller {
                 this.debug('Is now synced');
             else
                 this.debug('No longer synced');
-            (this as any).synced = nowSynced;
-            (this as any).emit('statusUpdate');
+            this.synced = nowSynced;
+            this.emit('statusUpdate');
         }
-        if (!nowSynced && !hasReliableSR && !exceededRespTimeThreshold && !(this as any)._timeoutCheckSynced) {
+        if (!nowSynced && !hasReliableSR && !exceededRespTimeThreshold && !this._timeoutCheckSynced) {
             // if the reason we're not synced is because it hasn't been long enough since the last response, set a timer to check again
-            (this as any)._timeoutCheckSynced = true;
+            this._timeoutCheckSynced = true;
             setTimeout(() => {
-                (this as any)._timeoutCheckSynced = false;
-                if ((this as any).synced || !(this as any).serial)
+                this._timeoutCheckSynced = false;
+                if (this.synced || !this.serial)
                     return;
                 try {
                     this._checkSynced();
                 }
                 catch (err) {
-                    (this as any).emit('error', err);
+                    this.emit('error', err);
                 }
             }, respTimeThreshold / 2);
         }
@@ -1005,30 +1013,30 @@ class TinyGController extends Controller {
     async waitSync() {
         // Fetch new status report to ensure up-to-date info (mostly in case a move was just requested and we haven't gotten an update from that yet)
         // If sends are disabled, instead just wait some time to make sure a response was received
-        if ((this as any)._disableSending) {
+        if (this._disableSending) {
             await pasync.setTimeout(250);
         }
         else {
             await this.request({ sr: null });
         }
-        if ((this as any).synced)
+        if (this.synced)
             return;
         // register a listener for status changes, and resolve when these conditions are met
         await new Promise<void>((resolve, reject) => {
-            if ((this as any).error)
-                return reject((this as any).errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+            if (this.error)
+                return reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
             // @ts-expect-error ts-migrate(7034) FIXME: Variable 'removeListeners' implicitly has type 'an... Remove this comment to see the full error message
             let removeListeners;
-            (this as any)._waitingForSync = true;
+            this._waitingForSync = true;
             const statusHandler = () => {
-                if ((this as any).error) {
-                    (this as any)._waitingForSync = false;
+                if (this.error) {
+                    this._waitingForSync = false;
                     // @ts-expect-error ts-migrate(7005) FIXME: Variable 'removeListeners' implicitly has an 'any'... Remove this comment to see the full error message
                     removeListeners();
-                    reject((this as any).errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+                    reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
                 }
-                else if ((this as any).synced) {
-                    (this as any)._waitingForSync = false;
+                else if (this.synced) {
+                    this._waitingForSync = false;
                     // @ts-expect-error ts-migrate(7005) FIXME: Variable 'removeListeners' implicitly has an 'any'... Remove this comment to see the full error message
                     removeListeners();
                     resolve();
@@ -1037,24 +1045,24 @@ class TinyGController extends Controller {
             };
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             const cancelRunningOpsHandler = (err) => {
-                (this as any)._waitingForSync = false;
+                this._waitingForSync = false;
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'removeListeners' implicitly has an 'any'... Remove this comment to see the full error message
                 removeListeners();
                 reject(err);
             };
             removeListeners = () => {
-                (this as any).removeListener('statusUpdate', statusHandler);
-                (this as any).removeListener('cancelRunningOps', cancelRunningOpsHandler);
+                this.removeListener('statusUpdate', statusHandler);
+                this.removeListener('cancelRunningOps', cancelRunningOpsHandler);
             };
-            (this as any).on('statusUpdate', statusHandler);
-            (this as any).on('cancelRunningOps', cancelRunningOpsHandler);
+            this.on('statusUpdate', statusHandler);
+            this.on('cancelRunningOps', cancelRunningOpsHandler);
         });
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
     _handleReceiveSerialDataLine(line) {
         //this.debug('receive line ' + line);
-        (this as any).emit('received', line);
-        (this as any).receivedLineCounter++;
+        this.emit('received', line);
+        this.receivedLineCounter++;
         if (line[0] != '{')
             throw new XError(XError.PARSE_ERROR, 'Error parsing received serial line', { data: line });
         let data = AbbrJSON.parse(line);
@@ -1067,13 +1075,13 @@ class TinyGController extends Controller {
         if ('er' in data && 'msg' in data.er)
             message = data.er.msg;
         if (message)
-            (this as any).emit('message', message);
+            this.emit('message', message);
         // Check if this is a SYSTEM READY response indicating a reset
         if ('r' in data && data.r.msg === 'SYSTEM READY') {
             this.debug('Got SYSTEM READY message');
             let err = new XError(XError.CANCELLED, 'Machine reset');
             this.close(err);
-            if (!(this as any)._initializing) {
+            if (!this._initializing) {
                 this.debug('calling _retryConnect() after receive SYSTEM READY');
                 this._retryConnect();
             }
@@ -1082,14 +1090,14 @@ class TinyGController extends Controller {
         }
         // Check if this is an error report indicating an alarm state
         if ('er' in data) {
-            if (!(this as any)._disableResponseErrorEvent) {
-                (this as any).error = true;
-                (this as any).errorData = new XError(XError.MACHINE_ERROR, data.er.msg || JSON.stringify(data.er), data.er);
-                (this as any).ready = false;
+            if (!this._disableResponseErrorEvent) {
+                this.error = true;
+                this.errorData = new XError(XError.MACHINE_ERROR, data.er.msg || JSON.stringify(data.er), data.er);
+                this.ready = false;
                 let err = new XError(XError.MACHINE_ERROR, data.er.msg || ('Code ' + data.er.st) || 'Machine error report', data.er);
                 this._cancelRunningOps(err);
-                if (!(this as any)._initializing)
-                    (this as any).emit('error', err);
+                if (!this._initializing)
+                    this.emit('error', err);
             }
             return;
         }
@@ -1099,7 +1107,7 @@ class TinyGController extends Controller {
             for (let key in data.sr)
                 // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                 statusVars[key] = data.sr[key];
-            (this as any).lastStatusReportCounter = (this as any).receivedLineCounter;
+            this.lastStatusReportCounter = this.receivedLineCounter;
         }
         if ('qr' in data) {
             // Update queue report
@@ -1109,7 +1117,7 @@ class TinyGController extends Controller {
         if ('qr' in data && 'qi' in data && 'qo' in data) {
             queueReport = data;
         }
-        for (let key in (this as any).currentStatusReport) {
+        for (let key in this.currentStatusReport) {
             if (key in data)
                 // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                 statusVars[key] = data[key];
@@ -1119,14 +1127,14 @@ class TinyGController extends Controller {
         }
         let responseStatusCode = null;
         if ('r' in data) {
-            (this as any).lastResponseReceivedCounter = (this as any).receivedLineCounter;
-            (this as any).lastResponseReceivedTime = new Date();
+            this.lastResponseReceivedCounter = this.receivedLineCounter;
+            this.lastResponseReceivedTime = new Date();
             if ('sr' in data.r) {
                 // Update the current status variables
                 for (let key in data.r.sr)
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     statusVars[key] = data.r.sr[key];
-                (this as any).lastStatusReportCounter = (this as any).receivedLineCounter;
+                this.lastStatusReportCounter = this.receivedLineCounter;
             }
             if ('n' in data.r) {
                 // Update gcode line number
@@ -1150,7 +1158,7 @@ class TinyGController extends Controller {
         else {
             this._updateStatusReport(statusVars);
         }
-        (this as any).emit('afterReceived', line);
+        this.emit('afterReceived', line);
         // If queue report information was received, update our communications state info accordingly
         if (queueReport) {
             this._commsHandleQueueReportReceived(queueReport);
@@ -1162,23 +1170,23 @@ class TinyGController extends Controller {
         // Update this.currentStatusReport
         let statusUpdated = false;
         for (let key in sr) {
-            if ((this as any).currentStatusReport[key] !== sr[key]) {
-                (this as any).currentStatusReport[key] = sr[key];
+            if (this.currentStatusReport[key] !== sr[key]) {
+                this.currentStatusReport[key] = sr[key];
                 statusUpdated = true;
             }
         }
         // Keys we care about: mpo{x}, coor, g5{4}{x}, g92{x}, g{28,30}{x}, hom{x}, stat, unit, feed, dist, n
         // Check for axis-specific keys
-        for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-            let axis = (this as any).axisLabels[axisNum];
+        for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+            let axis = this.axisLabels[axisNum];
             if (('mpo' + axis) in sr)
-                (this as any).mpos[axisNum] = sr['mpo' + axis];
+                this.mpos[axisNum] = sr['mpo' + axis];
             if (('g92' + axis) in sr)
-                (this as any).offset[axisNum] = sr['g92' + axis];
+                this.offset[axisNum] = sr['g92' + axis];
             if (('g28' + axis) in sr)
-                (this as any).storedPositions[0][axisNum] = sr['g28' + axis];
+                this.storedPositions[0][axisNum] = sr['g28' + axis];
             if (('g30' + axis) in sr)
-                (this as any).storedPositions[1][axisNum] = sr['g30' + axis];
+                this.storedPositions[1][axisNum] = sr['g30' + axis];
             if (('hom' + axis) in sr)
                 this.homed[axisNum] = !!sr['hom' + axis];
             for (let csys = 0; csys < 6; csys++) {
@@ -1191,93 +1199,93 @@ class TinyGController extends Controller {
         }
         // Non-axis keys
         if ('coor' in sr) {
-            (this as any).activeCoordSys = (sr.coor === 0) ? null : sr.coor - 1;
+            this.activeCoordSys = (sr.coor === 0) ? undefined : sr.coor - 1;
         }
         if ('unit' in sr) {
-            (this as any).units = sr.unit ? 'mm' : 'in';
+            this.units = sr.unit ? 'mm' : 'in';
         }
         if ('feed' in sr) {
-            (this as any).feed = sr.feed;
+            this.feed = sr.feed;
         }
         if ('dist' in sr) {
-            (this as any).incremental = !!sr.dist;
+            this.incremental = !!sr.dist;
         }
         if ('n' in sr) {
-            (this as any).line = sr.n;
+            this.line = sr.n;
         }
         if ('qr' in sr) {
-            (this as any).plannerQueueFree = sr.qr;
+            this.plannerQueueFree = sr.qr;
         }
         if ('stat' in sr) {
             switch (sr.stat) {
                 case 0: // initializing
-                    (this as any).ready = false;
-                    (this as any).held = false;
-                    (this as any).moving = false;
-                    (this as any).error = false;
-                    (this as any).programRunning = false;
+                    this.ready = false;
+                    this.held = false;
+                    this.moving = false;
+                    this.error = false;
+                    this.programRunning = false;
                     break;
                 case 1: // "reset"
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = false;
-                    (this as any).error = false;
-                    (this as any).programRunning = false;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = false;
+                    this.error = false;
+                    this.programRunning = false;
                     break;
                 case 2: // alarm
-                    (this as any).ready = false;
-                    (this as any).held = false;
-                    (this as any).moving = false;
-                    (this as any).error = true;
-                    if (!(this as any).errorData)
-                        (this as any).errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
+                    this.ready = false;
+                    this.held = false;
+                    this.moving = false;
+                    this.error = true;
+                    if (!this.errorData)
+                        this.errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
                     break;
                 case 3: // stop
                 case 8: // cycle
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = false;
-                    (this as any).error = false;
-                    (this as any).programRunning = true;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = false;
+                    this.error = false;
+                    this.programRunning = true;
                     break;
                 case 4: // end
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = false;
-                    (this as any).error = false;
-                    (this as any).programRunning = false;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = false;
+                    this.error = false;
+                    this.programRunning = false;
                     break;
                 case 5: // run
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = true;
-                    (this as any).error = false;
-                    (this as any).programRunning = true;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = true;
+                    this.error = false;
+                    this.programRunning = true;
                     break;
                 case 6: // hold
-                    (this as any).ready = true;
-                    (this as any).held = true;
-                    (this as any).moving = false;
-                    (this as any).error = false;
+                    this.ready = true;
+                    this.held = true;
+                    this.moving = false;
+                    this.error = false;
                     break;
                 case 7: // probe
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = true;
-                    (this as any).error = false;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = true;
+                    this.error = false;
                     break;
                 case 9: // homing
-                    (this as any).ready = true;
-                    (this as any).held = false;
-                    (this as any).moving = true;
-                    (this as any).error = false;
+                    this.ready = true;
+                    this.held = false;
+                    this.moving = true;
+                    this.error = false;
                     break;
                 default:
                     throw new XError(XError.INTERNAL_ERROR, 'Unknown machine state: ' + sr.stat);
             }
         }
         if (statusUpdated && emitEvent) {
-            (this as any).emit('statusUpdate');
+            this.emit('statusUpdate');
         }
         this._checkSynced();
     }
@@ -1286,8 +1294,8 @@ class TinyGController extends Controller {
         if (!vars) {
             // @ts-expect-error ts-migrate(2322) FIXME: Type 'string[]' is not assignable to type 'null'.
             vars = ['coor', 'stat', 'unit', 'feed', 'dist', 'n', 'qr'];
-            for (let axisNum = 0; axisNum < (this as any).axisLabels.length; axisNum++) {
-                let axis = (this as any).axisLabels[axisNum];
+            for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
+                let axis = this.axisLabels[axisNum];
                 // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
                 vars.push('mpo' + axis, 'g92' + axis, 'g28' + axis, 'g30' + axis, 'hom' + axis);
                 for (let csys = 0; csys < 6; csys++) {
@@ -1333,11 +1341,11 @@ class TinyGController extends Controller {
         // Enable triple queue reports
         await this.request({ qv: 2 });
         // Set automatic status report interval
-        await this.request({ si: (this as any).config.statusReportInterval || 250 });
+        await this.request({ si: this.config.statusReportInterval || 250 });
         // Configure status report fields
         //await this.request({ sr: false }); // to work with future firmware versions where status report variables are configured incrementally
         let srVars = ['n', 'feed', 'stat'];
-        for (let axis of (this as any).axisLabels) {
+        for (let axis of this.axisLabels) {
             srVars.push('mpo' + axis);
         }
         let srConfig = {};
@@ -1349,16 +1357,16 @@ class TinyGController extends Controller {
         // Fetch initial state
         await this._fetchStatus(null, false);
         // Set the planner queue size to the number of free entries (it's currently empty)
-        (this as any).plannerQueueSize = (this as any).plannerQueueFree;
+        this.plannerQueueSize = this.plannerQueueFree;
         // Fetch axis maximum velocities
-        for (let axisNum = 0; axisNum < (this as any).usedAxes.length; axisNum++) {
-            if ((this as any).usedAxes[axisNum]) {
-                let axis = (this as any).axisLabels[axisNum];
+        for (let axisNum = 0; axisNum < this.usedAxes.length; axisNum++) {
+            if (this.usedAxes[axisNum]) {
+                let axis = this.axisLabels[axisNum];
                 let response = await this.request({ [axis + 'vm']: null });
                 if ((response as any).r)
                     response = (response as any).r;
                 if (typeof (response as any)[axis + 'vm'] === 'number') {
-                    (this as any).axisMaxFeeds[axisNum] = (response as any)[axis + 'vm'];
+                    this.axisMaxFeeds[axisNum] = (response as any)[axis + 'vm'];
                 }
             }
         }
@@ -1371,12 +1379,12 @@ class TinyGController extends Controller {
         let waiter = pasync.waiter();
         // Bounds within which to stop and start reading from the stream.  These correspond to the number of queued lines
         // not yet sent to the controller.
-        let sendQueueHighWater = (this as any).config.streamSendQueueHighWaterMark || 20;
-        let sendQueueLowWater = (this as any).config.streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
+        let sendQueueHighWater = this.config.streamSendQueueHighWaterMark || 20;
+        let sendQueueLowWater = this.config.streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
         let streamPaused = false;
         let canceled = false;
         const numUnsentLines = () => {
-            return (this as any).sendQueue.length - (this as any).sendQueueIdxToSend;
+            return this.sendQueue.length - this.sendQueueIdxToSend;
         };
         const sentListener = () => {
             // Check if paused stream can be resumed
@@ -1387,8 +1395,8 @@ class TinyGController extends Controller {
         };
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
         const cancelHandler = (err) => {
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             canceled = true;
             waiter.reject(err);
             stream.emit('error', err);
@@ -1397,12 +1405,12 @@ class TinyGController extends Controller {
         stream.on(stream._isZStream ? 'chainerror' : 'error', (err) => {
             if (canceled)
                 return;
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             waiter.reject(err);
             canceled = true;
         });
-        (this as any).on('sent', sentListener);
+        this.on('sent', sentListener);
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'chunk' implicitly has an 'any' type.
         stream.on('data', (chunk) => {
             if (canceled)
@@ -1419,12 +1427,12 @@ class TinyGController extends Controller {
         stream.on('end', () => {
             if (canceled)
                 return;
-            (this as any).removeListener('sent', sentListener);
-            (this as any).removeListener('cancelRunningOps', cancelHandler);
+            this.removeListener('sent', sentListener);
+            this.removeListener('cancelRunningOps', cancelHandler);
             this.waitSync()
                 .then(() => waiter.resolve(), (err) => waiter.reject(err));
         });
-        (this as any).on('cancelRunningOps', cancelHandler);
+        this.on('cancelRunningOps', cancelHandler);
         return waiter.promise;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
@@ -1434,7 +1442,7 @@ class TinyGController extends Controller {
         this.debug('_cancelRunningOps() calling _checkSynced()');
         this._checkSynced();
         this.debug('_cancelRunningOps() emitting cancelRunningOps');
-        (this as any).emit('cancelRunningOps', err);
+        this.emit('cancelRunningOps', err);
         this.debug('_cancelRunningOps() done');
     }
     hold() {
@@ -1444,20 +1452,20 @@ class TinyGController extends Controller {
         this.sendLine('~');
     }
     cancel() {
-        if (!(this as any).held)
+        if (!this.held)
             this.hold();
         this.sendLine('%'); // wipe planner buffer and serial buffer; sendLine() also intercepts this to clean other stuff up
         this.sendLine('M5'); // spindle off
         this.sendLine('M9'); // coolant off
     }
     reset() {
-        if ((this as any).serial) {
+        if (this.serial) {
             this.debug('reset() called with serial; sending Ctrl-X');
             this.sendLine('\x18');
         }
         else {
             this.debug('reset() called without serial; setting resetOnConnect flag');
-            (this as any).resetOnConnect = true;
+            this.resetOnConnect = true;
         }
     }
     clearError() {
@@ -1465,13 +1473,13 @@ class TinyGController extends Controller {
     }
     async home(axes = null) {
         if (!axes)
-            axes = (this as any).homableAxes;
+            axes = this.homableAxes;
         let gcode = 'G28.2';
         // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         for (let axisNum = 0; axisNum < axes.length; axisNum++) {
             // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             if (axes[axisNum]) {
-                gcode += ' ' + (this as any).axisLabels[axisNum].toUpperCase() + '0';
+                gcode += ' ' + this.axisLabels[axisNum].toUpperCase() + '0';
             }
         }
         await this.request(gcode);
@@ -1482,7 +1490,7 @@ class TinyGController extends Controller {
         let gcode = feed ? 'G1' : 'G0';
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
             if (typeof pos[axisNum] === 'number') {
-                gcode += ' ' + (this as any).axisLabels[axisNum].toUpperCase() + pos[axisNum];
+                gcode += ' ' + this.axisLabels[axisNum].toUpperCase() + pos[axisNum];
             }
         }
         await this.request(gcode);
@@ -1491,23 +1499,23 @@ class TinyGController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
     realTimeMove(axisNum, inc) {
         // Make sure there aren't too many requests in the queue
-        if (this._numInFlightRequests() > ((this as any).config.realTimeMovesMaxQueued || 8))
+        if (this._numInFlightRequests() > (this.config.realTimeMovesMaxQueued || 8))
             return false;
         // Rate-limit real time move requests according to feed rate
-        let rtmTargetFeed = ((this as any).axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
-        let counterDecrement = (new Date().getTime() - (this as any).realTimeMovesTimeStart[axisNum]) / 1000 * rtmTargetFeed / 60;
-        (this as any).realTimeMovesCounter[axisNum] -= counterDecrement;
-        if ((this as any).realTimeMovesCounter[axisNum] < 0) {
-            (this as any).realTimeMovesCounter[axisNum] = 0;
+        let rtmTargetFeed = (this.axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
+        let counterDecrement = (new Date().getTime() - this.realTimeMovesTimeStart[axisNum]) / 1000 * rtmTargetFeed / 60;
+        this.realTimeMovesCounter[axisNum] -= counterDecrement;
+        if (this.realTimeMovesCounter[axisNum] < 0) {
+            this.realTimeMovesCounter[axisNum] = 0;
         }
-        (this as any).realTimeMovesTimeStart[axisNum] = new Date().getTime();
-        let maxOvershoot = ((this as any).config.realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
-        if ((this as any).realTimeMovesCounter[axisNum] > maxOvershoot)
+        this.realTimeMovesTimeStart[axisNum] = new Date().getTime();
+        let maxOvershoot = (this.config.realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
+        if (this.realTimeMovesCounter[axisNum] > maxOvershoot)
             return false;
-        (this as any).realTimeMovesCounter[axisNum] += Math.abs(inc);
+        this.realTimeMovesCounter[axisNum] += Math.abs(inc);
         // Send the move
         this.send('G91');
-        let gcode = 'G0 ' + (this as any).axisLabels[axisNum].toUpperCase() + inc;
+        let gcode = 'G0 ' + this.axisLabels[axisNum].toUpperCase() + inc;
         this.send(gcode);
         this.send('G90');
     }
@@ -1590,9 +1598,9 @@ class TinyGController extends Controller {
             // @ts-expect-error ts-migrate(2322) FIXME: Type '25' is not assignable to type 'null'.
             feed = 25;
         // Disable other requests while probing is running
-        (this as any)._disableSending = true;
+        this._disableSending = true;
         // Disable error events, since we may need to handle soft alarms
-        (this as any)._disableResponseErrorEvent = true;
+        this._disableResponseErrorEvent = true;
         let activeCoordSys = undefined;
         try {
             // Wait for motion to stop so position information is synchronized
@@ -1612,21 +1620,21 @@ class TinyGController extends Controller {
             if (selectedAxisNum === null)
                 throw new XError(XError.INVALID_ARGUMENT, 'Cannot probe to same location');
             // Store the currently active coordinate system to work around tinyg bug
-            activeCoordSys = (this as any).activeCoordSys;
+            activeCoordSys = this.activeCoordSys;
             // Test if the current version of TinyG uses machine coordinates for probing or local coordinates
             // Note that if offsets are zero, it doesn't matter, and don't bother testing
             // If, at some point, the build versions of TinyG that have this oddity are known and published, those will be a much better test than this hack
-            if ((this as any).config.probeUsesMachineCoords === undefined && curOffsets[selectedAxisNum] !== 0) {
+            if (this.config.probeUsesMachineCoords === undefined && curOffsets[selectedAxisNum] !== 0) {
                 // See above block comment for explanation of this process.
                 // determine if test probe is to same coordinates in offset coords or machine coords
                 let probeTestToSameMachineCoords = curOffsets[selectedAxisNum] > 0;
                 if (pos[selectedAxisNum] - curPos[selectedAxisNum] < 0)
                     probeTestToSameMachineCoords = !probeTestToSameMachineCoords;
-                let probeTestCoord = probeTestToSameMachineCoords ? (this as any).mpos[selectedAxisNum] : curPos[selectedAxisNum];
-                let startingMCoord = (this as any).mpos[selectedAxisNum];
+                let probeTestCoord = probeTestToSameMachineCoords ? this.mpos[selectedAxisNum] : curPos[selectedAxisNum];
+                let startingMCoord = this.mpos[selectedAxisNum];
                 // run probe to selected point; use _sendImmediate since normal sends are disabled
                 const probeTestFeed = 1;
-                let testProbeGcode = 'G38.2 ' + (this as any).axisLabels[selectedAxisNum].toUpperCase() + probeTestCoord + ' F' + probeTestFeed;
+                let testProbeGcode = 'G38.2 ' + this.axisLabels[selectedAxisNum].toUpperCase() + probeTestCoord + ' F' + probeTestFeed;
                 waiter = pasync.waiter();
                 this._sendImmediate(testProbeGcode, waiter);
                 // Probing to the same point is not currently a response error on my system, but in case it becomes one, wrap this in a try/catch
@@ -1648,29 +1656,29 @@ class TinyGController extends Controller {
                 waiter.reject('');
                 // Request an updated machine position for the axis we're testing
                 waiter = pasync.waiter();
-                this._sendImmediate({ ['mpo' + (this as any).axisLabels[selectedAxisNum].toLowerCase()]: null }, waiter);
+                this._sendImmediate({ ['mpo' + this.axisLabels[selectedAxisNum].toLowerCase()]: null }, waiter);
                 let mpoResult = await waiter.promise;
                 // Depending on whether or not the probe moved during that time, we now know if this tinyg version expects machine or offset coordinates
-                let nowMCoord = mpoResult.r['mpo' + (this as any).axisLabels[selectedAxisNum].toLowerCase()];
+                let nowMCoord = mpoResult.r['mpo' + this.axisLabels[selectedAxisNum].toLowerCase()];
                 if (typeof nowMCoord !== 'number')
                     throw new XError(XError.INTERNAL_ERROR, 'Unexpected response from TinyG');
                 let probeMoved = nowMCoord !== startingMCoord;
                 if (probeMoved) {
-                    (this as any).config.probeUsesMachineCoords = !probeTestToSameMachineCoords;
+                    this.config.probeUsesMachineCoords = !probeTestToSameMachineCoords;
                     // Move back to the starting position before the test
                     waiter = pasync.waiter();
-                    this._sendImmediate('G53 G0 ' + (this as any).axisLabels[selectedAxisNum].toUpperCase() + startingMCoord, waiter);
+                    this._sendImmediate('G53 G0 ' + this.axisLabels[selectedAxisNum].toUpperCase() + startingMCoord, waiter);
                     await waiter.promise;
                 }
                 else {
-                    (this as any).config.probeUsesMachineCoords = probeTestToSameMachineCoords;
+                    this.config.probeUsesMachineCoords = probeTestToSameMachineCoords;
                 }
             }
-            let useMachineCoords = curOffsets[selectedAxisNum] === 0 || (this as any).config.probeUsesMachineCoords;
+            let useMachineCoords = curOffsets[selectedAxisNum] === 0 || this.config.probeUsesMachineCoords;
             // Run the probe in the coordinate system chosen
             let probeTo = useMachineCoords ? (pos[selectedAxisNum] + curOffsets[selectedAxisNum]) : pos[selectedAxisNum];
             let probeDirection = (pos[selectedAxisNum] > curPos[selectedAxisNum]) ? 1 : -1;
-            let probeGcode = 'G38.2 ' + (this as any).axisLabels[selectedAxisNum].toUpperCase() + probeTo + ' F' + feed;
+            let probeGcode = 'G38.2 ' + this.axisLabels[selectedAxisNum].toUpperCase() + probeTo + ' F' + feed;
             waiter = pasync.waiter();
             this._sendImmediate(probeGcode, waiter);
             await waiter.promise; // wait for first response to probe to be received
@@ -1683,7 +1691,7 @@ class TinyGController extends Controller {
             let probeResult = await waiter.promise;
             let probeReport = probeResult.r.prb;
             let probeTripped = !!probeReport.e;
-            let probePos = probeReport[(this as any).axisLabels[selectedAxisNum]];
+            let probePos = probeReport[this.axisLabels[selectedAxisNum]];
             // Workaround for e value sometimes being incorrect
             if ((probeDirection > 0 && probePos < probeTo) ||
                 (probeDirection < 0 && probePos > probeTo)) {
@@ -1704,27 +1712,25 @@ class TinyGController extends Controller {
             // Restore active coordinate system (to work around bug)
             if (typeof activeCoordSys === 'number' && activeCoordSys >= 0) {
                 this._sendImmediate('G' + (54 + activeCoordSys));
-                (this as any).activeCoordSys = activeCoordSys;
+                this.activeCoordSys = activeCoordSys;
             }
             // Re-enable normal operation
-            (this as any)._disableSending = false;
-            (this as any)._disableResponseErrorEvent = false;
+            this._disableSending = false;
+            this._disableResponseErrorEvent = false;
             this._checkSendLoop();
         }
     }
     getStatus() {
         let o = super.getStatus();
         (o as any).comms = {
-            sendQueueLength: (this as any).sendQueue.length,
-            plannerMirrorLength: (this as any).plannerMirror.length,
-            sendQueueIdxToSend: (this as any).sendQueueIdxToSend,
-            sendQueueIdxToReceive: (this as any).sendQueueIdxToReceive,
-            sendQueueIdxToRecvAtLastQr: (this as any).sendQueueIdxToRecvAtLastQr,
-            lastQrNumFree: (this as any).lastQrNumFree,
+            sendQueueLength: this.sendQueue.length,
+            plannerMirrorLength: this.plannerMirror.length,
+            sendQueueIdxToSend: this.sendQueueIdxToSend,
+            sendQueueIdxToReceive: this.sendQueueIdxToReceive,
+            sendQueueIdxToRecvAtLastQr: this.sendQueueIdxToRecvAtLastQr,
+            lastQrNumFree: this.lastQrNumFree,
             checkSend: this._checkSendToDevice()
         };
         return o;
     }
 }
-;
-module.exports = TinyGController;
