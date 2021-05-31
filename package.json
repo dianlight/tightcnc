@@ -28,7 +28,7 @@
     "kd-tree-javascript": "^1.0.3",
     "littleconf": "^0.2.1",
     "mkdirp": "^0.5.1",
-    "moment": "^2.24.0",
+    "moment": "^2.29.1",
     "objtools": "^2.0.1",
     "pasync": "^1.5.0",
     "request": "^2.88.0",
@@ -41,7 +41,8 @@
     "zstreams": "^4.0.1"
   },
   "devDependencies": {
-    "markdown-toc": "^1.2.0"
+    "markdown-toc": "^1.2.0",
+    "ts-migrate": "^0.1.19"
   },
   "license": "Apache-2.0",
   "repository": {
