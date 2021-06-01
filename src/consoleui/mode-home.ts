@@ -1,8 +1,9 @@
 import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
+import { ConsoleUI } from './consoleui';
 export default class ModeHome extends ConsoleUIMode {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
+
+    constructor(consoleui: ConsoleUI) {
         super(consoleui);
     }
     init() {
@@ -30,7 +31,6 @@ export default class ModeHome extends ConsoleUIMode {
     }
 }
 
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 export function registerConsoleUI(consoleui:ConsoleUI) {
     consoleui.registerMode('home', new ModeHome(consoleui));
 };

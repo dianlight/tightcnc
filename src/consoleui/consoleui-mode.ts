@@ -1,7 +1,7 @@
 import blessed from 'blessed';
 import CrispHooks from 'crisphooks';
+import { ConsoleUI } from './consoleui'
 export default class ConsoleUIMode extends CrispHooks {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui:ConsoleUI) {
         super();
         this.consoleui = consoleui;

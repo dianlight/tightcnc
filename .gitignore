@@ -6,6 +6,7 @@ dist
 docs
 node_modules
 tmp
+log
 
 # environment
 .configurez.*

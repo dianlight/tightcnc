@@ -1,21 +1,17 @@
-module.exports = {
-	// lib
-	TightCNCClient: require('../lib/clientlib'),
-	GcodeLine: require('../lib/gcode-line'),
-	GcodeVM: require('../lib/gcode-vm'),
-	GcodeProcessor: require('../lib/gcode-processor'),
-	GcodeVMProcessor: require('../lib/gcode-processors/gcode-vm'),
+// Server
+export { default as Controller } from './server/controller'
+export { default as Operation } from './server/operation'
+export { default as TightCNCServer } from './server/tightcnc-server'
+export { default as TinyGController } from './server/tinyg-controller'
 
-	// server
-	Controller: require('./server/controller'),
-	Operation: require('./server/operation'),
-	TightCNCServer: require('./server/tightcnc-server'),
-	TinyGController: require('./server/tinyg-controller'),
+// ConsoleUI
+export { default as ConsoleUIMode } from './consoleui/consoleui-mode'
+export { default as JobOption } from './consoleui/job-option'
+export { default as ListForm } from './consoleui/list-form'
 
-	// consoleui
-	ConsoleUIMode: require('./consoleui/consoleui-mode'),
-	JobOption: require('./consoleui/job-option'),
-	ListForm: require('./consoleui/list-form')
-
-};
-
+// lib
+export const TightCNCClient = require('../lib/clientlib')
+export const GcodeLine = require('../lib/gcode-line')
+export const GcodeVM = require('../lib/gcode-vm')
+export const GcodeProcessor = require('../lib/gcode-processor')
+export const GcodeVMProcessor = require('../lib/gcode-processors/gcode-vm')

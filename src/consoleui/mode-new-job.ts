@@ -4,6 +4,7 @@ import XError from 'xerror';
 import objtools from 'objtools';
 import fs from 'fs';
 import path from 'path';
+import { ConsoleUI } from './consoleui';
 export default class ModeNewJob extends ConsoleUIMode {
 
     jobFilename?: string
@@ -18,7 +19,6 @@ export default class ModeNewJob extends ConsoleUIMode {
         }
     }
 
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui:ConsoleUI) {
         super(consoleui);
         this.resetJobInfo(false);
@@ -414,7 +414,7 @@ export default class ModeNewJob extends ConsoleUIMode {
         this.registerModeKey(['s'], ['s'], 'Start Job', () => this.jobStart());
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-export function registerConsoleUI(consoleui) {
+
+export function registerConsoleUI(consoleui: ConsoleUI) {
     consoleui.registerMode('newJob', new ModeNewJob(consoleui));
 };

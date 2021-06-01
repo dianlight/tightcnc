@@ -1,5 +1,6 @@
 import ConsoleUIMode from './consoleui-mode';
-import  blessed from 'blessed';
+import blessed from 'blessed';
+import { ConsoleUI } from './consoleui';
 export default class ModeLog extends ConsoleUIMode {
     updateLoopRunning = false;
     modeActive = false;
@@ -7,7 +8,6 @@ export default class ModeLog extends ConsoleUIMode {
     lastLineNum?:number;
     logStr = '';
 
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui:ConsoleUI) {
         super(consoleui);
         this.logConfig = consoleui.config.consoleui.log;
@@ -139,7 +139,7 @@ export default class ModeLog extends ConsoleUIMode {
         });
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-export function registerConsoleUI(consoleui:ConsoleUI) {
+
+export function registerConsoleUI(consoleui: ConsoleUI) {
     consoleui.registerMode('log', new ModeLog(consoleui));
 };

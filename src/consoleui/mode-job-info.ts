@@ -1,5 +1,6 @@
 import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
+import { ConsoleUI } from './consoleui';
 function formatMinutes(secs: any) {
     let hours = Math.floor(secs / 3600);
     let minutes = Math.floor((secs - hours * 3600) / 60);
@@ -9,9 +10,8 @@ function formatMinutes(secs: any) {
     return '' + hours + ':' + minutes;
 }
 export default class ModeJobInfo extends ConsoleUIMode {
-    consoleui: any;
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
+
+    constructor(consoleui: ConsoleUI) {
         super(consoleui);
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'status' implicitly has an 'any' type.
         this.statusUpdateHandler = (status) => {
@@ -87,7 +87,7 @@ export default class ModeJobInfo extends ConsoleUIMode {
         }
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-export function registerConsoleUI(consoleui:ConsoleUI) {
+
+export function registerConsoleUI(consoleui: ConsoleUI) {
     consoleui.registerMode('jobInfo', new ModeJobInfo(consoleui));
 };

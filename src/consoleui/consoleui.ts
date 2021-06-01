@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const mkdirp = require('mkdirp');
 const ListForm = require('./list-form');
-class ConsoleUI extends EventEmitter {
+export class ConsoleUI extends EventEmitter {
     constructor() {
         super();
         (this as any).statusBoxes = [];
