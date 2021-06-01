@@ -21,3 +21,4 @@ npm-debug.log
 *.sublime-workspace
 *.swp
 .DS_Store
+log/cnc-0001.log

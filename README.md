@@ -3,6 +3,7 @@
 This fork scope is to upgrate TightCNC to better use in my GCODEGO project. 
 Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
+ - [ ] Generate dist with types
  - [ ] Code cleanup
   - [ ] Correct all ts-migrate FIXME:
   - [ ] Use import not required
