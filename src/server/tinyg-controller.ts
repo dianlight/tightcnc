@@ -1,11 +1,11 @@
-import Controller from './controller';
+import Controller, { ControllerConfig } from './controller';
 import SerialPort from 'serialport';
 import XError from 'xerror';
 import pasync from 'pasync';
 const GcodeLine = require('../../lib/gcode-line');
 const AbbrJSON = require('./tinyg-abbr-json');
 import CrispHooks from 'crisphooks';
-import { time } from 'console';
+import SerialportRawSocketBinding  from '../serialport-binding/serialportRawSocketBinding';
 /**
  * This is the controller interface class for TinyG.
  *
@@ -36,8 +36,15 @@ import { time } from 'console';
  *
  * @class TinyGController
  */
+export interface TinyGControllerConfig extends ControllerConfig {
+    maxUnackedRequests?: number
+    streamSendQueueHighWaterMark?: number
+    statusReportInterval?: number
+    probeUsesMachineCoords?:boolean
+}
+
 export default class TinyGController extends Controller {
-    serial: any;
+    serial?: SerialPort;
 
     sendQueue:any[] = [];
     // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
@@ -76,7 +83,7 @@ export default class TinyGController extends Controller {
     lastStatusReportCounter?:number; // set to receivedLineCounter when status report is received
     lastResponseReceivedTime?:Date; // set to a Date object when a response is received
     _serialListeners: {
-        [key: string]: unknown
+        [key: string]: (data?:any)=>void
     } = {}; // mapping from serial port event names to listener functions; used to remove listeners during cleanup
     tightcnc: any;
     _initializing = false;
@@ -85,9 +92,8 @@ export default class TinyGController extends Controller {
     _waitingToRetry = false;
     _timeoutCheckSynced = false;
 
-    constructor(config = {}) {
+    constructor(config:TinyGControllerConfig) {
         super(config);
-        this.serial = null; // Instance of SerialPort stream interface class
         // This send queue serves multiple different purposes.  It contains entries that have not yet been sent, entries that have been sent but have not yet had responses
         // received, and entries that have had responses received but are still in the device's planner queue.  Entries in this queue are objects with several properties:
         // - str - The string of the raw line to send.  Should not include newline at end.
@@ -360,7 +366,7 @@ export default class TinyGController extends Controller {
             return false;
         }
         // Don't send more if we haven't received responses for more than a threshold number
-        const maxUnackedRequests = this.config.maxUnackedRequests || 32;
+        const maxUnackedRequests = (this.config as TinyGControllerConfig).maxUnackedRequests || 32;
         let numUnackedRequests = this.sendQueueIdxToSend - this.sendQueueIdxToReceive;
         if (numUnackedRequests >= maxUnackedRequests)
             return false;
@@ -763,7 +769,7 @@ export default class TinyGController extends Controller {
         // Define an async function and call it so we can use async/await
         const doInit = async () => {
             // Set up options for serial connection.  (Set defaults, then apply configs on top.)
-            let serialOptions = {
+            let serialOptions:SerialPort.OpenOptions = {
                 autoOpen: true,
                 baudRate: 115200,
                 dataBits: 8,
@@ -782,7 +788,7 @@ export default class TinyGController extends Controller {
             // Try to open the serial port
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
+                if (port.toLocaleLowerCase().startsWith('socket:')) SerialPort.Binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
@@ -794,10 +800,10 @@ export default class TinyGController extends Controller {
             if (this.resetOnConnect) {
                 this.debug('resetOnConnect flag set; sending reset');
                 this.resetOnConnect = false;
-                this.serial.write('\x18\n');
+                this.serial?.write('\x18\n');
                 await pasync.setTimeout(5000);
                 this.debug('draining serial buffer');
-                this.serial.read(); // drain the serial buffer
+                this.serial?.read(); // drain the serial buffer
             }
             // This waiter is used for the pause during initialization later.  It's needed because
             // we need to be able to reject this and exit initialization if an error occurs while paused.
@@ -872,7 +878,7 @@ export default class TinyGController extends Controller {
                 data: onSerialData
             };
             for (let eventName in this._serialListeners)
-                this.serial.on(eventName, this._serialListeners[eventName]);
+                this.serial?.on(eventName, this._serialListeners[eventName]);
             // This handles the case that the app might have been killed with a partially sent serial buffer.  Send a newline
             // to "flush" it, then wait a short period of time for any possible response to be received (and ignored).
             this._writeToSerial('\n');
@@ -1341,7 +1347,7 @@ export default class TinyGController extends Controller {
         // Enable triple queue reports
         await this.request({ qv: 2 });
         // Set automatic status report interval
-        await this.request({ si: this.config.statusReportInterval || 250 });
+        await this.request({ si: (this.config as TinyGControllerConfig).statusReportInterval || 250 });
         // Configure status report fields
         //await this.request({ sr: false }); // to work with future firmware versions where status report variables are configured incrementally
         let srVars = ['n', 'feed', 'stat'];
@@ -1624,7 +1630,7 @@ export default class TinyGController extends Controller {
             // Test if the current version of TinyG uses machine coordinates for probing or local coordinates
             // Note that if offsets are zero, it doesn't matter, and don't bother testing
             // If, at some point, the build versions of TinyG that have this oddity are known and published, those will be a much better test than this hack
-            if (this.config.probeUsesMachineCoords === undefined && curOffsets[selectedAxisNum] !== 0) {
+            if ((this.config as TinyGControllerConfig).probeUsesMachineCoords === undefined && curOffsets[selectedAxisNum] !== 0) {
                 // See above block comment for explanation of this process.
                 // determine if test probe is to same coordinates in offset coords or machine coords
                 let probeTestToSameMachineCoords = curOffsets[selectedAxisNum] > 0;
@@ -1664,17 +1670,17 @@ export default class TinyGController extends Controller {
                     throw new XError(XError.INTERNAL_ERROR, 'Unexpected response from TinyG');
                 let probeMoved = nowMCoord !== startingMCoord;
                 if (probeMoved) {
-                    this.config.probeUsesMachineCoords = !probeTestToSameMachineCoords;
+                    (this.config as TinyGControllerConfig).probeUsesMachineCoords = !probeTestToSameMachineCoords;
                     // Move back to the starting position before the test
                     waiter = pasync.waiter();
                     this._sendImmediate('G53 G0 ' + this.axisLabels[selectedAxisNum].toUpperCase() + startingMCoord, waiter);
                     await waiter.promise;
                 }
                 else {
-                    this.config.probeUsesMachineCoords = probeTestToSameMachineCoords;
+                    (this.config as TinyGControllerConfig).probeUsesMachineCoords = probeTestToSameMachineCoords;
                 }
             }
-            let useMachineCoords = curOffsets[selectedAxisNum] === 0 || this.config.probeUsesMachineCoords;
+            let useMachineCoords = curOffsets[selectedAxisNum] === 0 || (this.config as TinyGControllerConfig).probeUsesMachineCoords;
             // Run the probe in the coordinate system chosen
             let probeTo = useMachineCoords ? (pos[selectedAxisNum] + curOffsets[selectedAxisNum]) : pos[selectedAxisNum];
             let probeDirection = (pos[selectedAxisNum] > curPos[selectedAxisNum]) ? 1 : -1;

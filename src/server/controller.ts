@@ -2,6 +2,18 @@ import EventEmitter from 'events';
 import XError from 'xerror';
 import fs from 'fs';
 import zstreams from 'zstreams';
+import { TinyGControllerConfig } from './tinyg-controller';
+import { GrblControllerConfig } from './grbl-controller';
+
+export interface ControllerConfig {
+    port: string
+    homableAxes?: [boolean, boolean, boolean]
+    streamSendQueueHighWaterMark?: number
+    streamSendQueueLowWaterMark?: number
+    realTimeMovesMaxQueued?: number
+    realTimeMovesMaxOvershootFactor?:number
+
+}
 export default class Controller extends EventEmitter {
 
     axisLabels=['x', 'y', 'z'];
@@ -48,8 +60,7 @@ export default class Controller extends EventEmitter {
      * @constructor
      * @param {Object} config - Controller-specific configuration blob
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'config' implicitly has an 'any' type.
-    constructor(public config) {
+    constructor(public config:ControllerConfig) {
         super();
         // See resetState() for property definitions.
         this.resetState();

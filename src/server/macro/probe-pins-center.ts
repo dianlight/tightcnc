@@ -1,3 +1,4 @@
+import XError from 'xerror'
 // @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'macroMeta'.
 macroMeta({ params: {
 	invertAxes: {

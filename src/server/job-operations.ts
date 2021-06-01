@@ -1,15 +1,10 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-const Operation = require('./operation');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
-const path = require('path');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'commonSche... Remove this comment to see the full error message
-const commonSchema = require('common-schema');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
+import Operation from './operation';
+import fs from 'fs';
+import path from 'path';
+import  objtools from 'objtools';
+import commonSchema from 'common-schema';
+import  XError from 'xerror';
+
 const jobOptionsSchema = {
     type: 'object',
     properties: {
@@ -81,9 +76,7 @@ class OpJobDryRun extends Operation {
     }
 }
 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-function registerOperations(tightcnc) {
+export default function registerOperations(tightcnc) {
     tightcnc.registerOperation('startJob', OpStartJob);
     tightcnc.registerOperation('jobDryRun', OpJobDryRun);
 }
-
-module.exports = registerOperations;

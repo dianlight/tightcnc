@@ -8,8 +8,8 @@ import fs from 'fs';
 const GcodeProcessor = require('../../lib/gcode-processor');
 const GcodeVM = require('../../lib/gcode-vm');
 import { MoveSplitter } from './move-splitter';
-const JobOption = require('../consoleui/job-option');
-const ListForm = require('../consoleui/list-form');
+import  JobOption from '../consoleui/job-option';
+import  ListForm from '../consoleui/list-form';
 import  blessed from 'blessed';
 import  moment from 'moment';
 export class SurfaceLevelMap {
@@ -585,7 +585,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
             }
         };
         let form = new ListForm((this as any).consoleui);
-        let results = await form.showEditor(container, formSchema);
+        let results = await form.showEditor(container, formSchema,{});
         if (results && results.lower && results.upper) {
             return [results.lower, results.upper];
         }

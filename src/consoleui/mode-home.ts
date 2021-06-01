@@ -1,8 +1,6 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ConsoleUIM... Remove this comment to see the full error message
-const ConsoleUIMode = require('./consoleui-mode');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
-const blessed = require('blessed');
-class ModeHome extends ConsoleUIMode {
+import ConsoleUIMode from './consoleui-mode';
+import blessed from 'blessed';
+export default class ModeHome extends ConsoleUIMode {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui) {
         super(consoleui);
@@ -17,8 +15,7 @@ class ModeHome extends ConsoleUIMode {
             content: 'TightCNC ConsoleUI',
             align: 'center'
         });
-        (this as any).box.append(text);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'process'. Do you need to install... Remove this comment to see the full error message
+        this.box.append(text);
         this.registerHomeKey(['escape', 'q'], 'Esc', 'Exit', () => process.exit(0), 0);
     }
     activateMode() {
@@ -32,9 +29,8 @@ class ModeHome extends ConsoleUIMode {
         return this.registerModeKey(keys, keyNames, keyLabel, fn, order);
     }
 }
+
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports = ModeHome;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUI = function (consoleui) {
+export function registerConsoleUI(consoleui:ConsoleUI) {
     consoleui.registerMode('home', new ModeHome(consoleui));
 };

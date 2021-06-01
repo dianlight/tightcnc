@@ -16,6 +16,9 @@ import Macros from './macros';
 import pasync from 'pasync';
 const { createSchema } = require('common-schema');
 import littleconf from 'littleconf'
+import joboperations from './job-operations'
+import macrooperation from './macro-operations'
+import basicoperation from './basic-operations'
 /**
  * This is the central class for the application server.  Operations, gcode processors, and controllers
  * are registered here.
@@ -65,10 +68,10 @@ export default class TightCNCServer extends EventEmitter {
         import('./tinyg-controller').then( (namespace)=>this.registerController('TinyG',namespace.default))
         import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
         
-        require('./basic-operations')(this);
+        basicoperation(this);
         registerOperations(this);
-        require('./job-operations')(this);
-        require('./macro-operations')(this);
+        joboperations(this);
+        macrooperation(this);
         this.registerGcodeProcessor('gcodevm', require('../../lib/gcode-processors/gcode-vm'));
         // Register bundled plugins
         require('../plugins').registerServerComponents(this);

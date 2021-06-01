@@ -1,9 +1,6 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'JobOption'... Remove this comment to see the full error message
-const JobOption = require('./job-option');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
-const blessed = require('blessed');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
-const ListForm = require('./list-form');
+import JobOption from './job-option';
+//const blessed = require('blessed');
+import ListForm from './list-form';
 class JobOptionRawfile extends JobOption {
     /**
      * This method is called when the option is selected in the job creation UI.  It
@@ -40,7 +37,6 @@ class JobOptionRawfile extends JobOption {
         return 'Send Raw File: On';
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports = JobOptionRawfile;
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerConsoleUI = (consoleui) => {

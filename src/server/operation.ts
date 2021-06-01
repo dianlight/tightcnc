@@ -7,9 +7,7 @@ import  XError from 'xerror';
  */
 export default class Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(tightcnc, config) {
-        (this as any).tightcnc = tightcnc;
-        (this as any).config = config;
+    constructor(public tightcnc, public config) {
     }
     /**
      * Initialize the operation.  May return a Promise.
@@ -35,9 +33,8 @@ export default class Operation {
      */
     getParamSchema() { }
     checkReady() {
-        if (!(this as any).tightcnc.controller || !(this as any).tightcnc.controller.ready) {
+        if (!this.tightcnc.controller || !this.tightcnc.controller.ready) {
             throw new XError(XError.BAD_REQUEST, 'Controller not ready');
         }
     }
 }
-module.exports = Operation;

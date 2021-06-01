@@ -1,21 +1,12 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
+import XError from 'xerror';
 const GcodeProcessor = require('../../lib/gcode-processor');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-const Operation = require('../server/operation');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
-const ListForm = require('../consoleui/list-form');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'commonSche... Remove this comment to see the full error message
-const commonSchema = require('common-schema');
+import objtools from 'objtools';
+import pasync from 'pasync';
+import Operation from '../server/operation';
+import ListForm from '../consoleui/list-form';
+import commonSchema from 'common-schema';
 /**
  * This gcode processors allows overriding things at job runtime.  Currently just supports feed multiplier.
  *
@@ -33,48 +24,48 @@ class RuntimeOverride extends GcodeProcessor {
     static DEFAULT_ORDER = 950000;
     constructor(options = {}) {
         super(options, 'runtimeoverride', true);
-        (this as any).maxTotalLinesBuffered = (options as any).maxTotalLinesBuffered || 40;
-        (this as any).feedMultiplier = 1;
-        (this as any).vm = new GcodeVM(options);
-        (this as any).lastLineCounterExecuted = 0;
-        (this as any).nextExecutedWaiter = null;
+        this.maxTotalLinesBuffered = (options as any).maxTotalLinesBuffered || 40;
+        this.feedMultiplier = 1;
+        this.vm = new GcodeVM(options);
+        this.lastLineCounterExecuted = 0;
+        this.nextExecutedWaiter = null;
     }
     getStatus() {
         return {
-            feedMultiplier: (this as any).feedMultiplier
+            feedMultiplier: this.feedMultiplier
         };
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
     async processGcode(gline) {
-        if ((this as any).dryRun)
+        if (this.dryRun)
             return gline;
-        (this as any).vm.runGcodeLine(gline);
-        let lineCounter = (this as any).vm.lineCounter;
-        if (lineCounter - (this as any).lastLineCounterExecuted - 1 >= (this as any).maxTotalLinesBuffered) {
-            if (!(this as any).nextExecutedWaiter)
-                (this as any).nextExecutedWaiter = pasync.waiter();
-            await (this as any).nextExecutedWaiter.promise;
+        this.vm.runGcodeLine(gline);
+        let lineCounter = this.vm.lineCounter;
+        if (lineCounter - this.lastLineCounterExecuted - 1 >= this.maxTotalLinesBuffered) {
+            if (!this.nextExecutedWaiter)
+                this.nextExecutedWaiter = pasync.waiter();
+            await this.nextExecutedWaiter.promise;
         }
-        if ((this as any).feedMultiplier !== 1 && gline.has('F')) {
-            gline.set('F', gline.get('F') * (this as any).feedMultiplier);
+        if (this.feedMultiplier !== 1 && gline.has('F')) {
+            gline.set('F', gline.get('F') * this.feedMultiplier);
             gline.addComment('ro');
         }
         gline.hookSync('executed', () => {
-            if (lineCounter > (this as any).lastLineCounterExecuted) {
-                (this as any).lastLineCounterExecuted = lineCounter;
+            if (lineCounter > this.lastLineCounterExecuted) {
+                this.lastLineCounterExecuted = lineCounter;
             }
-            if ((this as any).nextExecutedWaiter && lineCounter - (this as any).lastLineCounterExecuted - 1 < (this as any).maxTotalLinesBuffered) {
-                (this as any).nextExecutedWaiter.resolve();
-                (this as any).nextExecutedWaiter = null;
+            if (this.nextExecutedWaiter && lineCounter - this.lastLineCounterExecuted - 1 < this.maxTotalLinesBuffered) {
+                this.nextExecutedWaiter.resolve();
+                this.nextExecutedWaiter = null;
             }
         });
         return gline;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'm' implicitly has an 'any' type.
     setFeedMultiplier(m) {
-        (this as any).feedMultiplier = m;
-        if ((this as any).vm.getState().seenWordSet.F) {
-            this.pushGcode(new GcodeLine('F' + ((this as any).vm.getState().feed * m)));
+        this.feedMultiplier = m;
+        if (this.vm.getState().seenWordSet.F) {
+            this.pushGcode(new GcodeLine('F' + (this.vm.getState().feed * m)));
         }
     }
 }
@@ -91,7 +82,7 @@ class SetFeedMultiplierOperation extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        findCurrentJobGcodeProcessor((this as any).tightcnc, 'runtimeoverride').setFeedMultiplier(params.feedMultiplier);
+        findCurrentJobGcodeProcessor(this.tightcnc, 'runtimeoverride').setFeedMultiplier(params.feedMultiplier);
         return { success: true };
     }
 }
@@ -154,7 +145,7 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
                     throw new commonSchema.FieldError('invalid', 'Feed multiplier must be a positive number');
             }
         }, objtools.getPath(consoleui, 'lastStatus.job.gcodeProcessors.runtimeoverride.feedMultiplier') || 1);
-        if (mult && !form.editorCancelled) {
+        if (mult /*&& !form.editorCancelled*/) {
             await consoleui.client.op('setFeedMultiplier', { feedMultiplier: mult });
         }
     };

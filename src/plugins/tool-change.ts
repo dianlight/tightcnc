@@ -1,23 +1,13 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
+import XError from 'xerror';
 const GcodeProcessor = require('../../lib/gcode-processor');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-const Operation = require('../server/operation');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'JobOption'... Remove this comment to see the full error message
-const JobOption = require('../consoleui/job-option');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
-const ListForm = require('../consoleui/list-form');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
-const blessed = require('blessed');
+import objtools from 'objtools';
+import Operation from '../server/operation';
+import pasync from 'pasync';
+import JobOption from '../consoleui/job-option';
+import ListForm from '../consoleui/list-form';
+//import blessed from 'blessed';
 // Order: Must be after recovery processor
 /**
  * This gcode processor can handle software tool changes and job stops.  It can intercept T, M6, M0, M1, and M60
@@ -369,7 +359,7 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
                 default: 0,
                 required: true,
                 label: 'Tool Offset'
-            });
+            },{});
             if (typeof offset === 'number') {
                 await consoleui.runWithWait(async () => {
                     await consoleui.client.op('setToolOffset', {

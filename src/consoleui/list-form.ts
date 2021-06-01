@@ -1,8 +1,8 @@
-const blessed = require('blessed');
+import blessed from 'blessed';
 import { Schema, createSchema } from 'common-schema';
-const pasync = require('pasync');
-const objtools = require('objtools');
-class ListForm {
+import pasync from 'pasync';
+import objtools from 'objtools';
+export default class ListForm {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui, options = {}) {
         if (consoleui.screen && !consoleui.setTerminal) {
@@ -774,7 +774,7 @@ class ListForm {
             top: 1,
             border: { type: 'line' }
         });
-        listBox.selected = defaultSelected;
+        listBox.select(defaultSelected);
         listContainer.append(listBox);
         container.append(listContainer);
         listBox.focus();
@@ -799,7 +799,7 @@ class ListForm {
             (this as any).screen.render();
         };
         listBox.on('select', () => {
-            let selected = listBox.selected;
+            let selected = listBox.index;
             if (handler) {
                 try {
                     // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
@@ -814,7 +814,7 @@ class ListForm {
                             .then((r) => {
                             if (r === false) {
                                 cleanup();
-                                waiter.resolve(listBox.selected);
+                                waiter.resolve(listBox.index);
                             }
                             else {
                                 listBox.focus();
@@ -852,7 +852,7 @@ class ListForm {
                         el.fn({
                             container,
                             listBox,
-                            selected: listBox.selected
+                            selected: listBox.index
                         });
                     });
                 }
@@ -915,7 +915,6 @@ class ListForm {
         });
     }
 }
-module.exports = ListForm;
 /*
 var screen = blessed.screen({
     smartCSR: true

@@ -12,26 +12,16 @@
  * for these clearance movements, including the ability to use different axes.  The default assumes a typical x, y, z
  * axis configuration with clearance on Z at machine position 0 (ie, G53 G0 Z0).
  */
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'XError'.
-const XError = require('xerror');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeProce... Remove this comment to see the full error message
+import XError from 'xerror';
 const GcodeProcessor = require('../../lib/gcode-processor');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeLine'... Remove this comment to see the full error message
 const GcodeLine = require('../../lib/gcode-line');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'GcodeVM'.
 const GcodeVM = require('../../lib/gcode-vm');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'Operation'... Remove this comment to see the full error message
-const Operation = require('../server/operation');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'objtools'.
-const objtools = require('objtools');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
-const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
-const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
-const path = require('path');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
-const ListForm = require('../consoleui/list-form');
+import Operation from '../server/operation';
+import objtools from 'objtools';
+import pasync from 'pasync';
+import fs from 'fs';
+//const path = require('path');
+import ListForm from '../consoleui/list-form';
 const getRecoveryFilename = (tightcnc: any) => {
     return tightcnc.getFilename('_recovery.json', 'data');
 };
@@ -90,7 +80,6 @@ class JobRecoveryTracker extends GcodeProcessor {
                 catch (err) { }
                 let data = JSON.stringify((this as any).saveData) + '\n';
                 await new Promise<void>((resolve, reject) => {
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     fs.writeFile(getRecoveryFilename((this as any).tightcnc), data, (err) => {
                         if (err)
                             reject(err);
@@ -173,7 +162,6 @@ class JobRecoveryProcessor extends GcodeProcessor {
     async initProcessor() {
         // Load recovery file
         (this as any).recoveryInfo = await new Promise((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
                 if (err)
                     return reject(err);
@@ -291,7 +279,6 @@ class JobRecoveryOperation extends Operation {
     async run(params) {
         // Load the recovery file (to get the original job options)
         let recoveryInfo = await new Promise((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
                 if (err)
                     return reject(new XError(XError.INTERNAL_ERROR, 'Could not read job recovery file', err));
@@ -354,7 +341,7 @@ function consoleUIRecoverJob(consoleui) {
                     required: true
                 }
             }
-        });
+        },{});
         // Show confirmation
         let text = 'Job recovery is about to start.  Please ensure that your recovery settings are correct, particularly with regard to clearance movements and positions.  Also ensure that the device\'s coordinate system is set up to match the original job\'s.  Press ENTER to begin or Esc to cancel.';
         let confirmed = await consoleui.showConfirm(text, { okLabel: 'Start' });
@@ -373,17 +360,17 @@ function consoleUIRecoverJob(consoleui) {
         consoleui.clientError(err);
     });
 }
-module.exports.JobRecoveryTracker = JobRecoveryTracker;
-module.exports.JobRecoveryProcessor = JobRecoveryProcessor;
-module.exports.JobRecoveryOperation = JobRecoveryOperation;
+//module.exports.JobRecoveryTracker = JobRecoveryTracker;
+//module.exports.JobRecoveryProcessor = JobRecoveryProcessor;
+//module.exports.JobRecoveryOperation = JobRecoveryOperation;
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerServerComponents = function (tightcnc) {
+export function registerServerComponents(tightcnc) {
     tightcnc.registerGcodeProcessor('recoverytracker', JobRecoveryTracker);
     tightcnc.registerGcodeProcessor('recoveryprocessor', JobRecoveryProcessor);
     tightcnc.registerOperation('recoverJob', JobRecoveryOperation);
 };
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUIComponents = function (consoleui) {
+export function registerConsoleUIComponents(consoleui) {
     // Automatically add recovery tracker to all jobs created in the console UI
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
     consoleui.on('newJobObject', (jobOptions) => {

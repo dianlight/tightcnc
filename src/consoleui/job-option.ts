@@ -7,12 +7,11 @@
  *
  * @class JobOption
  */
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'JobOption'... Remove this comment to see the full error message
-class JobOption {
+export default class JobOption {
+    newJobMode: any;
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
-        (this as any).consoleui = consoleui;
-        (this as any).newJobMode = consoleui.modes.newJob;
+    constructor(public consoleui) {
+        this.newJobMode = consoleui.modes.newJob;
     }
     /**
      * This method is called when the option is selected in the job creation UI.  It
@@ -42,4 +41,3 @@ class JobOption {
     getDisplayString() {
     }
 }
-module.exports = JobOption;

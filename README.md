@@ -4,18 +4,21 @@ This fork scope is to upgrate TightCNC to better use in my GCODEGO project.
 Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [ ] Code cleanup
+  - [ ] Correct all ts-migrate FIXME:
   - [ ] Use import not required
  - [ ] Remove not Typescript friendly dependencies 
- - [ ] Typescritp Migration ot lib ( ts-migrate )
-- [ ] Support for raw socket comunication
-- [ ] Support fro websocket comunication
+ - [ ] Typescritp Migration for lib ( ts-migrate )
+  - [ ] Remove ts-migrate dependecy
+- [x] Upgrade to serialport 9.x 
+  - [x] Support for raw socket comunication - serialport-binding
+  - [ ] Support fro websocket comunication - serilaport-binding
 - [ ] Support start without config
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
 - [ ] Sender as Worker
-  - [ ] support Virtual comunication API Adapter ( comunication as plugin )
-    - [ ] Web-Serial/Web-USB API
+  - [ ] ~~~support Virtual comunication API Adapter ( comunication as plugin )~~~ Serialport binding
+    - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
 - [ ] More firmware
   - [ ] Support grblHal
   - [ ] Support Marlin

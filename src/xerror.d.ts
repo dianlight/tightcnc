@@ -36,6 +36,7 @@ declare module 'xerror' {
         stack?: string; // - Stack trace of where this error is constructed
 
         constructor(message: string)
+        constructor(cause: Error | XError)
         constructor(message: string, cause?: Error | XError)
         constructor(code: string, message?: string,  data?: unknown, privateData?: unknown, cause?: Error | XError)
         

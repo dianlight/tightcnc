@@ -1,7 +1,5 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ConsoleUIM... Remove this comment to see the full error message
-const ConsoleUIMode = require('./consoleui-mode');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
-const blessed = require('blessed');
+import ConsoleUIMode from './consoleui-mode';
+import blessed from 'blessed';
 function formatMinutes(secs: any) {
     let hours = Math.floor(secs / 3600);
     let minutes = Math.floor((secs - hours * 3600) / 60);
@@ -10,15 +8,15 @@ function formatMinutes(secs: any) {
         minutes = '0' + minutes;
     return '' + hours + ':' + minutes;
 }
-class ModeJobInfo extends ConsoleUIMode {
+export default class ModeJobInfo extends ConsoleUIMode {
     consoleui: any;
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
     constructor(consoleui) {
         super(consoleui);
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'status' implicitly has an 'any' type.
-        (this as any).statusUpdateHandler = (status) => {
+        this.statusUpdateHandler = (status) => {
             let text = this.getStatusText(status);
-            (this as any).infoTextbox.setContent(text);
+            this.infoTextbox.setContent(text);
             this.consoleui.render();
         };
     }
@@ -42,7 +40,7 @@ class ModeJobInfo extends ConsoleUIMode {
             text += 'Lines processed: ' + vmStatus.lineCounter + '\n';
         }
         let textObj = { text }; // wrap this is an object so it can be modified by the hook (by reference)
-        (this as any).triggerSync('buildStatusText', textObj);
+        this.triggerSync('buildStatusText', textObj);
         text = textObj.text;
         if (status.job.state === 'error' && status.job.error) {
             text += 'Error: ' + JSON.stringify(status.job.error) + '\n';
@@ -51,24 +49,24 @@ class ModeJobInfo extends ConsoleUIMode {
     }
     activateMode() {
         super.activateMode();
-        this.consoleui.on('statusUpdate', (this as any).statusUpdateHandler);
-        (this as any).statusUpdateHandler(this.consoleui.lastStatus);
+        this.consoleui.on('statusUpdate', this.statusUpdateHandler);
+        this.statusUpdateHandler(this.consoleui.lastStatus);
     }
     exitMode() {
-        this.consoleui.removeListener('statusUpdate', (this as any).statusUpdateHandler);
+        this.consoleui.removeListener('statusUpdate', this.statusUpdateHandler);
         super.exitMode();
     }
     init() {
         super.init();
-        (this as any).infoTextbox = blessed.box({
+        this.infoTextbox = blessed.box({
             width: '100%',
             height: '100%',
             content: '',
             align: 'center',
-            valign: 'center',
+            valign: 'middle',
             tags: true
         });
-        (this as any).box.append((this as any).infoTextbox);
+        this.box.append(this.infoTextbox);
         this.consoleui.registerHomeKey(['j', 'J'], 'j', 'Job Info', () => this.consoleui.activateMode('jobInfo'), 4);
         this.registerModeKey(['escape'], ['Esc'], 'Home', () => this.consoleui.exitMode(), 0);
         // Pull in a few useful keybinds from the control mode
@@ -90,8 +88,6 @@ class ModeJobInfo extends ConsoleUIMode {
     }
 }
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports = ModeJobInfo;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUI = function (consoleui) {
+export function registerConsoleUI(consoleui:ConsoleUI) {
     consoleui.registerMode('jobInfo', new ModeJobInfo(consoleui));
 };

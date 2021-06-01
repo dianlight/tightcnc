@@ -1,4 +1,4 @@
-import  Controller from './controller';
+import  Controller, { ControllerConfig } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
 import  XError from 'xerror';
 import  pasync from 'pasync';
@@ -6,7 +6,12 @@ const GcodeLine = require('../../lib/gcode-line');
 import CrispHooks from 'crisphooks';
 import objtools from 'objtools';
 import TightCNCServer from './tightcnc-server';
+import SerialportRawSocketBinding from '../serialport-binding/serialportRawSocketBinding';
 const GcodeVM = require('../../lib/gcode-vm');
+
+export interface GrblControllerConfig extends ControllerConfig {
+    statusUpdateInterval?: number    
+}
 
 export default class GRBLController extends Controller {
     serial?:SerialPort;
@@ -95,7 +100,7 @@ export default class GRBLController extends Controller {
             _regexRstCommand = /^\$RST=(.*)$/;
     
 
-    constructor(config = {}) {
+    constructor(config:GrblControllerConfig) {
         super(config);
         this.axisLabels = ['x', 'y', 'z'];
         this.usedAxes = (config as any).usedAxes || [true, true, true];
@@ -932,7 +937,7 @@ export default class GRBLController extends Controller {
     _writeToSerial(strOrBuf) {
         if (!this.serial)
             return;
-        this.serial.write(strOrBuf);
+        const ret = this.serial.write(strOrBuf);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
     _cancelRunningOps(err) {
@@ -976,7 +981,7 @@ export default class GRBLController extends Controller {
             // Try to open the serial port
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
-                console.log(serialOptions)
+                if (port.toLocaleLowerCase().startsWith('socket:')) SerialPort.Binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
@@ -1056,8 +1061,11 @@ export default class GRBLController extends Controller {
                 close: onSerialClose,
                 data: onSerialData
             };
-            for (let eventName in this._serialListeners)
+            console.log("Registering Hook!")
+            for (let eventName in this._serialListeners) {
+                console.log(eventName)
                 this.serial?.on(eventName, this._serialListeners[eventName]);
+            }
             this._welcomeMessageWaiter = pasync.waiter();
             // Wait for the welcome message to be received; if not received in 5 seconds, send a soft reset
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
@@ -1070,6 +1078,7 @@ export default class GRBLController extends Controller {
             let finishedWelcomeWait = false;
             setTimeout(() => {
                 if (!finishedWelcomeWait) {
+                    console.log("Sending Welcome \x18");
                     this._writeToSerial('\x18');
                 }
             }, 5000);
@@ -1081,6 +1090,7 @@ export default class GRBLController extends Controller {
                 this.removeListener('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
             }
             // Initialize all the machine state properties
+            console.log("--> _initMachine!")
             await this._initMachine();
             // Initialization succeeded
             this._initializing = false;
@@ -1198,7 +1208,7 @@ export default class GRBLController extends Controller {
             }, interval);
             this._statusUpdateLoops.push(ival);
         };
-        startUpdateLoop(this.config.statusUpdateInterval || 250, async () => {
+        startUpdateLoop((this.config as GrblControllerConfig).statusUpdateInterval || 250, async () => {
             if (this.serial)
                 this.send('?');
         });
@@ -1335,7 +1345,7 @@ export default class GRBLController extends Controller {
         if (entry.charCount === undefined)
             throw new XError(XError.INTERNAL_ERROR, 'GRBL communications desync');
         this.unackedCharCount -= entry.charCount;
-        if (error === null) {
+        if (error === undefined) {
             if (entry.hooks)
                 entry.hooks.triggerSync('ack', entry);
             this.emit('receivedOk', entry);
@@ -1403,9 +1413,7 @@ export default class GRBLController extends Controller {
             // Got an error on the request.  Splice it out of sendQueue, and call the error hook on the gcode line
             this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
             this.sendQueueIdxToSend--; // need to adjust this for the splice
-            // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             if (!error.data)
-                // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
                 error.data = {};
             // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             error.data.request = entry.str;
@@ -1420,7 +1428,6 @@ export default class GRBLController extends Controller {
                 if (!this.sendQueue.length)
                     this.emit('_sendQueueDrain');
             }
-            // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             this.emit('message', error.message);
         }
         //this.debug('_commsHandleAckResponseReceived calling _commsCheckExecutedLoop');
@@ -1749,8 +1756,8 @@ export default class GRBLController extends Controller {
         let waiter = pasync.waiter();
         // Bounds within which to stop and start reading from the stream.  These correspond to the number of queued lines
         // not yet sent to the controller.
-        let sendQueueHighWater = this.config.streamSendQueueHighWaterMark || 20;
-        let sendQueueLowWater = this.config.streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
+        let sendQueueHighWater = (this.config as GrblControllerConfig).streamSendQueueHighWaterMark || 20;
+        let sendQueueLowWater = (this.config as GrblControllerConfig).streamSendQueueLowWaterMark || Math.min(10, Math.floor(sendQueueHighWater / 5));
         let streamPaused = false;
         let canceled = false;
         const numUnsentLines = () => {
@@ -1970,7 +1977,7 @@ export default class GRBLController extends Controller {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
     realTimeMove(axisNum, inc) {
         // Make sure there aren't too many requests in the queue
-        if (this._numInFlightRequests() > (this.config.realTimeMovesMaxQueued || 8))
+        if (this._numInFlightRequests() > ((this.config as GrblControllerConfig).realTimeMovesMaxQueued || 8))
             return false;
         // Rate-limit real time move requests according to feed rate
         let rtmTargetFeed = (this.axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
@@ -1980,7 +1987,7 @@ export default class GRBLController extends Controller {
             this.realTimeMovesCounter[axisNum] = 0;
         }
         this.realTimeMovesTimeStart[axisNum] = new Date().getTime();
-        let maxOvershoot = (this.config.realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
+        let maxOvershoot = ((this.config as GrblControllerConfig).realTimeMovesMaxOvershootFactor || 2) * Math.abs(inc);
         if (this.realTimeMovesCounter[axisNum] > maxOvershoot)
             return false;
         this.realTimeMovesCounter[axisNum] += Math.abs(inc);

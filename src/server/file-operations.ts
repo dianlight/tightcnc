@@ -1,8 +1,8 @@
-const Operation = require('./operation');
-const fs = require('fs');
-const path = require('path');
-const commonSchema = require('common-schema');
-const XError = require('xerror');
+import Operation from './operation';
+import  fs from 'fs';
+import  path from 'path';
+import commonSchema from 'common-schema';
+import XError from 'xerror';
 class OpListFiles extends Operation {
     getParamSchema() {
         return {
@@ -16,7 +16,7 @@ class OpListFiles extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        let dir = (this as any).tightcnc.getFilename(null, params.dir, false, true, true);
+        let dir = this.tightcnc.getFilename(null, params.dir, false, true, true);
         let files = await new Promise<string[]>((resolve, reject) => {
             fs.readdir(dir, (err: any, files: string[] | PromiseLike<string[]>) => {
                 if (err)
@@ -28,7 +28,6 @@ class OpListFiles extends Operation {
         let retfiles = [];
         for (let file of files) {
             let stat = await new Promise((resolve, reject) => {
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                 fs.stat(path.join(dir, file), (err, stat) => {
                     if (err)
                         reject(err);
@@ -90,9 +89,8 @@ class OpUploadFile extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        let fullFilename = (this as any).tightcnc.getFilename(params.filename, 'data', false, true);
+        let fullFilename = this.tightcnc.getFilename(params.filename, 'data', false, true);
         await new Promise<void>((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             fs.writeFile(fullFilename, params.data, (err) => {
                 if (err)
                     reject(new XError(err));

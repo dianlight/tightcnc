@@ -1,18 +1,10 @@
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'blessed'.
 const blessed = require('blessed');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'TightCNCCl... Remove this comment to see the full error message
 const TightCNCClient = require('../../lib/clientlib');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'pasync'.
 const pasync = require('pasync');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'EventEmitt... Remove this comment to see the full error message
 const EventEmitter = require('events');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'fs'.
 const fs = require('fs');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'path'.
 const path = require('path');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'mkdirp'.
 const mkdirp = require('mkdirp');
-// @ts-expect-error ts-migrate(2451) FIXME: Cannot redeclare block-scoped variable 'ListForm'.
 const ListForm = require('./list-form');
 class ConsoleUI extends EventEmitter {
     constructor() {
@@ -20,7 +12,6 @@ class ConsoleUI extends EventEmitter {
         (this as any).statusBoxes = [];
         (this as any).hints = [];
         (this as any).hintOverrideStack = [];
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         (this as any).config = require('littleconf').getConfig();
         (this as any).hintBoxHeight = 3;
         (this as any).modes = {};
@@ -33,11 +24,9 @@ class ConsoleUI extends EventEmitter {
             isComplete: true
         };
     }
-    // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
     async initLog() {
         let logDir = (this as any).config.consoleui.logDir;
-        // @ts-expect-error ts-migrate(2585) FIXME: 'Promise' only refers to a type, but is being used... Remove this comment to see the full error message
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             mkdirp(logDir, (err) => {
                 if (err)
@@ -219,7 +208,6 @@ class ConsoleUI extends EventEmitter {
             border: { type: 'line' }
         });
         let origGrabKeys = (this as any).screen.grabKeys;
-        // @ts-expect-error ts-migrate(2585) FIXME: 'Promise' only refers to a type, but is being used... Remove this comment to see the full error message
         let r = await new Promise((resolve, reject) => {
             this.pushHintOverrides([['Esc', (options as any).cancelLabel || 'Cancel'], ['Enter', (options as any).okLabel || 'OK']]);
             box.key(['escape'], () => {
@@ -496,9 +484,7 @@ class ConsoleUI extends EventEmitter {
         return await (this as any).client.op('getStatus');
     }
     runMessageFetchLoop() {
-        // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
         const runLoop = async () => {
-            // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
             await this.serverPollLoop(async () => {
                 try {
                     let newEntries = await (this as any).client.op('getLog', {
@@ -721,7 +707,6 @@ class ConsoleUI extends EventEmitter {
         container.append(dialog);
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'result' implicitly has an 'any' type.
         const inputGiven = (result) => {
-            // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
             this.runWithWait(async () => {
                 await (this as any).client.op('provideInput', {
                     inputId: ri.id,
@@ -849,9 +834,7 @@ class ConsoleUI extends EventEmitter {
         }
     }
     runStatusUpdateLoop() {
-        // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
         const runLoop = async () => {
-            // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
             await this.serverPollLoop(async () => {
                 let status;
                 try {
@@ -878,45 +861,31 @@ class ConsoleUI extends EventEmitter {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
     activateMode(name) {
         this.disableRender();
-        // @ts-expect-error ts-migrate(2551) FIXME: Property 'activeMode' does not exist on type 'Cons... Remove this comment to see the full error message
         if (this.activeMode) {
-            // @ts-expect-error ts-migrate(2551) FIXME: Property 'activeMode' does not exist on type 'Cons... Remove this comment to see the full error message
             (this as any).modes[this.activeMode].exitMode();
         }
         (this as any).modes[name].activateMode();
-        // @ts-expect-error ts-migrate(2551) FIXME: Property 'activeMode' does not exist on type 'Cons... Remove this comment to see the full error message
         this.activeMode = name;
         this.enableRender();
     }
     exitMode() {
         this.disableRender();
-        // @ts-expect-error ts-migrate(2551) FIXME: Property 'activeMode' does not exist on type 'Cons... Remove this comment to see the full error message
         (this as any).modes[this.activeMode].exitMode();
-        // @ts-expect-error ts-migrate(2551) FIXME: Property 'activeMode' does not exist on type 'Cons... Remove this comment to see the full error message
         this.activeMode = null;
         this.activateMode('home');
         this.enableRender();
     }
-    // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
     async registerModules() {
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./mode-home').registerConsoleUI(this);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./mode-control').registerConsoleUI(this);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./mode-log').registerConsoleUI(this);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./mode-new-job').registerConsoleUI(this);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./job-option-rawfile').registerConsoleUI(this);
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('./mode-job-info').registerConsoleUI(this);
         // Register bundled plugins
-        // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
         require('../plugins').registerConsoleUIComponents(this);
         // Register external plugins
         for (let plugin of ((this as any).config.plugins || [])) {
-            // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'require'. Do you need to install... Remove this comment to see the full error message
             let p = require(plugin);
             if (p.registerConsoleUIComponents) {
                 p.registerConsoleUIComponents(this);
@@ -943,14 +912,12 @@ class ConsoleUI extends EventEmitter {
             await pasync.setTimeout(waitTime);
         }
     }
-    // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
     async run() {
         try {
             await this.initLog();
         }
         catch (err) {
             console.error('Error initializing consoleui log', err, err.stack);
-            // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'process'. Do you need to install... Remove this comment to see the full error message
             process.exit(1);
         }
         let initStatus = await this.initClient();
@@ -967,4 +934,4 @@ class ConsoleUI extends EventEmitter {
         this.log('ConsoleUI Started');
     }
 }
-new ConsoleUI().run().catch((err) => console.error(err, err.stack));
+export default new ConsoleUI().run().catch((err) => console.error(err, err.stack));
