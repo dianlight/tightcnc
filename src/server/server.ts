@@ -65,12 +65,7 @@ async function startServer() {
 	}
 
 	let serverPort = config.serverPort || 2363;
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-	app.listen(serverPort, (err) => {
-		if (err) {
-			console.error('Error listening on port ' + serverPort + ': ' + err);
-			return;
-		}
+	app.listen(serverPort, () => {
 		console.log('Listening on port ' + serverPort);
 	});
 

@@ -1477,7 +1477,7 @@ export default class TinyGController extends Controller {
     clearError() {
         this.sendLine({ clear: null });
     }
-    async home(axes = null) {
+    async home(axes?:boolean[]) {
         if (!axes)
             axes = this.homableAxes;
         let gcode = 'G28.2';

@@ -1,4 +1,5 @@
 import  XError from 'xerror';
+import TightCNCServer from './tightcnc-server';
 /**
  * Base class for an operation that can be performed.  Operations pretty much map
  * one-to-one to API calls.
@@ -7,7 +8,7 @@ import  XError from 'xerror';
  */
 export default class Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(public tightcnc, public config) {
+    constructor(public tightcnc:TightCNCServer, public config) {
     }
     /**
      * Initialize the operation.  May return a Promise.

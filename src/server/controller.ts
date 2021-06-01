@@ -1,9 +1,7 @@
 import EventEmitter from 'events';
 import XError from 'xerror';
-import fs from 'fs';
 import zstreams from 'zstreams';
-import { TinyGControllerConfig } from './tinyg-controller';
-import { GrblControllerConfig } from './grbl-controller';
+import { GcodeLine } from '../../lib/gcode-line';
 
 export interface ControllerConfig {
     port: string
@@ -14,7 +12,7 @@ export interface ControllerConfig {
     realTimeMovesMaxOvershootFactor?:number
 
 }
-export default class Controller extends EventEmitter {
+export default abstract class Controller extends EventEmitter {
 
     axisLabels=['x', 'y', 'z'];
     ready = false;
@@ -177,8 +175,7 @@ export default class Controller extends EventEmitter {
      * @param {String} line - The string to send, without a \n at the end.
      * @param {Object} [options] - Controller-specific options
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
-    sendLine(line, options = {}) { }
+    sendLine(line:string, options = {}) { }
     /**
      * Send a GcodeLine object to the controller.  The GcodeLine object may optionally contain hooks as a
      * crisphooks instance (ie, using crisphooks.addHooks()).  If hooks are attached to the GcodeLine, the
@@ -200,15 +197,14 @@ export default class Controller extends EventEmitter {
      * @param {GcodeLine} gline
      * @param {Object} [options] - Controller-specific options
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    sendGcode(gline, options = {}) { }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'thing' implicitly has an 'any' type.
-    send(thing, options = {}) {
+    abstract sendGcode(gline: GcodeLine, options?:{}):void;
+
+    send(thing: string | GcodeLine, options?:{}) {
         if (typeof thing === 'object' && thing.isGcodeLine) {
             this.sendGcode(thing, options);
         }
         else {
-            this.sendLine(thing, options);
+            this.sendLine(thing as string, options);
         }
     }
     /**
@@ -220,10 +216,9 @@ export default class Controller extends EventEmitter {
      *   for the most part, but error handling is a bit different.
      * @return {Promise} - Resolves when whole stream has been sent, and movements processed.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'stream' implicitly has an 'any' type.
-    sendStream(stream) { }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'filename' implicitly has an 'any' type.
-    sendFile(filename) {
+    abstract sendStream(stream: ReadableStream): Promise<void>;
+
+    sendFile(filename: string) {
         let stream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
         return this.sendStream(stream);
     }
@@ -276,8 +271,7 @@ export default class Controller extends EventEmitter {
      * @param {Number} axis - Axis number.  0=x, 1=y, etc.
      * @param {Number} inc - Increment to move axis by.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axis' implicitly has an 'any' type.
-    realTimeMove(axis, inc) { }
+    realTimeMove(axis:number, inc:number) { }
     /**
      * Moves machine linearly to point, resolving promise when movement is complete and machine is stopped.
      * Should not be called simultaneously with any other functions.  Promise should error if a cancel() is
@@ -288,8 +282,7 @@ export default class Controller extends EventEmitter {
      * @param {Number} [feed] - Optional feed rate to move at.
      * @return {Promise} - Resolve when move is complete and machine is stopped.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'pos' implicitly has an 'any' type.
-    move(pos, feed = null) { }
+    move(pos:number[], feed?:number) { }
     /**
      * Home machine. (G28.2)
      *
@@ -297,7 +290,7 @@ export default class Controller extends EventEmitter {
      * @param {Boolean[]} axes - true for each axis to home; false for others
      * @return {Promise} - Resolves when homing is complete.
      */
-    home(axes = null) { }
+    abstract home(axes?: boolean[]): Promise<void>;
     /**
      * Probe toward position.  Resolve when probe trips.  Error if probe reaches position without tripping.  This should return
      * the position that the probe tripped at, and also ensure that the machine is positioned at that location.  pos parameter contains
@@ -308,8 +301,7 @@ export default class Controller extends EventEmitter {
      * @param {Number} [feed]
      * @return {Promise{pos}}
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'pos' implicitly has an 'any' type.
-    probe(pos, feed = null) { }
+    probe(pos:boolean[], feed?:number) { }
     /**
      * Return an object containing controller status.  Controller classes may override this, but should make an effort
      * to conform as much as possible to the format of this status object.
@@ -320,28 +312,28 @@ export default class Controller extends EventEmitter {
     getStatus() {
         let c = this;
         return {
-            ready: (c as any).ready,
-            axisLabels: (c as any).axisLabels,
-            usedAxes: (c as any).usedAxes,
-            mpos: (c as any).mpos,
+            ready: c.ready,
+            axisLabels: c.axisLabels,
+            usedAxes: c.usedAxes,
+            mpos: c.mpos,
             pos: c.getPos(),
             mposOffset: c.getCoordOffsets(),
-            activeCoordSys: (c as any).activeCoordSys,
-            offset: (c as any).offset,
-            offsetEnabled: (c as any).offsetEnabled,
-            storedPositions: (c as any).storedPositions,
+            activeCoordSys: c.activeCoordSys,
+            offset: c.offset,
+            offsetEnabled: c.offsetEnabled,
+            storedPositions: c.storedPositions,
             homed: c.homed,
-            held: (c as any).held,
-            units: (c as any).units,
-            feed: (c as any).feed,
-            incremental: (c as any).incremental,
-            moving: (c as any).moving,
-            coolant: (c as any).coolant,
-            spindle: (c as any).spindle,
-            line: (c as any).line,
-            error: (c as any).error,
-            errorData: (c as any).errorData,
-            programRunning: (c as any).programRunning
+            held: c.held,
+            units: c.units,
+            feed: c.feed,
+            incremental: c.incremental,
+            moving: c.moving,
+            coolant: c.coolant,
+            spindle: c.spindle,
+            line: c.line,
+            error: c.error,
+            errorData: c.errorData,
+            programRunning: c.programRunning
         };
     }
     listUsedAxisNumbers() {

@@ -5,12 +5,12 @@ const GcodeProcessor = require('../../lib/gcode-processor');
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
+import TightCNCServer from './tightcnc-server';
 export default class JobManager {
 
     currentJob?:any;
 
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(public tightcnc) {
+    constructor(public tightcnc:TightCNCServer) {
     }
     initialize() {
     }
@@ -126,7 +126,7 @@ export default class JobManager {
         if (this.currentJob && this.currentJob.state !== 'complete' && this.currentJob.state !== 'cancelled' && this.currentJob.state !== 'error') {
             throw new XError(XError.INTERNAL_ERROR, 'Cannot start job with another job running.');
         }
-        if (!this.tightcnc.controller.ready) {
+        if (!this.tightcnc.controller!.ready) {
             throw new XError(XError.INTERNAL_ERROR, 'Controller not ready.');
         }
         // Create the current job object
@@ -138,11 +138,11 @@ export default class JobManager {
         });
         job = this.currentJob;
         // Clear the message log
-        this.tightcnc.messageLog.clear();
-        this.tightcnc.messageLog.log('Job started.');
+        this.tightcnc.messageLog?.clear();
+        this.tightcnc.messageLog?.log('Job started.');
         // Wait for the controller to stop moving
         this.tightcnc.debug('startJob waitSync');
-        await this.tightcnc.controller.waitSync();
+        await this.tightcnc.controller?.waitSync();
         // Note that if the following few lines have any await's in between them, it could result
         // in certain errors from gcode processors breaking things, since errors are handled through
         // Controller#sendStream().
@@ -160,14 +160,13 @@ export default class JobManager {
         job.emitJobStart();
         // Pipe it to the controller, asynchronously
         this.tightcnc.debug('startJob pipe stream');
-        this.tightcnc.controller.sendStream(source)
+        this.tightcnc.controller?.sendStream(source)
             .then(() => {
             // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
             job.state = 'complete';
             // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
             job.emitJobComplete();
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => {
             if (err.code === XError.CANCELLED) {
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
@@ -216,7 +215,7 @@ export default class JobManager {
         return this.getStatus(job);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
-    async dryRunJob(jobOptions, outputFile = null) {
+    async dryRunJob(jobOptions, outputFile?:string) {
         this.tightcnc.debug('Begin dryRunJob');
         let origJobOptions = jobOptions;
         jobOptions = objtools.deepCopy(jobOptions);

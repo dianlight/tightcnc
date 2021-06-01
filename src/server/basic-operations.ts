@@ -1,11 +1,13 @@
 import  Operation from './operation';
 import objtools from 'objtools';
 import XError from 'xerror';
+import TightCNCServer from './tightcnc-server';
+import GcodeLine from '../../lib/gcode-line';
 class OpGetStatus extends Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         if (params.sync) {
-            await this.tightcnc.controller.waitSync();
+            await this.tightcnc.controller?.waitSync();
         }
         let fields = params && params.fields;
         let stat = await this.tightcnc.getStatus();
@@ -41,46 +43,45 @@ class OpSend extends Operation {
             wait: { type: Boolean, default: false, description: 'Whether to wait for the line to be received' }
         };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params:{line: string|GcodeLine, wait:boolean}) {
         if (params.wait) {
-            this.tightcnc.controller.send(params.line);
-            await this.tightcnc.controller.waitSync();
+            this.tightcnc.controller?.send(params.line);
+            await this.tightcnc.controller?.waitSync();
         }
         else {
-            this.tightcnc.controller.send(params.line);
+            this.tightcnc.controller?.send(params.line);
         }
     }
 }
 class OpHold extends Operation {
     getParamSchema() { return {}; }
     run() {
-        this.tightcnc.controller.hold();
+        this.tightcnc.controller?.hold();
     }
 }
 class OpResume extends Operation {
     getParamSchema() { return {}; }
     run() {
-        this.tightcnc.controller.resume();
+        this.tightcnc.controller?.resume();
     }
 }
 class OpCancel extends Operation {
     getParamSchema() { return {}; }
     run() {
-        this.tightcnc.controller.cancel();
+        this.tightcnc.controller?.cancel();
         this.tightcnc.cancelInput();
     }
 }
 class OpReset extends Operation {
     getParamSchema() { return {}; }
     run() {
-        this.tightcnc.controller.reset();
+        this.tightcnc.controller?.reset();
     }
 }
 class OpClearError extends Operation {
     getParamSchema() { return {}; }
     run() {
-        this.tightcnc.controller.clearError();
+        this.tightcnc.controller?.clearError();
     }
 }
 class OpRealTimeMove extends Operation {
@@ -98,10 +99,9 @@ class OpRealTimeMove extends Operation {
             }
         };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    run(params) {
+    run(params:{axis:number, inc:number}) {
         this.checkReady();
-        this.tightcnc.controller.realTimeMove(params.axis, params.inc);
+        this.tightcnc.controller?.realTimeMove(params.axis, params.inc);
     }
 }
 class OpMove extends Operation {
@@ -119,10 +119,9 @@ class OpMove extends Operation {
             }
         };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params:{pos:number[],feed?:number}) {
         this.checkReady();
-        await this.tightcnc.controller.move(params.pos, params.feed);
+        await this.tightcnc.controller?.move(params.pos, params.feed);
     }
 }
 class OpHome extends Operation {
@@ -138,7 +137,7 @@ class OpHome extends Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         this.checkReady();
-        await this.tightcnc.controller.home(params.axes);
+        await this.tightcnc.controller?.home(params.axes);
     }
 }
 class OpSetAbsolutePos extends Operation {
@@ -160,11 +159,11 @@ class OpSetAbsolutePos extends Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let pos = params.pos;
-        await this.tightcnc.controller.waitSync();
+        await this.tightcnc.controller?.waitSync();
         if (!pos) {
             pos = [];
-            for (let axisNum = 0; axisNum < this.tightcnc.controller.usedAxes.length; axisNum++) {
-                if (this.tightcnc.controller.usedAxes[axisNum]) {
+            for (let axisNum = 0; axisNum < this.tightcnc.controller!.usedAxes.length; axisNum++) {
+                if (this.tightcnc.controller!.usedAxes[axisNum]) {
                     pos.push(0);
                 }
                 else {
@@ -179,14 +178,14 @@ class OpSetAbsolutePos extends Operation {
             }
         }
         let gcode = 'G28.3';
-        for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
-            let axis = this.tightcnc.controller.axisLabels[axisNum].toUpperCase();
+        if(this.tightcnc.controller) for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
+            let axis = this.tightcnc.controller!.axisLabels[axisNum].toUpperCase();
             if (typeof pos[axisNum] === 'number') {
                 gcode += ' ' + axis + pos[axisNum];
             }
         }
-        await this.tightcnc.controller.send(gcode);
-        await this.tightcnc.controller.waitSync();
+        await this.tightcnc.controller?.send(gcode);
+        await this.tightcnc.controller?.waitSync();
     }
 }
 class OpProbe extends Operation {
@@ -204,10 +203,9 @@ class OpProbe extends Operation {
             }
         };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params:{pos:boolean[],feed?:number}) {
         this.checkReady();
-        return await this.tightcnc.controller.probe(params.pos, params.feed);
+        return await this.tightcnc.controller?.probe(params.pos, params.feed);
     }
 }
 class OpSetOrigin extends Operation {
@@ -236,30 +234,30 @@ class OpSetOrigin extends Operation {
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'c' implicitly has an 'any' type.
         let posHasBooleans = pos && pos.some((c) => typeof c === 'boolean');
         if (!pos || posHasBooleans || typeof params.coordSys !== 'number') {
-            await this.tightcnc.controller.waitSync();
+            await this.tightcnc.controller?.waitSync();
         }
         if (!pos) {
-            pos = this.tightcnc.controller.mpos;
+            pos = this.tightcnc.controller!.mpos;
         }
         else {
             for (let axisNum = 0; axisNum < pos.length; axisNum++) {
                 if (pos[axisNum] === true)
-                    pos[axisNum] = this.tightcnc.controller.mpos[axisNum];
+                    pos[axisNum] = this.tightcnc.controller!.mpos[axisNum];
             }
         }
         let coordSys = params.coordSys;
         if (typeof params.coordSys !== 'number') {
-            coordSys = this.tightcnc.controller.activeCoordSys || 0;
+            coordSys = this.tightcnc.controller!.activeCoordSys || 0;
         }
         let gcode = 'G10 L2 P' + (coordSys + 1);
-        for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
-            let axis = this.tightcnc.controller.axisLabels[axisNum].toUpperCase();
+        if(this.tightcnc.controller) for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
+            let axis = this.tightcnc.controller?.axisLabels[axisNum].toUpperCase();
             if (typeof pos[axisNum] === 'number') {
                 gcode += ' ' + axis + pos[axisNum];
             }
         }
-        await this.tightcnc.controller.send(gcode);
-        await this.tightcnc.controller.waitSync();
+        await this.tightcnc.controller?.send(gcode);
+        await this.tightcnc.controller?.waitSync();
     }
 }
 class OpWaitSync extends Operation {
@@ -267,7 +265,7 @@ class OpWaitSync extends Operation {
         return {};
     }
     async run() {
-        await this.tightcnc.controller.waitSync();
+        await this.tightcnc.controller?.waitSync();
     }
 }
 class OpGetLog extends Operation {
@@ -306,7 +304,7 @@ class OpGetLog extends Operation {
         else {
             throw new XError(XError.INVALID_ARGUMENT, 'Bad log type');
         }
-        return logger.section(params.start, params.end, params.limit);
+        return logger?.section(params.start, params.end, params.limit);
     }
 }
 class OpProvideInput extends Operation {
@@ -354,8 +352,7 @@ class OpCancelInput extends Operation {
         }
     }
 }
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-export default function registerOperations(tightcnc) {
+export default function registerOperations(tightcnc: TightCNCServer) {
     tightcnc.registerOperation('getStatus', OpGetStatus);
     tightcnc.registerOperation('send', OpSend);
     tightcnc.registerOperation('hold', OpHold);

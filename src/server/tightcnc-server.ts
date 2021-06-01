@@ -5,7 +5,7 @@ import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
 import mkdirp from 'mkdirp';
 const GcodeProcessor = require('../../lib/gcode-processor');
-const GcodeLine = require('../../lib/gcode-line');
+//import GcodeLine from '../../lib/gcode-line';
 import zstreams from 'zstreams';
 import EventEmitter from 'events';
 import path from 'path';
@@ -19,6 +19,9 @@ import littleconf from 'littleconf'
 import joboperations from './job-operations'
 import macrooperation from './macro-operations'
 import basicoperation from './basic-operations'
+import Controller from './controller';
+import GcodeLine from '../../lib/gcode-line';
+import JobState from './job-state';
 /**
  * This is the central class for the application server.  Operations, gcode processors, and controllers
  * are registered here.
@@ -33,7 +36,7 @@ export default class TightCNCServer extends EventEmitter {
     controllerClasses: {
         [key:string]:unknown
     } = {};
-    controller?:any;
+    controller?:Controller;
     gcodeProcessors:any = {};
     waitingForInput?:{
         prompt: any,
@@ -92,10 +95,8 @@ export default class TightCNCServer extends EventEmitter {
         // Whether to suppress duplicate error messages from being output sequentially
         const suppressDuplicateErrors = this.config.suppressDuplicateErrors === undefined ? true : this.config.suppressDuplicateErrors;
         // Create directories if missing
-        // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '"data"' is not assignable to par... Remove this comment to see the full error message
-        this.getFilename(null, 'data', true, true, true);
-        // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '"macro"' is not assignable to pa... Remove this comment to see the full error message
-        this.getFilename(null, 'macro', true, true, true);
+        this.getFilename(undefined, 'data', true, true, true);
+        this.getFilename(undefined, 'macro', true, true, true);
         // Initialize the disk and in-memory communications loggers
         this.loggerDisk = new LoggerDisk(this.config.logger, this);
         await this.loggerDisk.init();
@@ -112,13 +113,10 @@ export default class TightCNCServer extends EventEmitter {
             let controllerClass = this.controllerClasses[this.config.controller];
             let controllerConfig = this.config.controllers[this.config.controller];
             this.controller = new (<any>controllerClass)(controllerConfig);
-            (this.controller as any).tightcnc = this;
-            // @ts-expect-error ts-migrate(7034) FIXME: Variable 'lastError' implicitly has type 'any' in ... Remove this comment to see the full error message
-            let lastError = null; // used to suppress duplicate error messages on repeated connection retries
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            this.controller.on('error', (err) => {
+            //(this.controller as Controller).tightcnc = this; FIXME: Serve?!?
+            let lastError:string|undefined; // used to suppress duplicate error messages on repeated connection retries
+            this.controller?.on('error', (err) => {
                 let errrep = JSON.stringify(err.toObject ? err.toObject() : err.toString) + err;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'lastError' implicitly has an 'any' type.
                 if (objtools.deepEquals(errrep, lastError) && suppressDuplicateErrors)
                     return;
                 lastError = errrep;
@@ -128,29 +126,26 @@ export default class TightCNCServer extends EventEmitter {
                 if (err.stack)
                     console.error(err.stack);
             });
-            this.controller.on('ready', () => {
-                lastError = null;
+            this.controller?.on('ready', () => {
+                lastError = undefined;
                 console.log('Controller ready.');
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
-            this.controller.on('sent', (line) => {
+            this.controller?.on('sent', (line:string) => {
                 this.loggerMem?.log('send', line);
                 this.loggerDisk?.log('send', line);
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
-            this.controller.on('received', (line) => {
+            this.controller?.on('received', (line:string) => {
                 this.loggerMem?.log('receive', line);
                 this.loggerDisk?.log('receive', line);
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'msg' implicitly has an 'any' type.
-            this.controller.on('message', (msg) => {
+            this.controller?.on('message', (msg) => {
                 this.message(msg);
             });
-            this.controller.initConnection(true);
+            this.controller?.initConnection(true);
         }
         else {
             console.log('WARNING: Initializing without a controller enabled.  For testing only.');
-            this.controller = {};
+            this.controller = undefined;
         }
         // Set up the job manager
         this.jobManager = new JobManager(this);
@@ -160,14 +155,12 @@ export default class TightCNCServer extends EventEmitter {
             await this.operations[opname].init();
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'msg' implicitly has an 'any' type.
-    message(msg) {
+    message(msg:string) {
         this.messageLog?.log(msg);
         this.loggerMem?.log('other', 'Message: ' + msg);
         this.loggerDisk?.log('other', 'Message: ' + msg);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    debug(str) {
+    debug(str:string) {
         if (!this.config.enableDebug)
             return;
         if (this.config.debugToStdout) {
@@ -177,15 +170,13 @@ export default class TightCNCServer extends EventEmitter {
             this.loggerDisk.log('other', 'Debug: ' + str);
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
-    getFilename(name, place = null, allowAbsolute = false, createParentsIfMissing = false, createAsDirIfMissing = false) {
+    getFilename(name?:string, place?:string, allowAbsolute = false, createParentsIfMissing = false, createAsDirIfMissing = false) {
         if (name && path.isAbsolute(name) && !allowAbsolute)
             throw new XError(XError.INVALID_ARGUMENT, 'Absolute paths not allowed');
         if (name && name.split(path.sep).indexOf('..') !== -1 && !allowAbsolute)
             throw new XError(XError.INVALID_ARGUMENT, 'May not ascend directories');
         let base = this.baseDir;
         if (place) {
-            // @ts-expect-error ts-migrate(2538) FIXME: Type 'null' cannot be used as an index type.
             let placePath = this.config.paths[place];
             if (!placePath)
                 throw new XError(XError.INVALID_ARGUMENT, 'No such place ' + place);
@@ -208,16 +199,13 @@ export default class TightCNCServer extends EventEmitter {
     registerController(name:string, cls:any) {
         this.controllerClasses[name] = cls;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
-    registerOperation(name, cls) {
+    registerOperation(name:string, cls:any) {
         this.operations[name] = new cls(this, this.config.operations[name] || {});
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
-    registerGcodeProcessor(name, cls) {
+    registerGcodeProcessor(name:string, cls:any) {
         this.gcodeProcessors[name] = cls;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'opname' implicitly has an 'any' type.
-    async runOperation(opname, params) {
+    async runOperation(opname:string, params:any) {
         if (!(opname in this.operations)) {
             throw new XError(XError.NOT_FOUND, 'No such operation: ' + opname);
         }
@@ -280,13 +268,25 @@ export default class TightCNCServer extends EventEmitter {
      *   the additional property 'gcodeProcessorChain' containing an array of all GcodeProcessor's in the chain.  This property
      *   is only available once the 'processorChainReady' event is fired on the returned stream;
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'options' implicitly has an 'any' type.
-    getGcodeSourceStream(options) {
+    getGcodeSourceStream(options: {
+        filename?: string,
+        data?: string[],
+        macro?: string,
+        gcodeProcessors?: {
+            name: string,
+            options: any,
+            order?: number
+            inst: any
+        }[],
+        macroParams?: any,
+        rawStrings?: boolean,
+        dryRun?: boolean,
+        job: JobState
+    }) {
         // Handle case where returning raw strings
         if (options.rawStrings) {
             if (options.filename) {
                 let filename = options.filename;
-                // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '"data"' is not assignable to par... Remove this comment to see the full error message
                 filename = this.getFilename(filename, 'data', true);
                 return zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
             }
@@ -390,8 +390,7 @@ export default class TightCNCServer extends EventEmitter {
         this.waitingForInput = undefined;
         w.waiter.resolve(value);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-    cancelInput(err) {
+    cancelInput(err?:Error|XError) {
         if (!err)
             err = new XError(XError.CANCELLED, 'Requested input cancelled');
         if (!this.waitingForInput)

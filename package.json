@@ -1,6 +1,6 @@
 {
     "name": "tightcnc",
-    "version": "0.2.0",
+    "version": "0.3.0-alpha0",
     "description": "Backend-centric job-oriented server for hobby cnc controllers",
     "keywords": [
         "cnc",
@@ -33,7 +33,7 @@
         "cross": "^1.0.0",
         "express": "^4.17.1",
         "kd-tree-javascript": "^1.0.3",
-        "littleconf": "^0.2.1",
+        "littleconf": "^1.0.1",
         "mkdirp": "^0.5.1",
         "moment": "^2.29.1",
         "objtools": "^2.0.1",

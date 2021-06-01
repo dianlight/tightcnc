@@ -3,6 +3,7 @@ import  fs from 'fs';
 import  path from 'path';
 import commonSchema from 'common-schema';
 import XError from 'xerror';
+import TightCNCServer from './tightcnc-server';
 class OpListFiles extends Operation {
     getParamSchema() {
         return {
@@ -16,7 +17,7 @@ class OpListFiles extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        let dir = this.tightcnc.getFilename(null, params.dir, false, true, true);
+        let dir = this.tightcnc.getFilename(undefined, params.dir, false, true, true);
         let files = await new Promise<string[]>((resolve, reject) => {
             fs.readdir(dir, (err: any, files: string[] | PromiseLike<string[]>) => {
                 if (err)
@@ -100,7 +101,7 @@ class OpUploadFile extends Operation {
         });
     }
 }
-export function registerOperations(tightcnc: { registerOperation: (arg0: string, arg1: any ) => void; }) {
+export function registerOperations(tightcnc: TightCNCServer) {
     tightcnc.registerOperation('listFiles', OpListFiles);
     tightcnc.registerOperation('uploadFile', OpUploadFile);
 }

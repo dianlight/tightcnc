@@ -12,6 +12,7 @@ Planned task upgrade:
   - [ ] Remove ts-migrate dependecy
 - [x] Upgrade to serialport 9.x 
   - [x] Support for raw socket comunication - serialport-binding
+    - [ ] Manage connection errors
   - [ ] Support fro websocket comunication - serilaport-binding
 - [ ] Support start without config
 - [ ] Support for new API

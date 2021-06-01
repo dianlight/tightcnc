@@ -1,6 +1,8 @@
-const XError = require('xerror');
-const objtools = require('objtools');
-const CrispHooks = require('crisphooks');
+// @ts-expect-error ts-migrate(7016) FIXME: Could not find a declaration file for module 'xerr... Remove this comment to see the full error message
+import XError from 'xerror';
+import objtools from 'objtools';
+// @ts-expect-error ts-migrate(7016) FIXME: Could not find a declaration file for module 'cris... Remove this comment to see the full error message
+import CrispHooks from 'crisphooks';
 
 /**
  * This class is a parser, modification interface, and generator for gcode.
@@ -26,7 +28,9 @@ const modalGroupsG = [
 	[ 'G96', 'G97' ],
 	[ 'G7', 'G8' ]
 ];
-let modalGroupsGByCode = {};
+let modalGroupsGByCode: {
+	[key:string]:string|number
+} = {};
 for (let gidx = 0; gidx < modalGroupsG.length; gidx++) for (let code of modalGroupsG[gidx]) modalGroupsGByCode[code] = gidx;
 const modalGroupsM = [
 	[],
@@ -40,15 +44,24 @@ const modalGroupsM = [
 	[ 'M7', 'M8', 'M9' ],
 	[ 'M48', 'M49' ]
 ];
-let modalGroupsMByCode = {};
+let modalGroupsMByCode: {
+	[key:string]:number
+} = {};
 for (let gidx = 0; gidx < modalGroupsM.length; gidx++) for (let code of modalGroupsM[gidx]) modalGroupsMByCode[code] = gidx;
 const nonModals = [ 'G4', 'G10', 'G28', 'G30', 'G53', 'G92', 'G92.1', 'G92.2', 'G92.3' ];
 
 const coordOrder = [ 'P', 'X', 'Y', 'Z', 'A', 'B', 'C', 'F' ];
 
-class GcodeLine extends CrispHooks {
+export class GcodeLine extends CrispHooks {
 
-	/**
+	modified = false
+	isGcodeLine = true
+	words?: (string | [string,number])[]
+	comment?:string
+	commentStyle?:string
+	origLine?:string
+
+/**
 	 * The constructor can be called in one of the following forms:
 	 * - GcodeLine() - Creates an empty line to be filled in.
 	 * - GcodeLine(string) - Parses the line string.
@@ -56,15 +69,13 @@ class GcodeLine extends CrispHooks {
 	 * - GcodeLine([ word ]) - Concatenates the array of strings then parses
 	 * - GcodeLine(gline) - Copy constructor
 	 */
-	constructor(arg) {
+	constructor(arg?:string|string[]|[string,number][]|GcodeLine) {
 		super();
-		this.modified = false;
-		this.isGcodeLine = true;
-		if (arg === null || arg === undefined || (Array.isArray(arg) && arg.length === 0)) {
+		if (!arg || (Array.isArray(arg) && arg.length == 0)) {
 			this.words = [];
 			this.comment = '';
 			this.commentStyle = '(';
-			this.origLine = null;
+			this.origLine = undefined;
 		} else if (typeof arg === 'string') {
 			this.origLine = arg;
 			this.parse(arg);
@@ -100,7 +111,7 @@ class GcodeLine extends CrispHooks {
 	 * @param {Boolean} [multi=false] - If true, returns an array of all matching words.
 	 * @return {Number|Number[]|null}
 	 */
-	get(letter, mgroup = null, multi = false) {
+	get(letter:string, mgroup?:number|string, multi = false):number|number[]|undefined {
 		// Convert letter to uppercase
 		letter = letter.toUpperCase();
 
@@ -123,21 +134,21 @@ class GcodeLine extends CrispHooks {
 			mgroupMap = {};
 			if (letter === 'G') mgroupMap = modalGroupsGByCode;
 			else if (letter === 'M') mgroupMap = modalGroupsMByCode;
-			else mgroup = null;
+			else mgroup = undefined;
 		}
 
-		let matches = multi ? [] : null;
-		for (let word of this.words) {
+		let matches:number[]|undefined = multi ? [] : undefined;
+		if(this.words) for (let word of this.words) {
 			if (word[0] === letter) {
 				if (mgroup) {
 					let fullCode = letter + word[1];
-					if (mgroup !== mgroupMap[fullCode]) continue;
+					if (!mgroupMap || mgroup !== mgroupMap[fullCode]) continue;
 				}
 				if (multi) {
-					matches.push(word[1]);
+					matches?.push(word[1] as number);
 				} else {
-					if (matches !== null) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line: ' + this.toString());
-					matches = word[1];
+					if (matches) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line: ' + this.toString());
+					matches = word[1] as unknown as number[];
 				}
 			}
 		}
@@ -163,7 +174,7 @@ class GcodeLine extends CrispHooks {
 	 * @param {Number|null} value - Value to set.
 	 * @param {Number} [pos=null] - Position in the word array to add the word, if it doesn't exist.
 	 */
-	set(letter, value, pos = null) {
+	set(letter:string, value?:number, pos?:number):void {
 		if (letter.length > 1 && (value === null || value === undefined)) {
 			// Handle case of supplying a single string
 			return this.set(letter[0], parseFloat(letter.slice(1)), pos);
@@ -171,8 +182,8 @@ class GcodeLine extends CrispHooks {
 
 		letter = letter.toUpperCase();
 		let wordIdx = null;
-		for (let i = 0; i < this.words.length; i++) {
-			if (this.words[i][0] === letter) {
+		for (let i = 0; i < this.words!.length; i++) {
+			if (this.words![i][0] === letter) {
 				if (wordIdx !== null) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line');
 				wordIdx = i;
 			}
@@ -180,11 +191,11 @@ class GcodeLine extends CrispHooks {
 
 		if (wordIdx !== null) {
 			if (value === null || value === undefined) {
-				this.words.splice(wordIdx, 1);
+				this.words?.splice(wordIdx, 1);
 				this.modified = true;
 			} else {
-				if (this.words[wordIdx][1] !== value) {
-					this.words[wordIdx][1] = value;
+				if (this.words![wordIdx][1] !== value) {
+					(this.words![wordIdx] as [string,number])[1] = value;
 					this.modified = true;
 				}
 			}
@@ -195,13 +206,15 @@ class GcodeLine extends CrispHooks {
 
 		if (pos === null || pos === undefined) {
 			// Guess position of word
-			let posMap = {};
-			for (let i = 0; i < this.words.length; i++) posMap[this.words[i][0]] = i;
+			let posMap: {
+				[key:string]:number
+			} = {};
+			for (let i = 0; i < this.words!.length; i++) posMap[this.words![i][0] as string] = i;
 			if (letter === 'N') {
 				pos = 0; // line numbers go at the beginning
 			} else if (letter === 'G' || letter === 'M') {
 				// G or M go at the beginning, unless there's a line number
-				if (posMap.N === 0) pos = 1;
+				if ((posMap as any ).N === 0) pos = 1;
 				else pos = 0;
 			} else if (coordOrder.indexOf(letter) !== -1) {
 				let coordIdx = coordOrder.indexOf(letter);
@@ -220,21 +233,21 @@ class GcodeLine extends CrispHooks {
 					}
 				}
 				if (pos === null || pos === undefined) {
-					pos = this.words.length;
+					pos = this.words!.length;
 				}
 			} else {
 				// Default to putting it at the end
-				pos = this.words.length;
+				pos = this.words?.length;
 			}
 		}
 
 		// Insert new word
-		this.words.splice(pos, 0, [ letter, value ]);
+		this.words?.splice(pos as number, 0, [ letter, value ]);
 		this.modified = true;
 	}
 
-	remove(letter) {
-		this.set(letter, null);
+	remove(letter:string) {
+		this.set(letter);
 	}
 
 	/**
@@ -247,18 +260,18 @@ class GcodeLine extends CrispHooks {
 	 * @param {Number|String|null} mgroup - If a single letter is provided, the modal group to check for.
 	 * @return {Boolean}
 	 */
-	has(letter, mgroup = null) {
+	has(letter:string, mgroup?:number|string):boolean {
 		letter = letter.toUpperCase();
 		if (letter.length > 1) {
-			for (let word of this.words) {
+			if(this.words) for (let word of this.words) {
 				if (letter === word[0] + word[1]) return true;
 			}
 			return false;
 		} else if (mgroup !== null) {
 			let vals = this.get(letter, mgroup, true);
-			return vals.length > 0;
+			return (vals as []).length > 0;
 		} else {
-			for (let word of this.words) {
+			if(this.words) for (let word of this.words) {
 				if (letter === word[0]) return true;
 			}
 			return false;
@@ -271,7 +284,7 @@ class GcodeLine extends CrispHooks {
 	 * @method addComment
 	 * @param {String} str
 	 */
-	addComment(str) {
+	addComment(str:string) {
 		if (this.comment) this.comment += '; ';
 		this.comment += str;
 		this.modified = true;
@@ -284,16 +297,16 @@ class GcodeLine extends CrispHooks {
 	 * @method getCoords
 	 * @return {Number[]}
 	 */
-	getCoords(axisLabels = null) {
+	getCoords(axisLabels?:string[]):number[] {
 		if (!axisLabels) axisLabels = [ 'x', 'y', 'z', 'a', 'b', 'c' ];
-		let ret = [];
+		let ret:number[] = [];
 		for (let axisNum = 0; axisNum < axisLabels.length; axisNum++) {
-			ret.push(this.get(axisLabels[axisNum]));
+			ret.push(this.get(axisLabels[axisNum]) as number);
 		}
 		return ret;
 	}
 
-	parse(line) {
+	parse(line:string) {
 		let matches;
 
 		// Pull out comments
@@ -342,13 +355,13 @@ class GcodeLine extends CrispHooks {
 	 * @param {Number} minLineDigits=1 - Minimum number of digits to use for line number (N) words.
 	 * @return {String}
 	 */
-	toString(compact = false, precision = 4, minCommandDigits = 2, minLineDigits = 1) {
+	toString(compact = false, precision = 4, minCommandDigits = 2, minLineDigits = 1):string {
 		// if not modified, output the original
 		if (!this.modified && this.origLine) return this.origLine;
 		let line = '';
-		for (let word of this.words) {
+		if(this.words) for (let word of this.words) {
 			if (line && !compact) line += ' ';
-			let valueStr = '' + (+word[1].toFixed(precision));
+			let valueStr = '' + (+(word[1] as number).toFixed(precision));
 			let letter = word[0];
 			if (letter === 'G' || letter === 'M') {
 				while (valueStr.length < minCommandDigits) valueStr = '0' + valueStr;
@@ -371,10 +384,12 @@ class GcodeLine extends CrispHooks {
 
 }
 
-module.exports = GcodeLine;
+export default GcodeLine;
+/*
 module.exports.modalGroupsG = modalGroupsG;
 module.exports.modalGroupsGByCode = modalGroupsGByCode;
 module.exports.modalGroupsM = modalGroupsM;
 module.exports.modalGroupsMByCode = modalGroupsMByCode;
 module.exports.nonModals = nonModals;
+*/
 

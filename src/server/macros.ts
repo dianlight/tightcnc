@@ -7,11 +7,22 @@ import path from 'path';
 import zstreams from 'zstreams';
 import objtools from 'objtools';
 import { createSchema } from 'common-schema';
+import TightCNCServer from './tightcnc-server';
+import { GcodeProcessor } from '../../lib/gcode-processor';
 export default class Macros {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(tightcnc) {
-        (this as any).tightcnc = tightcnc;
-        (this as any).macroCache = {};
+    macroCache:{
+        [key: string]: {
+            metadata: {
+                params: unknown
+                mergeParams: boolean[]
+            }
+            absPath: string
+            stat: fs.Stats
+        }
+    } = {}
+
+    constructor(public tightcnc:TightCNCServer) {
+        this.tightcnc = tightcnc;
     }
     async initMacros() {
         // Load macro cache and start cache refresh loop
@@ -25,19 +36,19 @@ export default class Macros {
     }
     async listAllMacros() {
         let ret = [];
-        for (let key in (this as any).macroCache) {
+        for (let key in this.macroCache) {
             ret.push({
                 name: key,
-                params: (this as any).macroCache[key].metadata && (this as any).macroCache[key].metadata.params
+                params: this.macroCache[key].metadata && this.macroCache[key].metadata.params
             });
         }
         return ret;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
     getMacroParams(name) {
-        if (!(this as any).macroCache[name])
+        if (!this.macroCache[name])
             throw new XError(XError.NOT_FOUND, 'Macro ' + name + ' not found');
-        let metadata = (this as any).macroCache[name].metadata;
+        let metadata = this.macroCache[name].metadata;
         if (!metadata)
             return null;
         if (!metadata.params && !metadata.mergeParams)
@@ -64,7 +75,7 @@ export default class Macros {
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             newMacroCache[fo.name] = fo;
         }
-        (this as any).macroCache = newMacroCache;
+        this.macroCache = newMacroCache;
     }
     async _updateMacroCache() {
         let fileObjs = await this._listMacroFiles();
@@ -73,14 +84,14 @@ export default class Macros {
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             fileObjMap[fo.name] = fo;
         // Delete anything from the cache that doesn't exist in the new listing
-        for (let key in (this as any).macroCache) {
+        for (let key in this.macroCache) {
             if (!(key in fileObjMap))
-                delete (this as any).macroCache[key];
+                delete this.macroCache[key];
         }
         // For each macro file, if it has been updated (or is new) since the cache load, reload it
         for (let key in fileObjMap) {
             // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-            if (!(key in (this as any).macroCache) || fileObjMap[key].stat.mtime.getTime() > (this as any).macroCache[key].stat.mtime.getTime()) {
+            if (!(key in this.macroCache) || fileObjMap[key].stat.mtime.getTime() > this.macroCache[key].stat.mtime.getTime()) {
                 try {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     fileObjMap[key].metadata = await this._loadMacroMetadata(await this._readFile(fileObjMap[key].absPath));
@@ -89,18 +100,18 @@ export default class Macros {
                     console.error('Error loading macro metadata', key, err);
                 }
                 // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                (this as any).macroCache[key] = fileObjMap[key];
+                this.macroCache[key] = fileObjMap[key];
             }
         }
     }
     // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
     async _updateMacroCacheOne(macroName) {
-        if (!(macroName in (this as any).macroCache)) {
+        if (!(macroName in this.macroCache)) {
             await this._updateMacroCache();
             return;
         }
-        let fo = (this as any).macroCache[macroName];
-        let stat = await new Promise((resolve, reject) => {
+        let fo = this.macroCache[macroName];
+        let stat = await new Promise<fs.Stats>((resolve, reject) => {
             fs.stat(fo.absPath, (err, stat) => {
                 if (err)
                     reject(err);
@@ -108,7 +119,7 @@ export default class Macros {
                     resolve(stat);
             });
         });
-        if (( stat as any ).mtime.getTime() > fo.stat.mtime.getTime()) {
+        if ( stat.mtime.getTime() > fo.stat.mtime.getTime()) {
             try {
                 fo.stat = stat;
                 fo.metadata = await this._loadMacroMetadata(await this._readFile(fo.absPath));
@@ -120,7 +131,7 @@ export default class Macros {
     }
     async _listMacroFiles() {
         // later directories in this list take precedence in case of duplicate names
-        let dirs = [path.join(__dirname, 'macro'), (this as any).tightcnc.getFilename(null, 'macro', false, true, true)];
+        let dirs = [path.join(__dirname, 'macro'), this.tightcnc.getFilename(undefined, 'macro', false, true, true)];
         let ret = [];
         for (let dir of dirs) {
             try {
@@ -190,7 +201,7 @@ export default class Macros {
         // Run the macro and trap the exception containing metadata
         let gotMacroMetadata = null;
         try {
-            await fn((this as any).tightcnc, macroMeta);
+            await fn(this.tightcnc, macroMeta);
             throw new XError(XError.INTERNAL_ERROR, 'Expected call to macroMeta() in macro');
         }
         catch (err) {
@@ -212,14 +223,17 @@ export default class Macros {
         }
         return metadata;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'value' implicitly has an 'any' type.
-    _prepMacroParam(value, key, env) {
-        let axisLabels = (this as any).tightcnc.controller.axisLabels;
+    _prepMacroParam(value: {
+        [key:string]:unknown
+    }, key: string, env: {
+        [key:string]:unknown
+    }) {
+        let axisLabels = this.tightcnc.controller?.axisLabels;
         // allow things that look like coordinate arrays to be accessed by their axis letters
-        if (Array.isArray(value) && (value.length <= axisLabels.length || value.length < 6)) {
-            let axisLabels = (this as any).tightcnc.controller.axisLabels;
-            for (let axisNum = 0; axisNum < value.length && axisNum < axisLabels.length; axisNum++) {
-                let axis = axisLabels[axisNum].toLowerCase();
+        if (Array.isArray(value) && (value.length <= axisLabels!.length || value.length < 6)) {
+            let axisLabels = this.tightcnc.controller?.axisLabels;
+            for (let axisNum = 0; axisNum < value.length && axisNum < axisLabels!.length; axisNum++) {
+                let axis = axisLabels![axisNum].toLowerCase();
                 value[axis] = value[axisNum];
                 value[axis.toUpperCase()] = value[axisNum];
                 if (key === 'pos' && env && !(axis in env) && !(axis.toUpperCase() in env)) {
@@ -262,7 +276,7 @@ export default class Macros {
                     options.gcodeProcessor.pushGcode(gline);
                 }
                 else {
-                    (this as any).tightcnc.controller.sendGcode(gline);
+                    this.tightcnc.controller?.sendGcode(gline);
                 }
             },
             // Waits until all sent gcode has been executed and machine is stopped
@@ -272,12 +286,12 @@ export default class Macros {
                 if (options.gcodeProcessor) {
                     await options.gcodeProcessor.flushDownstreamProcessorChain();
                 }
-                await (this as any).tightcnc.controller.waitSync();
+                await this.tightcnc.controller?.waitSync();
             },
             // Runs a named operation
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
             op: async (name, params) => {
-                return await (this as any).tightcnc.runOperation(name, params);
+                return await this.tightcnc.runOperation(name, params);
             },
             // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
             runMacro: async (macro, params = {}) => {
@@ -287,16 +301,16 @@ export default class Macros {
             input: async (prompt, schema) => {
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'env' implicitly has an 'any' type.
                 await env.sync();
-                return await (this as any).tightcnc.requestInput(prompt, schema);
+                return await this.tightcnc.requestInput(prompt, schema);
             },
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'msg' implicitly has an 'any' type.
             message: (msg) => {
-                (this as any).tightcnc.message(msg);
+                this.tightcnc.message(msg);
             },
-            tightcnc: (this as any).tightcnc,
+            tightcnc: this.tightcnc,
             gcodeProcessor: options.gcodeProcessor,
-            controller: (this as any).tightcnc.controller,
-            axisLabels: (this as any).tightcnc.controller.axisLabels,
+            controller: this.tightcnc.controller,
+            axisLabels: this.tightcnc.controller?.axisLabels,
             XError: XError,
             GcodeLine: GcodeLine,
             macroMeta: () => { } // this function is a no-op in normal operation
@@ -391,8 +405,10 @@ export default class Macros {
      *     output stream instead of being directly executed on the controller.
      *   @param {Function} options.push - Provide a function for handling pushing gcode lines.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macro' implicitly has an 'any' type.
-    async runMacro(macro, params = {}, options = {}) {
+    async runMacro(macro: string | string[], params = {}, options: {
+        gcodeProcessor: GcodeProcessor
+        push: () => {}
+    }) {
         if (typeof macro === 'string' && macro.indexOf(';') !== -1) {
             // A javascript string blob
             return await this.runJS(macro, params, options);
@@ -403,7 +419,7 @@ export default class Macros {
                 throw new XError(XError.INVALID_ARGUMENT, '.. is not allowed in macro names');
             // Get the macro metadata
             await this._updateMacroCacheOne(macro);
-            if (!(this as any).macroCache[macro])
+            if (!this.macroCache[macro])
                 throw new XError(XError.NOT_FOUND, 'Macro ' + macro + ' not found');
             // Normalize the params
             let paramsSchema = this.getMacroParams(macro);
@@ -411,7 +427,7 @@ export default class Macros {
                 createSchema(paramsSchema).normalize(params, { removeUnknownFields: true });
             }
             // Load the macro code
-            let code = await this._readFile((this as any).macroCache[macro].absPath);
+            let code = await this._readFile(this.macroCache[macro].absPath);
             if (!code)
                 throw new XError(XError.NOT_FOUND, 'Macro ' + macro + ' not found');
             // Run the macro
@@ -438,26 +454,26 @@ class MacroGcodeSourceStream extends zstreams.Readable {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macros' implicitly has an 'any' type.
     constructor(macros, macro, macroParams) {
         super({ objectMode: true });
-        (this as any).pushReadWaiter = null;
+        this.pushReadWaiter = null;
         let gotChainError = false;
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-        (this as any).on('chainerror', (err) => {
+        this.on('chainerror', (err) => {
             gotChainError = true;
-            if ((this as any).pushReadWaiter) {
-                (this as any).pushReadWaiter.reject(err);
-                (this as any).pushReadWaiter = null;
+            if (this.pushReadWaiter) {
+                this.pushReadWaiter.reject(err);
+                this.pushReadWaiter = null;
             }
         });
         macros.runMacro(macro, macroParams, {
             // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
             push: async (gline) => {
-                let r = (this as any).push(gline);
+                let r = this.push(gline);
                 if (!r) {
                     // wait until _read is called
-                    if (!(this as any).pushReadWaiter) {
-                        (this as any).pushReadWaiter = pasync.waiter();
+                    if (!this.pushReadWaiter) {
+                        this.pushReadWaiter = pasync.waiter();
                     }
-                    await (this as any).pushReadWaiter.promise;
+                    await this.pushReadWaiter.promise;
                 }
             },
             sync: async () => {
@@ -465,19 +481,19 @@ class MacroGcodeSourceStream extends zstreams.Readable {
             }
         })
             .then(() => {
-            (this as any).push(null);
+            this.push(null);
         })
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => {
             if (!gotChainError) {
-                (this as any).emit('error', new XError(XError.INTERNAL_ERROR, 'Error running generator macro', err));
+                this.emit('error', new XError(XError.INTERNAL_ERROR, 'Error running generator macro', err));
             }
         });
     }
     _read() {
-        if ((this as any).pushReadWaiter) {
-            (this as any).pushReadWaiter.resolve();
-            (this as any).pushReadWaiter = null;
+        if (this.pushReadWaiter) {
+            this.pushReadWaiter.resolve();
+            this.pushReadWaiter = null;
         }
     }
 }

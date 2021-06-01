@@ -1,9 +1,7 @@
 import Operation from './operation';
-import fs from 'fs';
-import path from 'path';
 import  objtools from 'objtools';
 import commonSchema from 'common-schema';
-import  XError from 'xerror';
+import TightCNCServer from './tightcnc-server';
 
 const jobOptionsSchema = {
     type: 'object',
@@ -75,8 +73,7 @@ class OpJobDryRun extends Operation {
         return await (this as any).tightcnc.jobManager.dryRunJob(jobOptions, params.outputFilename ? (this as any).tightcnc.getFilename(params.outputFilename, 'data') : null);
     }
 }
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-export default function registerOperations(tightcnc) {
+export default function registerOperations(tightcnc:TightCNCServer) {
     tightcnc.registerOperation('startJob', OpStartJob);
     tightcnc.registerOperation('jobDryRun', OpJobDryRun);
 }

@@ -2,6 +2,7 @@ import Operation from './operation';
 //const fs = require('fs');
 //const path = require('path');
 import commonSchema from 'common-schema';
+import TightCNCServer from './tightcnc-server';
 //const XError = require('xerror');
 class OpListMacros extends Operation {
     getParamSchema() {
@@ -52,8 +53,7 @@ class OpRunMacro extends Operation {
         return { success: true };
     }
 }
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-export default function registerOperations(tightcnc) {
+export default function registerOperations(tightcnc:TightCNCServer) {
     tightcnc.registerOperation('listMacros', OpListMacros);
     tightcnc.registerOperation('runMacro', OpRunMacro);
 }

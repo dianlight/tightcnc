@@ -2,7 +2,7 @@ import  Controller, { ControllerConfig } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
 import  XError from 'xerror';
 import  pasync from 'pasync';
-const GcodeLine = require('../../lib/gcode-line');
+import GcodeLine from '../../lib/gcode-line';
 import CrispHooks from 'crisphooks';
 import objtools from 'objtools';
 import TightCNCServer from './tightcnc-server';
@@ -810,7 +810,7 @@ export default class GRBLController extends Controller {
         // Fetch gcodes from each relevant modal group and update state vars accordingly
         let activeCoordSys = gline.get('G', 'G54');
         if (activeCoordSys)
-            (statusUpdates as any).activeCoordSys = activeCoordSys - 54;
+            (statusUpdates as any).activeCoordSys = activeCoordSys as number - 54;
         let unitCode = gline.get('G', 'G20');
         if (unitCode)
             (statusUpdates as any).units = (unitCode === 20) ? 'in' : 'mm';
@@ -1061,15 +1061,14 @@ export default class GRBLController extends Controller {
                 close: onSerialClose,
                 data: onSerialData
             };
-            console.log("Registering Hook!")
+            //console.log("Registering Hook!")
             for (let eventName in this._serialListeners) {
-                console.log(eventName)
+                //console.log(eventName)
                 this.serial?.on(eventName, this._serialListeners[eventName]);
             }
             this._welcomeMessageWaiter = pasync.waiter();
             // Wait for the welcome message to be received; if not received in 5 seconds, send a soft reset
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            const welcomeWaitCancelRunningOpsHandler = (err) => {
+            const welcomeWaitCancelRunningOpsHandler = (err:Error|XError) => {
                 if (this._welcomeMessageWaiter) {
                     this._welcomeMessageWaiter.reject(err);
                 }
@@ -1078,7 +1077,7 @@ export default class GRBLController extends Controller {
             let finishedWelcomeWait = false;
             setTimeout(() => {
                 if (!finishedWelcomeWait) {
-                    console.log("Sending Welcome \x18");
+                    this.debug("Sending Welcome");
                     this._writeToSerial('\x18');
                 }
             }, 5000);
@@ -1090,7 +1089,7 @@ export default class GRBLController extends Controller {
                 this.removeListener('cancelRunningOps', welcomeWaitCancelRunningOpsHandler);
             }
             // Initialize all the machine state properties
-            console.log("--> _initMachine!")
+            //console.log("--> _initMachine!")
             await this._initMachine();
             // Initialization succeeded
             this._initializing = false;

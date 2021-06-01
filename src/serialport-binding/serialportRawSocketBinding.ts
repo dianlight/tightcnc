@@ -16,7 +16,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
     }
 
     static async list(): Promise<PortInfo[]>{
-        console.log('L>')
+        //console.log('L>')
         return Promise.resolve([])
     }
   
@@ -36,20 +36,24 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
                 parseInt(url.port),
                 url.hostname,
                 () => {
-                    console.log("Connesso!")
+                    //console.log("Connesso!")
                     this.isOpen = true
                     resolve()
                 }
             )
-            this.socket.on('connect', () => {
-                console.log("Connection open!")
-            })
+            //this.socket.on('connect', () => {
+            //    console.log("Connection open!")
+            //})
             this.socket.on('timeout', () => {
-                console.log("Connection Timeout!")
+                console.log("Timeout!")
+              //  reject(new Error("Connection Timeout"))
             })
-            this.socket.on('error', (err)=> console.error(err))
+            this.socket.on('error', (err) => {
+                //console.error(err)
+                reject(err)
+            })
             this.socket.on("data", (data) => {
-                console.log("<-",data.toString())
+               // console.log("<-",data.toString())
                 this._buffer.push(data)
             })
         })
@@ -59,7 +63,6 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * Closes an open port
      */
     async close(): Promise<void> {
-        console.log("@")
         return new Promise<void>((resolve, reject) => {
             if (!this.socket) return reject(new Error('no socket to close!'))
             return super.close().then(() => {
@@ -124,7 +127,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @returns {Promise} Resolves after the data is passed to the operating system for writing.
      */
     async write(buffer: Buffer): Promise<void> {
-        console.log("->",buffer.toString())
+        //console.log("->",buffer.toString())
         return new Promise((resolve, reject) => {
             if (!this.socket)return reject(new Error("Socket is closed!"))
             if (this.socket.write(buffer)) {
@@ -140,7 +143,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @returns {Promise} Resolves once the port's baud rate changes.
      */
     async update(options: { baudRate: number }): Promise<void> {
-        console.log('U->',options)
+        //console.log('U->',options)
         return Promise.resolve()
     }
 
@@ -156,7 +159,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @returns {Promise} Resolves once the port's flags are set.
      */
     async set(options: { brk: boolean, cts: boolean, dst: boolean, dtr: boolean, rts: boolean }): Promise<void> {
-        console.log('S>',options)
+        //console.log('S>',options)
         return Promise.resolve()
     }
 
@@ -169,7 +172,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
         dsr: boolean;
         dcd: boolean;
     }> { /* Flags */
-        console.log('<-G ')
+        //console.log('<-G ')
         return Promise.resolve({
             cts: false,
             dsr: false,
@@ -189,7 +192,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @returns {Promise} Resolves once the flush operation finishes.
      */
     async flush(): Promise<void> {
-        console.log('F')
+        //console.log('F')
         this._buffer = []
         return Promise.resolve()
     }
@@ -200,7 +203,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @returns {Promise} Resolves once the drain operation finishes.
      */
     async drain(): Promise<void> {
-        console.log('D')
+        //console.log('D')
         return Promise.resolve()
 
     }

@@ -1,9 +1,15 @@
 export default class LoggerMem {
-    constructor(config = {}) {
-        (this as any).linesToKeep = (config as any).size || 5000;
-        (this as any).shiftBatchSize = (config as any).shiftBatchSize || Math.ceil((this as any).linesToKeep / 10);
-        (this as any).lines = [];
-        (this as any).nextNum = 1;
+
+    linesToKeep: number
+    shiftBatchSize: number
+    lines: [number,string][]
+    nextNum: number
+
+    constructor(config:{size: number, shiftBatchSize: number}) {
+        this.linesToKeep = config.size || 5000;
+        this.shiftBatchSize = config.shiftBatchSize || Math.ceil(this.linesToKeep / 10);
+        this.lines = [];
+        this.nextNum = 1;
     }
     log(type:string, msg?:string) {
         if (msg === undefined) {
@@ -22,29 +28,28 @@ export default class LoggerMem {
                 msg = '@ ' + msg;
             msg = msg.trim();
         }
-        (this as any).lines.push([(this as any).nextNum, msg]);
-        (this as any).nextNum++;
-        if ((this as any).lines.length >= (this as any).linesToKeep + (this as any).shiftBatchSize) {
-            (this as any).lines = (this as any).lines.slice((this as any).lines.length - (this as any).linesToKeep);
+        this.lines.push([this.nextNum, msg]);
+        this.nextNum++;
+        if (this.lines.length >= this.linesToKeep + this.shiftBatchSize) {
+            this.lines = this.lines.slice(this.lines.length - this.linesToKeep);
         }
     }
     clear() {
-        (this as any).lines = [];
-        (this as any).nextNum = 1;
+        this.lines = [];
+        this.nextNum = 1;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'start' implicitly has an 'any' type.
-    section(start, end, limit) {
+    section(start:number, end:number, limit:number) {
         if (start === null || start === undefined)
             start = 0;
         if (start < 0)
-            start = (this as any).nextNum + start;
-        if (start > (this as any).nextNum) {
+            start = this.nextNum + start;
+        if (start > this.nextNum) {
             // Assume that server has restarted and client hasn't caught up.  Return the desired number of lines, up to the end of our buffer.
             if (end === null || end === undefined) {
                 if (!limit)
-                    return (this as any).lines;
+                    return this.lines;
                 else
-                    return (this as any).lines.slice(-limit);
+                    return this.lines.slice(-limit);
             }
             else if (end <= start) {
                 return [];
@@ -53,29 +58,29 @@ export default class LoggerMem {
                 let numRequested = end - start;
                 if (limit && limit < numRequested)
                     numRequested = limit;
-                let startIdx = (this as any).lines.length - numRequested;
+                let startIdx = this.lines.length - numRequested;
                 if (startIdx < 0)
                     startIdx = 0;
-                return (this as any).lines.slice(startIdx);
+                return this.lines.slice(startIdx);
             }
         }
-        if (start === (this as any).nextNum || !(this as any).lines.length)
+        if (start === this.nextNum || !this.lines.length)
             return [];
-        let linesStartNum = (this as any).lines[0][0];
+        let linesStartNum = this.lines[0][0];
         if (start < linesStartNum)
             start = linesStartNum;
         if (end === null || end === undefined)
-            end = (this as any).nextNum;
+            end = this.nextNum;
         if (end < 0)
-            end = (this as any).nextNum + end;
-        if (end > (this as any).nextNum)
-            end = (this as any).nextNum;
+            end = this.nextNum + end;
+        if (end > this.nextNum)
+            end = this.nextNum;
         if (end <= start)
             return [];
         let startIdx = start - linesStartNum;
         let endIdx = end - linesStartNum;
         if (limit && endIdx - startIdx > limit)
             startIdx = endIdx - limit;
-        return (this as any).lines.slice(startIdx, endIdx);
+        return this.lines.slice(startIdx, endIdx);
     }
 }

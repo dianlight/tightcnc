@@ -3,7 +3,8 @@
     "files": true
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "lib/**/*.ts"
   ],
 //  "files": [
 //    "src/xerror.d.ts",
