@@ -64,9 +64,6 @@ export default class TinyGController extends Controller {
     lineIdCounter = 1;
     resetOnConnect = false;
     synced?:boolean = true;
-    axisLabels = ['x', 'y', 'z', 'a', 'b', 'c'];
-    usedAxes = (this.config as any).usedAxes || [true, true, true, false, false, false];
-    homableAxes = (this.config as any).homableAxes || [true, true, true];
     axisMaxFeeds = [500, 500, 500, 500, 500, 500]; // initial values, set later during initialization
     _waitingForSync = false;
     _disableSending = false; // flag to disable sending data using normal channels (_sendImmediate still works)
@@ -111,6 +108,10 @@ export default class TinyGController extends Controller {
         // - responseExpected - If an ack is expected from the device
         // - fullSync - If true, only send block once all previous blocks have finished executing, and only send next block once this has exceuted.  Used for lines that modify eeprom.
         // Note that the sendQueue does not contain "front panel control" instructions like feed hold, as these are sent and processed immediately, and give no feedback.
+        this.homableAxes = (this.config as any).homableAxes || [true, true, true];
+        this.usedAxes = (this.config as any).usedAxes || [true, true, true, false, false, false];
+        this.axisLabels = ['x', 'y', 'z', 'a', 'b', 'c'];
+
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
     debug(str) {
@@ -752,7 +753,7 @@ export default class TinyGController extends Controller {
             this.send(line, { hooks: hooks });
         });
     }
-    initConnection(retry = true) {
+    override initConnection(retry = true) {
         this.debug('initConnection()');
         if (this._initializing) {
             this.debug('skipping, already initializing');
@@ -1016,7 +1017,7 @@ export default class TinyGController extends Controller {
             }, respTimeThreshold / 2);
         }
     }
-    async waitSync() {
+    override async waitSync() {
         // Fetch new status report to ensure up-to-date info (mostly in case a move was just requested and we haven't gotten an update from that yet)
         // If sends are disabled, instead just wait some time to make sure a response was received
         if (this._disableSending) {
@@ -1451,20 +1452,20 @@ export default class TinyGController extends Controller {
         this.emit('cancelRunningOps', err);
         this.debug('_cancelRunningOps() done');
     }
-    hold() {
+    override hold() {
         this.sendLine('!');
     }
-    resume() {
+    override resume() {
         this.sendLine('~');
     }
-    cancel() {
+    override cancel() {
         if (!this.held)
             this.hold();
         this.sendLine('%'); // wipe planner buffer and serial buffer; sendLine() also intercepts this to clean other stuff up
         this.sendLine('M5'); // spindle off
         this.sendLine('M9'); // coolant off
     }
-    reset() {
+    override reset() {
         if (this.serial) {
             this.debug('reset() called with serial; sending Ctrl-X');
             this.sendLine('\x18');
@@ -1474,16 +1475,14 @@ export default class TinyGController extends Controller {
             this.resetOnConnect = true;
         }
     }
-    clearError() {
+    override clearError() {
         this.sendLine({ clear: null });
     }
     async home(axes?:boolean[]) {
         if (!axes)
             axes = this.homableAxes;
         let gcode = 'G28.2';
-        // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         for (let axisNum = 0; axisNum < axes.length; axisNum++) {
-            // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
             if (axes[axisNum]) {
                 gcode += ' ' + this.axisLabels[axisNum].toUpperCase() + '0';
             }
@@ -1726,7 +1725,7 @@ export default class TinyGController extends Controller {
             this._checkSendLoop();
         }
     }
-    getStatus() {
+    override getStatus() {
         let o = super.getStatus();
         (o as any).comms = {
             sendQueueLength: this.sendQueue.length,

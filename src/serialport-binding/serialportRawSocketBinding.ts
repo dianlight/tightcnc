@@ -15,7 +15,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
         super(opt)
     }
 
-    static async list(): Promise<PortInfo[]>{
+    static override async list(): Promise<PortInfo[]>{
         //console.log('L>')
         return Promise.resolve([])
     }
@@ -27,7 +27,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @param {openOptions} options openOptions for the serialport
      * @returns {Promise} Resolves after the port is opened and configured.
      */
-    async open(path: string, options: OpenOptions): Promise<void> {
+    override async open(path: string, options: OpenOptions): Promise<void> {
         this.options = options
         return new Promise<void>((resolve, reject) => {
             const url = new URL(path)
@@ -62,7 +62,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
     /**
      * Closes an open port
      */
-    async close(): Promise<void> {
+    override async close(): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             if (!this.socket) return reject(new Error('no socket to close!'))
             return super.close().then(() => {
@@ -88,7 +88,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @param {integer} length Specifies the maximum number of bytes to read.
      * @returns {Promise} Resolves with the number of bytes read after a read operation.
      */
-    async read(buffer: Buffer, offset: number, length: number): Promise<{ bytesRead: number, buffer: Buffer }> {
+    override async read(buffer: Buffer, offset: number, length: number): Promise<{ bytesRead: number, buffer: Buffer }> {
         return new Promise((resolve, reject) => {
             if (!this.socket)return reject(new Error("Socket closed!"))
             const reader = () => {
@@ -126,7 +126,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @param {buffer} buffer - Accepts a [`Buffer`](http://nodejs.org/api/buffer.html) object.
      * @returns {Promise} Resolves after the data is passed to the operating system for writing.
      */
-    async write(buffer: Buffer): Promise<void> {
+    override async write(buffer: Buffer): Promise<void> {
         //console.log("->",buffer.toString())
         return new Promise((resolve, reject) => {
             if (!this.socket)return reject(new Error("Socket is closed!"))
@@ -142,7 +142,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * Changes connection settings on an open port. Only `baudRate` is supported.
      * @returns {Promise} Resolves once the port's baud rate changes.
      */
-    async update(options: { baudRate: number }): Promise<void> {
+    override async update(options: { baudRate: number }): Promise<void> {
         //console.log('U->',options)
         return Promise.resolve()
     }
@@ -158,7 +158,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * @param {Boolean} [options.rts=true] flag for rts
      * @returns {Promise} Resolves once the port's flags are set.
      */
-    async set(options: { brk: boolean, cts: boolean, dst: boolean, dtr: boolean, rts: boolean }): Promise<void> {
+    override async set(options: { brk: boolean, cts: boolean, dst: boolean, dtr: boolean, rts: boolean }): Promise<void> {
         //console.log('S>',options)
         return Promise.resolve()
     }
@@ -167,7 +167,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * Get the control flags (CTS, DSR, DCD) on the open port.
      * @returns {Promise} Resolves with the retrieved flags.
      */
-    async get(): Promise<{
+    override async get(): Promise<{
         cts: boolean;
         dsr: boolean;
         dcd: boolean;
@@ -183,7 +183,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
     /**
      * Get the OS reported baud rate for the open port. Used mostly for debugging custom baud rates.
      */
-    async getBaudRate(): Promise<number> {
+    override async getBaudRate(): Promise<number> {
        return Promise.resolve(this.opt.baudRate?this.opt.baudRate:0)
     }
 
@@ -191,7 +191,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * Flush (discard) data received but not read, and written but not transmitted.
      * @returns {Promise} Resolves once the flush operation finishes.
      */
-    async flush(): Promise<void> {
+    override async flush(): Promise<void> {
         //console.log('F')
         this._buffer = []
         return Promise.resolve()
@@ -202,7 +202,7 @@ export default class SerialportRawSocketBinding extends AbstractBinding {
      * should be completed before this returns.
      * @returns {Promise} Resolves once the drain operation finishes.
      */
-    async drain(): Promise<void> {
+    override async drain(): Promise<void> {
         //console.log('D')
         return Promise.resolve()
 

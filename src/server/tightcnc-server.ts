@@ -352,7 +352,7 @@ export default class TightCNCServer extends EventEmitter {
         return (GcodeProcessor as any).buildProcessorChain(options.filename || options.data || macroStreamFn, gcodeProcessorInstances, false);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macro' implicitly has an 'any' type.
-    async runMacro(macro, params = {}, options = {}) {
+    async runMacro(macro, params = {}, options:{ gcodeProcessor: any; push: () => {}; } = {}) {
         return await this.macros.runMacro(macro, params, options);
     }
     // @ts-expect-error ts-migrate(7023) FIXME: 'requestInput' implicitly has return type 'any' be... Remove this comment to see the full error message

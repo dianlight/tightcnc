@@ -276,7 +276,7 @@ class ToolChangeConsoleUIJobOption extends JobOption {
             stopSwitch: false
         };
     }
-    async optionSelected() {
+    override async optionSelected() {
         let formSchema = {
             label: 'Tool Change / Job Stop Settings',
             type: 'object',
@@ -314,7 +314,7 @@ class ToolChangeConsoleUIJobOption extends JobOption {
             (this as any).tcOptions = r;
         (this as any).newJobMode.updateJobInfoText();
     }
-    getDisplayString() {
+    override getDisplayString() {
         let strs = [];
         if ((this as any).tcOptions.handleToolChange) {
             let tcTypes = [];

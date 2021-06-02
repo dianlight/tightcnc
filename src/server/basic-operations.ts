@@ -261,15 +261,15 @@ class OpSetOrigin extends Operation {
     }
 }
 class OpWaitSync extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {};
     }
-    async run() {
+    override async run() {
         await this.tightcnc.controller?.waitSync();
     }
 }
 class OpGetLog extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             logType: {
                 type: String,
@@ -293,7 +293,7 @@ class OpGetLog extends Operation {
         };
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    override async run(params) {
         let logger;
         if (params.logType === 'comms') {
             logger = this.tightcnc.loggerMem;
@@ -308,7 +308,7 @@ class OpGetLog extends Operation {
     }
 }
 class OpProvideInput extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             inputId: {
                 type: Number,
@@ -333,7 +333,7 @@ class OpProvideInput extends Operation {
     }
 }
 class OpCancelInput extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             inputId: {
                 type: Number,

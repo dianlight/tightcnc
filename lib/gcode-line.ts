@@ -1,7 +1,5 @@
-// @ts-expect-error ts-migrate(7016) FIXME: Could not find a declaration file for module 'xerr... Remove this comment to see the full error message
 import XError from 'xerror';
 import objtools from 'objtools';
-// @ts-expect-error ts-migrate(7016) FIXME: Could not find a declaration file for module 'cris... Remove this comment to see the full error message
 import CrispHooks from 'crisphooks';
 
 /**

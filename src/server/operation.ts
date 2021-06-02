@@ -1,3 +1,4 @@
+
 import  XError from 'xerror';
 import TightCNCServer from './tightcnc-server';
 /**
@@ -6,17 +7,17 @@ import TightCNCServer from './tightcnc-server';
  *
  * @class Operation
  */
-export default class Operation {
+export default abstract class Operation {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(public tightcnc:TightCNCServer, public config) {
-    }
+    constructor(public tightcnc: TightCNCServer, public config){}
+    
     /**
      * Initialize the operation.  May return a Promise.
      *
      * @method init
      * @return {Promise|undefined}
      */
-    init() { }
+    init():Promise<void>|undefined {return }
     /**
      * Run the operation with the given params.
      *
@@ -24,15 +25,15 @@ export default class Operation {
      * @param {Object} params
      * @return {Mixed}
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    run(params) { }
+    abstract run(params:any):unknown
     /**
      * Return a common-schema Schema object corresponding to the accepted parameters for the operation.
      *
      * @method getParamSchema
      * @return {Object|Schema}
      */
-    getParamSchema() { }
+    abstract getParamSchema(): unknown
+    
     checkReady() {
         if (!this.tightcnc.controller || !this.tightcnc.controller.ready) {
             throw new XError(XError.BAD_REQUEST, 'Controller not ready');

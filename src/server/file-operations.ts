@@ -5,7 +5,7 @@ import commonSchema from 'common-schema';
 import XError from 'xerror';
 import TightCNCServer from './tightcnc-server';
 class OpListFiles extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             dir: {
                 type: 'string',
@@ -67,7 +67,7 @@ class OpListFiles extends Operation {
     }
 }
 class OpUploadFile extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             filename: {
                 type: String,

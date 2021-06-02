@@ -8,7 +8,7 @@ import zstreams from 'zstreams';
 import objtools from 'objtools';
 import { createSchema } from 'common-schema';
 import TightCNCServer from './tightcnc-server';
-import { GcodeProcessor } from '../../lib/gcode-processor';
+const { GcodeProcessor } = require('../../lib/gcode-processor');
 export default class Macros {
     macroCache:{
         [key: string]: {
@@ -406,7 +406,7 @@ export default class Macros {
      *   @param {Function} options.push - Provide a function for handling pushing gcode lines.
      */
     async runMacro(macro: string | string[], params = {}, options: {
-        gcodeProcessor: GcodeProcessor
+        gcodeProcessor: typeof GcodeProcessor
         push: () => {}
     }) {
         if (typeof macro === 'string' && macro.indexOf(';') !== -1) {

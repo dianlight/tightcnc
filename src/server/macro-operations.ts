@@ -5,7 +5,7 @@ import commonSchema from 'common-schema';
 import TightCNCServer from './tightcnc-server';
 //const XError = require('xerror');
 class OpListMacros extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {};
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
@@ -23,7 +23,7 @@ class OpListMacros extends Operation {
     }
 }
 class OpRunMacro extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return {
             macro: {
                 type: 'string',

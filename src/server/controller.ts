@@ -12,6 +12,31 @@ export interface ControllerConfig {
     realTimeMovesMaxOvershootFactor?:number
 
 }
+export interface ControllerStatus {
+    ready: boolean,
+    axisLabels: string[],
+    usedAxes: boolean[],
+    mpos: number[],
+    pos: number[],
+    mposOffset: number[],
+    activeCoordSys: number,
+    offset:number[],
+    offsetEnabled: boolean,
+    storedPositions: number[][],
+    homed: boolean[],
+    held: boolean,
+    units: 'mm'|'in',
+    feed: number,
+    incremental: false,
+    moving: false,
+    coolant: 0,
+    spindle: false,
+    line: 0,
+    error: false,
+    errorData?: XError,
+    programRunning: boolean
+}
+
 export default abstract class Controller extends EventEmitter {
 
     axisLabels=['x', 'y', 'z'];
@@ -69,7 +94,7 @@ export default abstract class Controller extends EventEmitter {
      * @method getCoordOffsets
      * @return {Number[]}
      */
-    getCoordOffsets() {
+    getCoordOffsets():number[] {
         let offsets = [];
         for (let i = 0; i < this.axisLabels.length; i++)
             offsets[i] = 0;
@@ -309,7 +334,7 @@ export default abstract class Controller extends EventEmitter {
      * @method getStatus
      * @return {Object}
      */
-    getStatus() {
+    getStatus():ControllerStatus {
         let c = this;
         return {
             ready: c.ready,
@@ -334,7 +359,7 @@ export default abstract class Controller extends EventEmitter {
             error: c.error,
             errorData: c.errorData,
             programRunning: c.programRunning
-        };
+        } as ControllerStatus;
     }
     listUsedAxisNumbers() {
         let ret = [];

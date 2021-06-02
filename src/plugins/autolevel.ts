@@ -12,40 +12,42 @@ import  JobOption from '../consoleui/job-option';
 import  ListForm from '../consoleui/list-form';
 import  blessed from 'blessed';
 import  moment from 'moment';
+import { ConsoleUI } from '../consoleui/consoleui';
 export class SurfaceLevelMap {
-    constructor(points = []) {
-        (this as any).pointList = points.slice(); // An array of [x, y, z] points where the z is the probed height
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'a' implicitly has an 'any' type.
-        const dist = (a, b) => {
+
+    pointList: number[][]
+    kdtree: kdTree<number[]>
+
+    constructor(points:number[][]) {
+        this.pointList = points.slice(); // An array of [x, y, z] points where the z is the probed height
+        const dist = (a:number[], b:number[]) => {
             return Math.pow(a[0] - b[0], 2) + Math.pow(a[1] - b[1], 2);
         };
-        (this as any).kdtree = new kdTree(points, dist, [0, 1]);
+        this.kdtree = new kdTree(points, dist, [0, 1]);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
-    addPoint(point) {
-        (this as any).pointList.push(point);
-        (this as any).kdtree.insert(point);
+    addPoint(point:number[]) {
+        this.pointList.push(point);
+        this.kdtree.insert(point);
     }
-    getPoints() {
-        return (this as any).pointList;
+    getPoints():number[][] {
+        return this.pointList;
     }
     // Given a point [ x, y ], predicts the Z of that point based on the known surface level map.  If data
     // is insufficient to predict the Z, null is returned.
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
-    predictZ(point) {
-        if (!(this as any).pointList.length)
+    predictZ(point:number[]) {
+        if (!this.pointList.length)
             return null;
         // Check for exact hit
         let theNearest = this.getNearestPoints(point, 1);
         if (theNearest[0][0] === point[0] && theNearest[0][1] === point[1])
             return theNearest[0][2];
         // Predict based on plane of 3 nearest points
-        if ((this as any).pointList.length >= 3) {
+        if (this.pointList.length >= 3) {
             let nps = this.getNearest3PlanePoints(point);
             if (nps)
                 return this._planeZAtPoint(point, nps[0], nps[1]);
         }
-        else if ((this as any).pointList.length < 2) {
+        else if (this.pointList.length < 2) {
             return null;
         }
         // There are no suitable plane-defining points.  But it's possible we might still be able to
@@ -79,14 +81,11 @@ export class SurfaceLevelMap {
         }
     }
     // Returns the n nearest points to the given [x, y], sorted from nearest to farthest
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
-    getNearestPoints(point, n = 3) {
-        let results = (this as any).kdtree.nearest(point, n);
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'a' implicitly has an 'any' type.
+    getNearestPoints(point:number[], n:number = 3):number[][] {
+        let results = this.kdtree.nearest(point, n);
         results.sort((a, b) => {
             return a[1] - b[1];
         });
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'r' implicitly has an 'any' type.
         return results.map((r) => r[0]);
     }
     // Returns the nearest 3 points in XY plane that are not colinear and define a plane that is not orthogonal to the XY plane, or null if no such 3 exist
@@ -98,7 +97,7 @@ export class SurfaceLevelMap {
         let vA;
         // @ts-expect-error ts-migrate(7034) FIXME: Variable 'crossResult' implicitly has type 'any[]'... Remove this comment to see the full error message
         let crossResult = [];
-        for (let n = 3; n <= (this as any).pointList.length; n++) {
+        for (let n = 3; n <= this.pointList.length; n++) {
             let results = this.getNearestPoints(point, n);
             if (curPoints) {
                 curPoints[2] = results[n - 1];
@@ -197,7 +196,7 @@ function startProbeSurface(tightcnc, options) {
         tightcnc.controller.send(gcode);
     };
     const runProbeSurface = async () => {
-        let slm = new SurfaceLevelMap();
+        let slm = new SurfaceLevelMap([]);
         // Move to above starting point
         sendMove(null, null, options.clearanceHeight);
         sendMove(startPoint[0], startPoint[1], null);
@@ -303,27 +302,32 @@ class OpProbeSurface extends Operation {
     constructor(tightcnc, config) {
         super(tightcnc, config);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async _getBounds(params) {
+
+    async _getBounds(params: {
+        bounds: true,
+        gcodeFilename: string
+    }) {
         if (params.bounds)
             return params.bounds;
         if (!params.gcodeFilename)
             throw new XError(XError.BAD_REQUEST, 'Must supply either bounds or gcodeFilename');
-        let dryRunResults = await (this as any).tightcnc.jobManager.dryRunJob({ filename: params.gcodeFilename });
-        let bounds = objtools.getPath(dryRunResults, 'gcodeProcessors.final-job-vm.bounds');
-        if (!bounds)
-            throw new XError(XError.INTERNAL_ERROR, 'Could not determine bounds from gcode file');
-        return bounds;
+        let dryRunResults = await this.tightcnc!.jobManager?.dryRunJob({ filename: params.gcodeFilename });
+        if (dryRunResults) {
+            let bounds = objtools.getPath(dryRunResults, 'gcodeProcessors.final-job-vm.bounds');
+            if (!bounds)
+                throw new XError(XError.INTERNAL_ERROR, 'Could not determine bounds from gcode file');
+            return bounds;
+        } else throw new XError(XError.INTERNAL_ERROR, 'Could not determine bounds from gcode file - no dryRunResults');
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let options = objtools.deepCopy(params);
         if (options.gcodeFilename)
-            options.gcodeFilename = (this as any).tightcnc.getFilename(options.gcodeFilename, 'data');
+            options.gcodeFilename = this.tightcnc.getFilename(options.gcodeFilename, 'data');
         if (options.surfaceMapFilename)
-            options.surfaceMapFilename = (this as any).tightcnc.getFilename(options.surfaceMapFilename, 'data');
+            options.surfaceMapFilename = this.tightcnc.getFilename(options.surfaceMapFilename, 'data');
         options.bounds = await this._getBounds(params);
-        startProbeSurface((this as any).tightcnc, options);
+        startProbeSurface(this.tightcnc, options);
         return surfaceProbeStatus;
     }
     getParamSchema() {
@@ -356,42 +360,42 @@ class OpProbeSurface extends Operation {
             },
             probeSpacing: {
                 type: Number,
-                default: (this as any).config.defaultOptions.probeSpacing,
+                default: this.config.defaultOptions.probeSpacing,
                 description: 'Maximum grid separation between probe points'
             },
             probeFeed: {
                 type: Number,
-                default: (this as any).config.defaultOptions.probeFeed,
+                default: this.config.defaultOptions.probeFeed,
                 description: 'Feed rate for probing'
             },
             clearanceHeight: {
                 type: Number,
-                default: (this as any).config.defaultOptions.clearanceHeight,
+                default: this.config.defaultOptions.clearanceHeight,
                 description: 'Clearance Z for moving across surface'
             },
             autoClearance: {
                 type: Boolean,
-                default: (this as any).config.defaultOptions.autoClearance,
+                default: this.config.defaultOptions.autoClearance,
                 description: 'Whether to automatically adjust clearance height based on known probe points to optimize speed'
             },
             autoClearanceMin: {
                 type: Number,
-                default: (this as any).config.defaultOptions.autoClearanceMin,
+                default: this.config.defaultOptions.autoClearanceMin,
                 description: 'Minimum amount of clearance when using autoClearance'
             },
             probeMinZ: {
                 type: Number,
-                default: (this as any).config.defaultOptions.probeMinZ,
+                default: this.config.defaultOptions.probeMinZ,
                 description: 'Minimum Z value to probe toward.  Error if this Z is reached without the probe tripping.'
             },
             numProbeSamples: {
                 type: Number,
-                default: (this as any).config.defaultOptions.numProbeSamples,
+                default: this.config.defaultOptions.numProbeSamples,
                 description: 'Number of times to probe for each point'
             },
             extraProbeSampleClearance: {
                 type: Number,
-                default: (this as any).config.defaultOptions.extraProbeSampleClearance,
+                default: this.config.defaultOptions.extraProbeSampleClearance,
                 description: 'When probing multiple times per point, the clearance to use for all but the first probe'
             }
         };
@@ -400,20 +404,20 @@ class OpProbeSurface extends Operation {
 class AutolevelGcodeProcessor extends GcodeProcessor {
     constructor(options = {}) {
         super(options, 'autolevel', true);
-        (this as any).surfaceMapFilename = (options as any).surfaceMapFilename;
-        (this as any).vm = new GcodeVM(options);
+        this.surfaceMapFilename = (options as any).surfaceMapFilename;
+        this.vm = new GcodeVM(options);
     }
     _loadSurfaceMap() {
-        if ((this as any).surfaceMap)
+        if (this.surfaceMap)
             return;
-        if ((this as any).tightcnc)
-            (this as any).surfaceMapFilename = (this as any).tightcnc.getFilename((this as any).surfaceMapFilename, 'data');
+        if (this.tightcnc)
+            this.surfaceMapFilename = this.tightcnc.getFilename(this.surfaceMapFilename, 'data');
         return new Promise<void>((resolve, reject) => {
-            fs.readFile((this as any).surfaceMapFilename, (err, data) => {
+            fs.readFile(this.surfaceMapFilename, (err, data) => {
                 if (err)
                     return reject(new XError('Error loading surface map', err));
-                (this as any).surfaceMapData = JSON.parse(data.toString('utf8'));
-                (this as any).surfaceMap = new SurfaceLevelMap((this as any).surfaceMapData.points);
+                this.surfaceMapData = JSON.parse(data.toString('utf8'));
+                this.surfaceMap = new SurfaceLevelMap(this.surfaceMapData.points);
                 resolve();
             });
         });
@@ -422,8 +426,8 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
     async addToChain(chain) {
         await this._loadSurfaceMap();
         chain.push(new MoveSplitter({
-            tightcnc: (this as any).tightcnc,
-            maxMoveLength: (this as any).surfaceMapData.minSpacing
+            tightcnc: this.tightcnc,
+            maxMoveLength: this.surfaceMapData.minSpacing
         }));
         super.addToChain(chain);
     }
@@ -432,10 +436,10 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
     processGcode(gline) {
-        let startVMState = objtools.deepCopy((this as any).vm.getState());
+        let startVMState = objtools.deepCopy(this.vm.getState());
         // Run the line through the gcode VM
-        let { isMotion, changedCoordOffsets, motionCode } = (this as any).vm.runGcodeLine(gline);
-        let endVMState = (this as any).vm.getState();
+        let { isMotion, changedCoordOffsets, motionCode } = this.vm.runGcodeLine(gline);
+        let endVMState = this.vm.getState();
         // Make sure the line represents motion
         if (!isMotion)
             return gline;
@@ -450,7 +454,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
             throw new XError(XError.INVALID_ARGUMENT, 'Motion code ' + motionCode + ' not supported for autolevel');
         // Get the Z value for the X and Y ending position
         let toXY = [endVMState.pos[0], endVMState.pos[1]];
-        let zOffset = (this as any).surfaceMap.predictZ(toXY);
+        let zOffset = this.surfaceMap.predictZ(toXY);
         if (zOffset === null)
             return gline;
         let newZ = endVMState.pos[2] + zOffset;
@@ -463,18 +467,24 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
     }
 }
 class AutolevelConsoleUIJobOption extends JobOption {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
+
+    alOptions: {
+        surfaceMapFile?: any
+        surfaceMap?:any
+        enabled: boolean
+    }
+
+    constructor(consoleui: ConsoleUI) {
         super(consoleui);
-        (this as any).alOptions = {
+        this.alOptions = {
             enabled: false
         };
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async _runProbeSequence(params) {
-        let container = (this as any).consoleui.mainPane;
-        let initStatus = await (this as any).consoleui.runWithWait(async () => {
-            return await (this as any).consoleui.client.op('probeSurface', params);
+        let container = this.consoleui.mainPane;
+        let initStatus = await this.consoleui.runWithWait(async () => {
+            return await this.consoleui.client.op('probeSurface', params);
         });
         let probeInfoBox = blessed.box({
             width: '50%',
@@ -489,14 +499,14 @@ class AutolevelConsoleUIJobOption extends JobOption {
         });
         container.append(probeInfoBox);
         probeInfoBox.focus();
-        let origGrabKeys = (this as any).consoleui.screen.grabKeys;
-        (this as any).consoleui.screen.grabKeys = true;
+        let origGrabKeys = this.consoleui.screen.grabKeys;
+        this.consoleui.screen.grabKeys = true;
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'probeStatus' implicitly has an 'any' ty... Remove this comment to see the full error message
         const updateProbeInfo = (probeStatus) => {
             probeInfoBox.content = 'Probing surface ...\nState: ' + probeStatus.state + '\nPoint ' + (probeStatus.currentProbePoint + 1) + '/' + probeStatus.probePoints + ' (' + Math.floor(probeStatus.percentComplete) + '%)';
             if (probeStatus.state === 'error' && probeStatus.error)
                 probeInfoBox.content += '\nError: ' + probeStatus.error;
-            (this as any).consoleui.render();
+            this.consoleui.render();
         };
         updateProbeInfo(initStatus);
         let finished = initStatus.state !== 'running';
@@ -513,25 +523,25 @@ class AutolevelConsoleUIJobOption extends JobOption {
                     startedRunning = true;
                 if (!finished && startedRunning && status.probeSurface.state !== 'running') {
                     finished = true;
-                    (this as any).consoleui.popHintOverrides();
-                    (this as any).consoleui.pushHintOverrides([['Esc', 'Close']]);
+                    this.consoleui.popHintOverrides();
+                    this.consoleui.pushHintOverrides([['Esc', 'Close']]);
                     if (status.probeSurface.state === 'complete') {
                         retVal = params.surfaceMapFilename;
                     }
                 }
             };
             const cleanup = () => {
-                (this as any).consoleui.removeListener('statusUpdate', statusUpdateHandler);
+                this.consoleui.removeListener('statusUpdate', statusUpdateHandler);
                 container.remove(probeInfoBox);
-                (this as any).consoleui.popHintOverrides();
-                (this as any).consoleui.screen.grabKeys = origGrabKeys;
+                this.consoleui.popHintOverrides();
+                this.consoleui.screen.grabKeys = origGrabKeys;
             };
-            (this as any).consoleui.on('statusUpdate', statusUpdateHandler);
-            (this as any).consoleui.pushHintOverrides([['Esc', 'Cancel']]);
+            this.consoleui.on('statusUpdate', statusUpdateHandler);
+            this.consoleui.pushHintOverrides([['Esc', 'Cancel']]);
             probeInfoBox.key(['escape'], () => {
                 if (!finished) {
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-                    (this as any).consoleui.client.op('cancel', {}).catch((err) => (this as any).consoleui.clientError(err));
+                    this.consoleui.client.op('cancel', {}).catch((err) => this.consoleui.clientError(err));
                 }
                 cleanup();
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'retVal' implicitly has an 'any' type.
@@ -552,10 +562,10 @@ class AutolevelConsoleUIJobOption extends JobOption {
                     label: '[From Job]',
                     // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
                     actionFn: async (info) => {
-                        if (!(this as any).newJobMode.jobFilename && !(this as any).newJobMode.jobMacro)
+                        if (!this.newJobMode.jobFilename && !this.newJobMode.jobMacro)
                             throw new Error('No job filename configured');
-                        let dryRunResults = await (this as any).consoleui.runWithWait(async () => {
-                            return await (this as any).consoleui.client.op('jobDryRun', (this as any).newJobMode.makeJobOptionsObj());
+                        let dryRunResults = await this.consoleui.runWithWait(async () => {
+                            return await this.consoleui.client.op('jobDryRun', this.newJobMode.makeJobOptionsObj());
                         }, 'Processing job ...');
                         let bounds = objtools.getPath(dryRunResults, 'gcodeProcessors.final-job-vm.bounds');
                         if (bounds) {
@@ -584,7 +594,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
                 }
             }
         };
-        let form = new ListForm((this as any).consoleui);
+        let form = new ListForm(this.consoleui);
         let results = await form.showEditor(container, formSchema,{});
         if (results && results.lower && results.upper) {
             return [results.lower, results.upper];
@@ -676,12 +686,12 @@ class AutolevelConsoleUIJobOption extends JobOption {
                 }
             }
         };
-        let form = new ListForm((this as any).consoleui);
+        let form = new ListForm(this.consoleui);
         let formResults = await form.showEditor(container, formSchema, undefined, { returnDefaultOnCancel: false });
         if (!formResults)
             return null;
         commonSchema.createSchema(formSchema).normalize(formResults);
-        let confirmed = await (this as any).consoleui.showConfirm('Press Enter to start probing.', { okLabel: 'Start' }, container);
+        let confirmed = await this.consoleui.showConfirm('Press Enter to start probing.', { okLabel: 'Start' }, container);
         if (!confirmed)
             return null;
         // TODO: add ability to feed hold and cancel
@@ -693,7 +703,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'container' implicitly has an 'any' type... Remove this comment to see the full error message
     async _chooseSurfaceMap(container) {
-        let files = await (this as any).consoleui.runWithWait(() => (this as any).consoleui.client.op('listFiles'));
+        let files = await this.consoleui.runWithWait(() => this.consoleui.client.op('listFiles'));
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'f' implicitly has an 'any' type.
         files = files.filter((f) => f.type !== 'gcode').map((f) => f.name);
         let formSchema = {
@@ -701,14 +711,14 @@ class AutolevelConsoleUIJobOption extends JobOption {
             type: 'string',
             enum: ['[Create New]'].concat(files)
         };
-        let form = new ListForm((this as any).consoleui);
-        let file = await form.showEditor(container, formSchema, (this as any).alOptions.surfaceMapFile);
+        let form = new ListForm(this.consoleui);
+        let file = await form.showEditor(container, formSchema, this.alOptions.surfaceMapFile);
         if (!file) {
-            return (this as any).alOptions.surfaceMapFile;
+            return this.alOptions.surfaceMapFile;
         }
         else if (file === '[Create New]') {
             let r = await this._newSurfaceMap(container);
-            return r ? r : (this as any).alOptions.surfaceMapFile;
+            return r ? r : this.alOptions.surfaceMapFile;
         }
         else {
             return file;
@@ -736,31 +746,31 @@ class AutolevelConsoleUIJobOption extends JobOption {
                 }
             }
         };
-        let form = new ListForm((this as any).consoleui);
-        let r = await form.showEditor(null, formSchema, (this as any).alOptions);
+        let form = new ListForm(this.consoleui);
+        let r = await form.showEditor(null, formSchema, this.alOptions);
         if (r !== null)
-            (this as any).alOptions = r;
-        (this as any).newJobMode.updateJobInfoText();
+            this.alOptions = r;
+        this.newJobMode.updateJobInfoText();
     }
-    async optionSelected() {
+    override async optionSelected() {
         // @ts-expect-error ts-migrate(2554) FIXME: Expected 1 arguments, but got 0.
         await this._optionsForm();
     }
-    getDisplayString() {
-        if ((this as any).alOptions.enabled && (this as any).alOptions.surfaceMap)
-            return 'AutoLevel: ' + (this as any).alOptions.surfaceMap;
+    override getDisplayString() {
+        if (this.alOptions.enabled && this.alOptions.surfaceMap)
+            return 'AutoLevel: ' + this.alOptions.surfaceMap;
         else
             return null;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
     addToJobOptions(obj) {
-        if ((this as any).alOptions.enabled && (this as any).alOptions.surfaceMap) {
+        if (this.alOptions.enabled && this.alOptions.surfaceMap) {
             if (!obj.gcodeProcessors)
                 obj.gcodeProcessors = [];
             obj.gcodeProcessors.push({
                 name: 'autolevel',
                 options: {
-                    surfaceMapFilename: (this as any).alOptions.surfaceMap
+                    surfaceMapFilename: this.alOptions.surfaceMap
                 }
             });
         }

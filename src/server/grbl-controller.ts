@@ -1,4 +1,4 @@
-import  Controller, { ControllerConfig } from './controller';
+import  Controller, { ControllerConfig, ControllerStatus } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
 import  XError from 'xerror';
 import  pasync from 'pasync';
@@ -11,6 +11,14 @@ const GcodeVM = require('../../lib/gcode-vm');
 
 export interface GrblControllerConfig extends ControllerConfig {
     statusUpdateInterval?: number    
+}
+
+export interface GrblControllerStatus extends ControllerStatus {
+    comms:{
+        sendQueueLength: number,
+        sendQueueIdxToSend: number,
+        sendQueueIdxToReceive: number
+    }
 }
 
 export default class GRBLController extends Controller {
@@ -149,7 +157,7 @@ export default class GRBLController extends Controller {
         }
         this.emit('_sendQueueDrain');
     }
-    getPos() {
+    override getPos() {
         if (this._wpos)
             return this._wpos;
         else
@@ -947,7 +955,7 @@ export default class GRBLController extends Controller {
         this.emit('cancelRunningOps', err);
         this.debug('_cancelRunningOps() done');
     }
-    initConnection(retry = true) {
+    override initConnection(retry = true) {
         this.debug('initConnection()');
         if (this._initializing) {
             this.debug('skipping, already initializing');
@@ -1816,7 +1824,7 @@ export default class GRBLController extends Controller {
             (this.sendQueue.length === 0 || (this._disableSending && this.sendQueueIdxToReceive === this.sendQueueIdxToSend)) &&
             this._lastRecvSrOrAck === 'sr';
     }
-    waitSync() {
+    override waitSync() {
         // Consider the machine to be synced when all of these conditions hold:
         // 1) The machine state indicated by the last received status report indicates that the machine is not moving
         // 2) this.sendQueue is empty (or sending is disabled, and all lines sent out have been processed)
@@ -1863,13 +1871,13 @@ export default class GRBLController extends Controller {
             this.on('receivedOk', okHandler);
         });
     }
-    hold() {
+    override hold() {
         this.sendLine('!');
     }
-    resume() {
+    override resume() {
         this.sendLine('~');
     }
-    cancel() {
+    override cancel() {
         // grbl doesn't have a queue wipe feature, so use a device reset and work around the issues with that.
         // The issues with this are:
         // 1) If we're currently moving, a reset will cause grbl to lose position.  To account for this, first execute
@@ -1936,14 +1944,14 @@ export default class GRBLController extends Controller {
         };
         doCancel().catch(() => { }); // ignore errors (errors in this process get reported in other ways)
     }
-    reset() {
+    override reset() {
         if (!this.serial)
             return; // no reason to soft-reset GRBL without active connection
         if (!this._initializing && !this._resetting) {
             this.sendLine('\x18');
         }
     }
-    clearError() {
+    override clearError() {
         if (!this.serial)
             return;
         if (this.errorData && this.errorData.code === XError.SAFETY_INTERLOCK) {
@@ -2049,13 +2057,13 @@ export default class GRBLController extends Controller {
         this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
         return tripPos;
     }
-    getStatus() {
+    override getStatus():GrblControllerStatus {
         let o = super.getStatus();
-        (o as any).comms = {
+        (o as GrblControllerStatus).comms = {
             sendQueueLength: this.sendQueue.length,
             sendQueueIdxToSend: this.sendQueueIdxToSend,
             sendQueueIdxToReceive: this.sendQueueIdxToReceive
         };
-        return o;
+        return o as GrblControllerStatus;
     }
 }

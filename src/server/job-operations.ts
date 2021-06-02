@@ -40,7 +40,7 @@ const jobOptionsSchema = {
     }
 };
 class OpStartJob extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return jobOptionsSchema;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
@@ -56,7 +56,7 @@ class OpStartJob extends Operation {
     }
 }
 class OpJobDryRun extends Operation {
-    getParamSchema() {
+    override getParamSchema() {
         return objtools.merge({}, jobOptionsSchema, {
             outputFilename: { type: String, description: 'Save processed gcode from dry run into this file' }
         });
