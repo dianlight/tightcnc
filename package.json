@@ -27,8 +27,9 @@
     "dependencies": {
         "@serialport/binding-abstract": "^9.0.7",
         "@serialport/stream": "^9.0.7",
+        "axios": "^0.21.1",
         "blessed": "^0.1.81",
-        "common-schema": "^2.0.2",
+        "common-schema": "^3.0.0",
         "crisphooks": "^2.0.1",
         "cross": "^1.0.0",
         "express": "^4.17.1",
@@ -39,7 +40,6 @@
         "objtools": "^2.0.1",
         "pasync": "^1.5.0",
         "request": "^2.88.0",
-        "request-promise-native": "^1.0.8",
         "serialport": "^9.1.0",
         "stable": "^0.1.8",
         "xerror": "^1.1.3",

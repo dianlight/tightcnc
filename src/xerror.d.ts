@@ -53,5 +53,7 @@ declare module 'xerror' {
         static listErrorCodes(): string[];
 
         static isXError(error: Error | XError): boolean;
+
+        static fromObject(object: any): XError;
     }
 }
