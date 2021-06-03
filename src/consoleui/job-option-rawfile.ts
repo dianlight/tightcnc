@@ -1,3 +1,4 @@
+import { ConsoleUI } from './consoleui';
 import JobOption from './job-option';
 //const blessed = require('blessed');
 import ListForm from './list-form';
@@ -8,7 +9,7 @@ class JobOptionRawfile extends JobOption {
      *
      * @method optionSelected
      */
-    async optionSelected() {
+    override async optionSelected() {
         let form = new ListForm((this as any).consoleui);
         (this as any).rawFile = await form.showEditor(null, { type: 'boolean', label: 'Raw File Sending Enabled' }, !!(this as any).rawFile);
     }
@@ -31,14 +32,14 @@ class JobOptionRawfile extends JobOption {
      * @method getDisplayString
      * @return {String}
      */
-    getDisplayString() {
+    override getDisplayString() {
         if (!(this as any).rawFile)
             return null;
         return 'Send Raw File: On';
     }
 }
 module.exports = JobOptionRawfile;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUI = (consoleui) => {
+
+module.exports.registerConsoleUI = (consoleui: ConsoleUI) => {
     consoleui.registerJobOption('Send Raw File (No Analysis)', JobOptionRawfile);
 };

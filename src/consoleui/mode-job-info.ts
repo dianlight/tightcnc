@@ -47,16 +47,16 @@ export default class ModeJobInfo extends ConsoleUIMode {
         }
         return text;
     }
-    activateMode() {
+    override activateMode() {
         super.activateMode();
         this.consoleui.on('statusUpdate', this.statusUpdateHandler);
         this.statusUpdateHandler(this.consoleui.lastStatus);
     }
-    exitMode() {
+    override exitMode() {
         this.consoleui.removeListener('statusUpdate', this.statusUpdateHandler);
         super.exitMode();
     }
-    init() {
+    override init() {
         super.init();
         this.infoTextbox = blessed.box({
             width: '100%',

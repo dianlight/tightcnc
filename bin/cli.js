@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const littleconf = require('littleconf');
-const TightCNCClient = require('../lib/clientlib');
+const TightCNCClient = require('../dist/lib/clientlib').default;
 const objtools = require('objtools');
 const fs = require('fs');
 const path = require('path');

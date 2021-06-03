@@ -1,5 +1,6 @@
 import  ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
+import { ConsoleUI } from './consoleui';
 //import ListForm from'./list-form';
 class ModeControl extends ConsoleUIMode {
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
@@ -161,7 +162,7 @@ class ModeControl extends ConsoleUIMode {
         this._centerTextBox.setContent(content);
         this.consoleui.screen.render();
     }
-    init() {
+    override init() {
         super.init();
         let text = blessed.box({
             top: '50%',
@@ -227,7 +228,7 @@ class ModeControl extends ConsoleUIMode {
     }
 }
 module.exports = ModeControl;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUI = function (consoleui) {
+
+module.exports.registerConsoleUI = function (consoleui: ConsoleUI) {
     consoleui.registerMode('control', new ModeControl(consoleui));
 };

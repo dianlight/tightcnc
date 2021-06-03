@@ -382,15 +382,15 @@ export default class ModeNewJob extends ConsoleUIMode {
             this._instantiateJobOptions();
         }
     }
-    activateMode() {
+    override activateMode() {
         super.activateMode();
         if (!this.jobOptionInstances)
             this._instantiateJobOptions();
     }
-    exitMode() {
+    override exitMode() {
         super.exitMode();
     }
-    init() {
+    override init() {
         super.init();
         this.jobInfoBox = blessed.box({
             width: '100%',

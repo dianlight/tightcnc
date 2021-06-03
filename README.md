@@ -10,21 +10,23 @@ Planned task upgrade:
  - [ ] Remove not Typescript friendly dependencies 
  - [ ] Typescript Migration for lib ( ts-migrate )
   - [ ] Remove ts-migrate dependecy
+ - [x] Clientlib migration
+  - [x] Expose clientlib d.ts
 - [x] Upgrade to serialport 9.x 
   - [x] Support for raw socket comunication - serialport-binding
     - [ ] Manage connection errors
-  - [ ] Support fro websocket comunication - serilaport-binding
+  - [ ] Support for websocket comunication - serilaport-binding
   - [x] Support grbl-sim in process comunication - serilaport-binding
 - [ ] Support start without config
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
 - [ ] Sender as Worker
-  - [ ] ~~~support Virtual comunication API Adapter ( comunication as plugin )~~~ Serialport binding
+  - [x] ~~~support Virtual comunication API Adapter ( comunication as plugin )~~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
 - [ ] More firmware
   - [ ] Support grblHal
-  - [ ] Support Marlin
+  - [ ] Support Marlin  
 # TightCNC
 
 TightCNC is a CNC controller interface application with a focus on backend robustness and stability.  The architecture

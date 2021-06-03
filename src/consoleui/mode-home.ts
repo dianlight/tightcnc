@@ -6,7 +6,7 @@ export default class ModeHome extends ConsoleUIMode {
     constructor(consoleui: ConsoleUI) {
         super(consoleui);
     }
-    init() {
+    override init() {
         super.init();
         //this.box.setContent('Home screen');
         let text = blessed.box({
@@ -19,10 +19,10 @@ export default class ModeHome extends ConsoleUIMode {
         this.box.append(text);
         this.registerHomeKey(['escape', 'q'], 'Esc', 'Exit', () => process.exit(0), 0);
     }
-    activateMode() {
+    override activateMode() {
         super.activateMode();
     }
-    exitMode() {
+    override exitMode() {
         super.exitMode();
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'keys' implicitly has an 'any' type.

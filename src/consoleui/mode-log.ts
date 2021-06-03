@@ -61,18 +61,18 @@ export default class ModeLog extends ConsoleUIMode {
         };
         runLoop().catch(this.consoleui.clientError.bind(this));
     }
-    activateMode() {
+    override activateMode() {
         super.activateMode();
         this.modeActive = true;
         if (!this.updateLoopRunning)
             this.startLogUpdateLoop();
         this.textbox.focus();
     }
-    exitMode() {
+    override exitMode() {
         this.modeActive = false;
         super.exitMode();
     }
-    init() {
+    override init() {
         super.init();
         this.logBox = blessed.box({
             width: '100%',
