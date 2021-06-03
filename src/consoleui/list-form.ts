@@ -2,24 +2,28 @@ import blessed from 'blessed';
 import { Schema, createSchema } from 'common-schema';
 import pasync from 'pasync';
 import objtools from 'objtools';
+import { ConsoleUI } from './consoleui';
 export default class ListForm {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui, options = {}) {
-        if (consoleui.screen && !consoleui.setTerminal) {
-            (this as any).consoleui = consoleui;
-            (this as any).screen = consoleui.screen;
+
+    consoleui: ConsoleUI | null
+    screen: blessed.Widgets.Screen
+    editorCancelled?: boolean
+
+    constructor(consoleui:ConsoleUI|blessed.Widgets.Screen, private options = {}) {
+        if (consoleui.screen && !(consoleui as any).setTerminal) {
+            this.consoleui = consoleui as ConsoleUI;
+            this.screen = consoleui.screen;
         }
         else {
-            (this as any).consoleui = null;
-            (this as any).screen = consoleui;
+            this.consoleui = null;
+            this.screen = consoleui as blessed.Widgets.Screen;
         }
-        (this as any).options = options;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'container' implicitly has an 'any' type... Remove this comment to see the full error message
-    async showEditor(container, schema, defaultVal, options = {}) {
-        if (!container && (this as any).consoleui) {
+    async showEditor(container, schema, defaultVal?:any, options = {}) {
+        if (!container && this.consoleui) {
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'c' implicitly has an 'any' type.
-            return await (this as any).consoleui.runInModal(async (c) => {
+            return await this.consoleui.runInModal(async (c) => {
                 return await this.showEditor(c, schema, defaultVal, options);
             });
         }
@@ -29,7 +33,7 @@ export default class ListForm {
         if (defaultVal === undefined)
             defaultVal = schemaData.default;
         let [val, cancel] = await this._editValue(container, schemaData, defaultVal, options);
-        (this as any).editorCancelled = cancel || false;
+        this.editorCancelled = cancel || false;
         if (val === null || cancel) { // On cancel
             if ((options as any).returnDefaultOnCancel === false && !(options as any).returnValueOnCancel)
                 return null;
@@ -63,12 +67,12 @@ export default class ListForm {
             left: 'center'
         });
         container.append(messageBox);
-        (this as any).screen.lockKeys = true;
-        (this as any).screen.render();
+        this.screen.lockKeys = true;
+        this.screen.render();
         await pasync.setTimeout(time);
         container.remove(messageBox);
-        (this as any).screen.lockKeys = false;
-        (this as any).screen.render();
+        this.screen.lockKeys = false;
+        this.screen.render();
     }
     // @ts-expect-error ts-migrate(7023) FIXME: '_editValue' implicitly has return type 'any' beca... Remove this comment to see the full error message
     async _editValue(container, schemaData, value, options = {}) {
@@ -143,8 +147,8 @@ export default class ListForm {
             //console.log(err, err.stack);
             //process.exit(1);
             await this._message(container, err.message);
-            if ((this as any).consoleui)
-                (this as any).consoleui.log(err, err.stack);
+            if (this.consoleui)
+                this.consoleui.log(err, err.stack);
             return await this._editValue(container, schemaData, value, options);
         }
         return [r, cancel];
@@ -155,8 +159,8 @@ export default class ListForm {
             defaultValue = '';
         if (typeof defaultValue !== 'string')
             defaultValue = '' + defaultValue;
-        if ((this as any).consoleui)
-            (this as any).consoleui.pushHintOverrides([['Esc', 'Cancel'], ['Enter', 'Done']]);
+        if (this.consoleui)
+            this.consoleui.pushHintOverrides([['Esc', 'Cancel'], ['Enter', 'Done']]);
         let outerBorder = blessed.box({
             width: (options as any).width || '80%',
             height: 5,
@@ -190,12 +194,12 @@ export default class ListForm {
         container.append(outerBorder);
         textbox.focus();
         const cleanup = () => {
-            if ((this as any).consoleui)
-                (this as any).consoleui.popHintOverrides();
+            if (this.consoleui)
+                this.consoleui.popHintOverrides();
             innerBorder.remove(textbox);
             outerBorder.remove(innerBorder);
             container.remove(outerBorder);
-            (this as any).screen.render();
+            this.screen.render();
         };
         let waiter = pasync.waiter();
         textbox.on('cancel', () => {
@@ -210,17 +214,17 @@ export default class ListForm {
                 }
                 catch (err) {
                     this._message(container, err.message).then(() => textbox.focus());
-                    if ((this as any).consoleui)
-                        (this as any).consoleui.log(err, err.stack);
+                    if (this.consoleui)
+                        this.consoleui.log(err, err.stack);
                     return;
                 }
             }
             cleanup();
             waiter.resolve(value);
         });
-        (this as any).screen.render();
+        this.screen.render();
         textbox.setValue(defaultValue);
-        (this as any).screen.render();
+        this.screen.render();
         return waiter.promise;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'key' implicitly has an 'any' type.
@@ -239,7 +243,7 @@ export default class ListForm {
             keyStr += ': ' + value;
         }
         else if (value && Array.isArray(value) && schemaData.isCoordinates) {
-            let usedAxes = ((this as any).consoleui && (this as any).consoleui.usedAxes) || [true, true, true];
+            let usedAxes = (this.consoleui && this.consoleui.usedAxes) || [true, true, true];
             keyStr += ': ' + value.filter((n, idx) => usedAxes[idx]).join(', ');
         }
         return keyStr;
@@ -251,8 +255,8 @@ export default class ListForm {
             type: 'object',
             properties: {}
         };
-        let axisLabels = ((this as any).consoleui && (this as any).consoleui.axisLabels) || ['x', 'y', 'z'];
-        let usedAxes = ((this as any).consoleui && (this as any).consoleui.usedAxes) || [true, true, true];
+        let axisLabels = (this.consoleui && this.consoleui.axisLabels) || ['x', 'y', 'z'];
+        let usedAxes = (this.consoleui && this.consoleui.usedAxes) || [true, true, true];
         let maxNumAxes = Math.min(schemaData.coordinatesLength || 1000, axisLabels.length, usedAxes.length);
         for (let i = 0; i < maxNumAxes; i++) {
             if (usedAxes[i]) {
@@ -266,13 +270,13 @@ export default class ListForm {
             }
         }
         let extraKeys = [];
-        if ((this as any).consoleui) {
+        if (this.consoleui) {
             extraKeys.push({
                 hint: ['c', 'Use Current Pos'],
                 keys: ['c'],
                 // @ts-expect-error ts-migrate(7031) FIXME: Binding element 'data' implicitly has an 'any' typ... Remove this comment to see the full error message
                 fn: ({ data }) => {
-                    let pos = (this as any).consoleui.lastStatus.controller.pos;
+                    let pos = this.consoleui!.lastStatus!.controller!.pos;
                     for (let i = 0; i < maxNumAxes && i < pos.length; i++) {
                         if (usedAxes[i]) {
                             let v = pos[i];
@@ -383,7 +387,7 @@ export default class ListForm {
                     for (let i = selected; i < value.length; i++) {
                         listBox.setItem(i, this._getEntryDisplayLabel(i, value[i], elementsSchema));
                     }
-                    (this as any).screen.render();
+                    this.screen.render();
                 }
             },
             {
@@ -398,7 +402,7 @@ export default class ListForm {
                     for (let i = selected; i < value.length; i++) {
                         listBox.setItem(i, this._getEntryDisplayLabel(i, value[i], elementsSchema));
                     }
-                    (this as any).screen.render();
+                    this.screen.render();
                 }
             }
         ];
@@ -411,8 +415,8 @@ export default class ListForm {
                     }
                     catch (err) {
                         this._message(container, err.message);
-                        if ((this as any).consoleui)
-                            (this as any).consoleui.log(err, err.stack);
+                        if (this.consoleui)
+                            this.consoleui.log(err, err.stack);
                         return true;
                     }
                 }
@@ -437,13 +441,13 @@ export default class ListForm {
                 }
                 catch (err) {
                     await this._message(container, err.message);
-                    if ((this as any).consoleui)
-                        (this as any).consoleui.log(err, err.stack);
+                    if (this.consoleui)
+                        this.consoleui.log(err, err.stack);
                 }
                 for (let i = 0; i < value.length; i++) {
                     listBox.setItem(i, this._getEntryDisplayLabel(i, value[i], elementsSchema));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
             else {
@@ -453,7 +457,7 @@ export default class ListForm {
                     value[selected] = newValue;
                     listBox.setItem(selected, this._getEntryDisplayLabel(selected, value[selected], elementsSchema));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
         });
@@ -505,12 +509,12 @@ export default class ListForm {
                         value[key] = (schemaData.values.default === undefined) ? null : schemaData.values.default;
                         // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                         listBox.insertItem(mapKeys.length - 1, this._getEntryDisplayLabel(key, value[key], schemaData.values));
-                        (this as any).screen.render();
+                        this.screen.render();
                     })
                         .catch((err) => {
                         this._message(container, '' + err);
-                        if ((this as any).consoleui)
-                            (this as any).consoleui.log(err, err.stack);
+                        if (this.consoleui)
+                            this.consoleui.log(err, err.stack);
                     });
                 }
             },
@@ -526,7 +530,7 @@ export default class ListForm {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     delete value[removedKey];
                     listBox.removeItem(selected);
-                    (this as any).screen.render();
+                    this.screen.render();
                 }
             }
         ];
@@ -539,8 +543,8 @@ export default class ListForm {
                     }
                     catch (err) {
                         this._message(container, err.message);
-                        if ((this as any).consoleui)
-                            (this as any).consoleui.log(err, err.stack);
+                        if (this.consoleui)
+                            this.consoleui.log(err, err.stack);
                         return true;
                     }
                 }
@@ -566,14 +570,14 @@ export default class ListForm {
                 }
                 catch (err) {
                     await this._message(container, err.message);
-                    if ((this as any).consoleui)
-                        (this as any).consoleui.log(err, err.stack);
+                    if (this.consoleui)
+                        this.consoleui.log(err, err.stack);
                 }
                 for (let i = 0; i < mapKeys.length; i++) {
                     // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     listBox.setItem(i, this._getEntryDisplayLabel(mapKeys[i], value[mapKeys[i]], schemaData.values));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
             else {
@@ -583,7 +587,7 @@ export default class ListForm {
                     value[key] = newValue;
                     listBox.setItem(selected, this._getEntryDisplayLabel(key, newValue, schemaData.values));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
         });
@@ -636,7 +640,7 @@ export default class ListForm {
                     // @ts-expect-error ts-migrate(7005) FIXME: Variable 'keysByIndex' implicitly has an 'any[]' t... Remove this comment to see the full error message
                     info.listBox.setItem(i, getEntryLabel(keysByIndex[i], value[keysByIndex[i]]));
                 }
-                (this as any).screen.render();
+                this.screen.render();
             };
             (options as any).keys.push(k);
         };
@@ -654,8 +658,8 @@ export default class ListForm {
                     }
                     catch (err) {
                         this._message(container, err.message);
-                        if ((this as any).consoleui)
-                            (this as any).consoleui.log(err, err.stack);
+                        if (this.consoleui)
+                            this.consoleui.log(err, err.stack);
                         return true;
                     }
                 }
@@ -682,14 +686,14 @@ export default class ListForm {
                 }
                 catch (err) {
                     await this._message(container, err.message);
-                    if ((this as any).consoleui)
-                        (this as any).consoleui.log(err, err.stack);
+                    if (this.consoleui)
+                        this.consoleui.log(err, err.stack);
                 }
                 for (let i = 0; i < keysByIndex.length; i++) {
                     // @ts-expect-error ts-migrate(7005) FIXME: Variable 'keysByIndex' implicitly has an 'any[]' t... Remove this comment to see the full error message
                     listBox.setItem(i, getEntryLabel(keysByIndex[i], value[keysByIndex[i]]));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
             else {
@@ -699,7 +703,7 @@ export default class ListForm {
                     value[key] = newValue;
                     listBox.setItem(selected, getEntryLabel(key, newValue));
                 }
-                (this as any).screen.render();
+                this.screen.render();
                 return true;
             }
         });
@@ -735,9 +739,9 @@ export default class ListForm {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'container' implicitly has an 'any' type... Remove this comment to see the full error message
     selector(container, title, items, defaultSelected = 0, options = {}, handler = null) {
-        if (!container && (this as any).consoleui) {
+        if (!container && this.consoleui) {
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'c' implicitly has an 'any' type.
-            return (this as any).consoleui.runInModal(async (c) => {
+            return this.consoleui.runInModal(async (c) => {
                 return await this.selector(c, title, items, defaultSelected, options, handler);
             });
         }
@@ -778,25 +782,25 @@ export default class ListForm {
         listContainer.append(listBox);
         container.append(listContainer);
         listBox.focus();
-        if ((this as any).consoleui) {
-            let hints = [['Esc', 'Cancel'], ['Up/Down', 'Select'], ['Enter', 'Done']];
+        if (this.consoleui) {
+            let hints:[string,string][] = [['Esc', 'Cancel'], ['Up/Down', 'Select'], ['Enter', 'Done']];
             if ((options as any).keys) {
                 for (let el of (options as any).keys) {
                     if (el.hint)
                         hints.push(el.hint);
                 }
             }
-            (this as any).consoleui.pushHintOverrides(hints);
+            this.consoleui.pushHintOverrides(hints);
         }
         let waiter = pasync.waiter();
         // Need to support 2 modes:
         // Either select a single option then resolve, or allow repeated calls to a handler, and exit on handler return false or cancel (escape)
         const cleanup = () => {
-            if ((this as any).consoleui)
-                (this as any).consoleui.popHintOverrides();
+            if (this.consoleui)
+                this.consoleui.popHintOverrides();
             listContainer.remove(listBox);
             container.remove(listContainer);
-            (this as any).screen.render();
+            this.screen.render();
         };
         listBox.on('select', () => {
             let selected = listBox.index;
@@ -858,7 +862,7 @@ export default class ListForm {
                 }
             }
         }
-        (this as any).screen.render();
+        this.screen.render();
         return waiter.promise;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'schemaData' implicitly has an 'any' typ... Remove this comment to see the full error message

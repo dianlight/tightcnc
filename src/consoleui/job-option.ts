@@ -1,3 +1,5 @@
+import { ConsoleUI } from "./consoleui";
+
 /**
  * This class handles the ConsoleUI client side component of job options.  It is modular so
  * modules can register UIs for any provided job options.
@@ -7,10 +9,10 @@
  *
  * @class JobOption
  */
-export default class JobOption {
-    newJobMode: any;
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(public consoleui) {
+export default abstract class JobOption {
+    public newJobMode: any;
+
+    constructor(public consoleui: ConsoleUI) {
         this.newJobMode = consoleui.modes.newJob;
     }
     /**
@@ -19,8 +21,7 @@ export default class JobOption {
      *
      * @method optionSelected
      */
-    optionSelected() {
-    }
+    abstract optionSelected():Promise<void>;
     /**
      * This method should handle adding whatever this job option needs to the jobOptions
      * object sent to the server.  It should use state information that was collected
@@ -29,15 +30,12 @@ export default class JobOption {
      * @method addToJobOptions
      * @param {Object} obj - jobOptions object to be sent to the server
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
-    addToJobOptions(obj) {
-    }
+    abstract addToJobOptions(obj:any):void
     /**
      * Return a string to append to the job configuration display.
      *
      * @method getDisplayString
      * @return {String}
      */
-    getDisplayString() {
-    }
+    abstract getDisplayString():string|null 
 }

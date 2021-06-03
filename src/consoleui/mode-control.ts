@@ -2,14 +2,19 @@ import  ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
 import { ConsoleUI } from './consoleui';
 //import ListForm from'./list-form';
-class ModeControl extends ConsoleUIMode {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
+export default class ModeControl extends ConsoleUIMode {
+
+    sendTextbox?: blessed.Widgets.TextboxElement
+    keybinds: any;
+    moveIncrement = 1;
+    onlyAxes?:any;
+    macroParamCache = {};
+    _centerTextBox?:blessed.Widgets.BoxElement
+    sendBoxBorder?: blessed.Widgets.BoxElement;
+
+    constructor(consoleui: ConsoleUI) {
         super(consoleui);
         this.keybinds = consoleui.config.consoleui.control.keybinds;
-        this.moveIncrement = 1;
-        this.onlyAxes = null;
-        this.macroParamCache = {};
     }
     // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
     async _executeKeybind(action) {
@@ -22,7 +27,7 @@ class ModeControl extends ConsoleUIMode {
             let flags = undefined;
             if (this.onlyAxes) {
                 flags = [];
-                for (let i = 0; i < this.consoleui.axisLabels.length; i++)
+                for (let i = 0; i < this.consoleui!.axisLabels!.length; i++)
                     flags[i] = falseVal;
                 for (let axisNum of this.onlyAxes)
                     flags[axisNum] = trueVal;
@@ -49,7 +54,7 @@ class ModeControl extends ConsoleUIMode {
                     this.consoleui.exitMode();
                     break;
                 case 'realTimeMove':
-                    await this.consoleui.client.op('realTimeMove', { axis: params.axis, inc: params.mult * this.moveIncrement });
+                    await this.consoleui.client?.op('realTimeMove', { axis: params.axis, inc: params.mult * this.moveIncrement });
                     break;
                 case 'inc':
                     let newInc = this.moveIncrement * params.mult;
@@ -74,40 +79,40 @@ class ModeControl extends ConsoleUIMode {
                     this._refreshText();
                     break;
                 case 'setOrigin':
-                    await this.consoleui.client.op('setOrigin', {
+                    await this.consoleui.client?.op('setOrigin', {
                         pos: makeOnlyAxesFlags()
                     });
                     this.consoleui.showTempMessage('Origin set.');
                     break;
                 case 'home':
                     this.consoleui.showTempMessage('Homing ...');
-                    await this.consoleui.client.op('home', {
+                    await this.consoleui.client?.op('home', {
                         axes: makeOnlyAxesFlags()
                     });
                     this.consoleui.showTempMessage('Homing complete.');
                     break;
                 case 'setMachineHome':
-                    await this.consoleui.client.op('setAbsolutePos', {
+                    await this.consoleui.client?.op('setAbsolutePos', {
                         pos: makeOnlyAxesFlags()
                     });
                     this.consoleui.showTempMessage('Machine home set.');
                     break;
                 case 'goOrigin':
-                    await this.consoleui.client.op('move', {
+                    await this.consoleui.client?.op('move', {
                         // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '0' is not assignable to paramete... Remove this comment to see the full error message
                         pos: makeOnlyAxesFlags(0, null, 0)
                     });
                     break;
                 case 'probe':
-                    await this.consoleui.client.op('waitSync', {});
+                    await this.consoleui.client?.op('waitSync', {});
                     let probePos = [];
-                    for (let axisNum = 0; axisNum < this.consoleui.axisLabels.length; axisNum++)
+                    for (let axisNum = 0; axisNum < this.consoleui!.axisLabels!.length; axisNum++)
                         probePos.push(null);
-                    probePos[params.axis] = this.consoleui.lastStatus.controller.pos[params.axis] + params.mult * this.moveIncrement;
+                    probePos[params.axis] = this.consoleui!.lastStatus!.controller!.pos[params.axis] + params.mult * this.moveIncrement;
                     this.consoleui.showTempMessage('Probing ...');
                     let probeTripped = true;
                     try {
-                        await this.consoleui.client.op('probe', {
+                        await this.consoleui.client?.op('probe', {
                             pos: probePos,
                             feed: params.feed
                         });
@@ -128,11 +133,11 @@ class ModeControl extends ConsoleUIMode {
                     }
                     break;
                 case 'operation':
-                    await this.consoleui.client.op(params.name, params.params);
+                    await this.consoleui.client?.op(params.name, params.params);
                     break;
                 case 'sendTextbox':
-                    this.box.append(this.sendBoxBorder);
-                    this.sendTextbox.focus();
+                    this.box.append(this.sendBoxBorder as blessed.Widgets.BoxElement);
+                    this.sendTextbox?.focus();
                     this.consoleui.render();
                     break;
                 case 'macroList':
@@ -147,20 +152,19 @@ class ModeControl extends ConsoleUIMode {
         let info = await this.consoleui.macroSelector(null, this.macroParamCache);
         if (!info)
             return;
-        this.consoleui.client.op('runMacro', { macro: info.macro, params: info.macroParams })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
+        this.consoleui.client?.op('runMacro', { macro: info.macro, params: info.macroParams })
             .catch((err) => this.consoleui.clientError('Macro error: ' + err));
         this.consoleui.showTempMessage('Macro running.');
     }
     _refreshText() {
         let content = '{bold}Machine Control{/bold}';
-        content += '\nMove Increment: ' + this.moveIncrement + ' ' + (this.consoleui.lastStatus.controller.units || '');
+        content += '\nMove Increment: ' + this.moveIncrement + ' ' + (this.consoleui!.lastStatus!.controller!.units || '');
         if (this.onlyAxes) {
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
             content += '\nNext command axes: ' + this.onlyAxes.map((axisNum) => this.consoleui.axisLabels[axisNum].toUpperCase()).join(', ');
         }
-        this._centerTextBox.setContent(content);
-        this.consoleui.screen.render();
+        this._centerTextBox?.setContent(content);
+        this.consoleui.screen?.render();
     }
     override init() {
         super.init();
@@ -207,16 +211,16 @@ class ModeControl extends ConsoleUIMode {
         this.sendBoxBorder.append(this.sendTextbox);
         this.sendBoxBorder.setIndex(100);
         this.sendTextbox.on('cancel', () => {
-            this.sendTextbox.clearValue();
-            this.box.remove(this.sendBoxBorder);
+            this.sendTextbox?.clearValue();
+            this.box.remove(this.sendBoxBorder as blessed.Widgets.BoxElement);
         });
         this.sendTextbox.on('submit', () => {
-            let line = this.sendTextbox.getValue();
-            this.sendTextbox.clearValue();
-            this.box.remove(this.sendBoxBorder);
+            let line = this.sendTextbox?.getValue();
+            this.sendTextbox?.clearValue();
+            this.box.remove(this.sendBoxBorder as blessed.Widgets.BoxElement);
             this.consoleui.render();
-            if (line.trim()) {
-                this.consoleui.client.op('send', {
+            if (line?.trim()) {
+                this.consoleui.client?.op('send', {
                     line: line
                 })
                     .then(() => {
@@ -227,7 +231,6 @@ class ModeControl extends ConsoleUIMode {
         });
     }
 }
-module.exports = ModeControl;
 
 module.exports.registerConsoleUI = function (consoleui: ConsoleUI) {
     consoleui.registerMode('control', new ModeControl(consoleui));

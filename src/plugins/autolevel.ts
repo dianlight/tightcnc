@@ -484,7 +484,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
     async _runProbeSequence(params) {
         let container = this.consoleui.mainPane;
         let initStatus = await this.consoleui.runWithWait(async () => {
-            return await this.consoleui.client.op('probeSurface', params);
+            return await this.consoleui.client?.op('probeSurface', params);
         });
         let probeInfoBox = blessed.box({
             width: '50%',
@@ -497,10 +497,10 @@ class AutolevelConsoleUIJobOption extends JobOption {
             valign: 'middle',
             content: ''
         });
-        container.append(probeInfoBox);
+        container!.append(probeInfoBox);
         probeInfoBox.focus();
-        let origGrabKeys = this.consoleui.screen.grabKeys;
-        this.consoleui.screen.grabKeys = true;
+        let origGrabKeys = this.consoleui!.screen!.grabKeys;
+        this.consoleui!.screen!.grabKeys = true;
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'probeStatus' implicitly has an 'any' ty... Remove this comment to see the full error message
         const updateProbeInfo = (probeStatus) => {
             probeInfoBox.content = 'Probing surface ...\nState: ' + probeStatus.state + '\nPoint ' + (probeStatus.currentProbePoint + 1) + '/' + probeStatus.probePoints + ' (' + Math.floor(probeStatus.percentComplete) + '%)';
@@ -532,9 +532,9 @@ class AutolevelConsoleUIJobOption extends JobOption {
             };
             const cleanup = () => {
                 this.consoleui.removeListener('statusUpdate', statusUpdateHandler);
-                container.remove(probeInfoBox);
+                container!.remove(probeInfoBox);
                 this.consoleui.popHintOverrides();
-                this.consoleui.screen.grabKeys = origGrabKeys;
+                this.consoleui.screen!.grabKeys = origGrabKeys;
             };
             this.consoleui.on('statusUpdate', statusUpdateHandler);
             this.consoleui.pushHintOverrides([['Esc', 'Cancel']]);
@@ -565,7 +565,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
                         if (!this.newJobMode.jobFilename && !this.newJobMode.jobMacro)
                             throw new Error('No job filename configured');
                         let dryRunResults = await this.consoleui.runWithWait(async () => {
-                            return await this.consoleui.client.op('jobDryRun', this.newJobMode.makeJobOptionsObj());
+                            return await this.consoleui.client?.op('jobDryRun', this.newJobMode.makeJobOptionsObj());
                         }, 'Processing job ...');
                         let bounds = objtools.getPath(dryRunResults, 'gcodeProcessors.final-job-vm.bounds');
                         if (bounds) {
@@ -703,7 +703,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'container' implicitly has an 'any' type... Remove this comment to see the full error message
     async _chooseSurfaceMap(container) {
-        let files = await this.consoleui.runWithWait(() => this.consoleui.client.op('listFiles'));
+        let files = await this.consoleui.runWithWait(() => this.consoleui.client?.op('listFiles'));
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'f' implicitly has an 'any' type.
         files = files.filter((f) => f.type !== 'gcode').map((f) => f.name);
         let formSchema = {

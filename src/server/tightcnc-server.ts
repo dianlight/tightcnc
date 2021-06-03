@@ -10,7 +10,7 @@ import zstreams from 'zstreams';
 import EventEmitter from 'events';
 import path from 'path';
 import fs from 'fs';
-import JobManager from './job-manager';
+import JobManager, { JobStatus } from './job-manager';
 import stable from 'stable';
 import Macros from './macros';
 import pasync from 'pasync';
@@ -19,9 +19,41 @@ import littleconf from 'littleconf'
 import joboperations from './job-operations'
 import macrooperation from './macro-operations'
 import basicoperation from './basic-operations'
-import Controller from './controller';
-import GcodeLine from '../../lib/gcode-line';
+import Controller, { ControllerStatus } from './controller';
+//import GcodeLine from '../../lib/gcode-line';
 import JobState from './job-state';
+
+export interface StatusObject {
+    controller?: ControllerStatus
+    job?: JobStatus
+    requestInput?: {
+        prompt: any
+        schema: any
+        id: number
+    }
+    units?: 'mm' | 'in'
+}
+
+export interface JobSourceOptions {
+    filename?: string,
+    macro?: string,
+    macroParams?: any,
+    rawFile?: boolean,
+    gcodeProcessors?: {
+        name: string,
+        options: {
+            id: string
+            updateOnHook?: string
+        },
+        order: number
+        inst?: any
+    }[]
+    data?: string[],
+    rawStrings?: boolean,
+    dryRun?: boolean,
+    job?: JobState
+}
+
 /**
  * This is the central class for the application server.  Operations, gcode processors, and controllers
  * are registered here.
@@ -226,17 +258,17 @@ export default class TightCNCServer extends EventEmitter {
      * @method getStatus
      * @return {Promise{Object}}
      */
-    async getStatus() {
-        let statusObj = {};
+    async getStatus():Promise<StatusObject> {
+        let statusObj: StatusObject = {};
         // Fetch controller status
-        (statusObj as any).controller = this.controller ? this.controller.getStatus() : {};
+        statusObj.controller = this.controller ? this.controller.getStatus() : undefined;
         // Fetch job status
-        (statusObj as any).job = this.jobManager ? this.jobManager.getStatus() : undefined;
+        statusObj.job = this.jobManager ? this.jobManager.getStatus() : undefined;
         // Emit 'statusRequest' event so other components can modify the status object directly
         this.emit('statusRequest', statusObj);
         // Add input request
         if (this.waitingForInput) {
-            (statusObj as any).requestInput = {
+            statusObj.requestInput = {
                 prompt: this.waitingForInput.prompt,
                 schema: this.waitingForInput.schema,
                 id: this.waitingForInput.id
@@ -268,21 +300,7 @@ export default class TightCNCServer extends EventEmitter {
      *   the additional property 'gcodeProcessorChain' containing an array of all GcodeProcessor's in the chain.  This property
      *   is only available once the 'processorChainReady' event is fired on the returned stream;
      */
-    getGcodeSourceStream(options: {
-        filename?: string,
-        data?: string[],
-        macro?: string,
-        gcodeProcessors?: {
-            name: string,
-            options: any,
-            order?: number
-            inst: any
-        }[],
-        macroParams?: any,
-        rawStrings?: boolean,
-        dryRun?: boolean,
-        job: JobState
-    }) {
+    getGcodeSourceStream(options: JobSourceOptions ) {
         // Handle case where returning raw strings
         if (options.rawStrings) {
             if (options.filename) {
@@ -352,7 +370,7 @@ export default class TightCNCServer extends EventEmitter {
         return (GcodeProcessor as any).buildProcessorChain(options.filename || options.data || macroStreamFn, gcodeProcessorInstances, false);
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macro' implicitly has an 'any' type.
-    async runMacro(macro, params = {}, options:{ gcodeProcessor: any; push: () => {}; } = {}) {
+    async runMacro(macro, params = {}, options:{ gcodeProcessor: any; push: () => {}; waitsync?: boolean} = {}) {
         return await this.macros.runMacro(macro, params, options);
     }
     // @ts-expect-error ts-migrate(7023) FIXME: 'requestInput' implicitly has return type 'any' be... Remove this comment to see the full error message

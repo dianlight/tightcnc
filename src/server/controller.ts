@@ -13,6 +13,7 @@ export interface ControllerConfig {
 
 }
 export interface ControllerStatus {
+    spindleDirection: number;
     ready: boolean,
     axisLabels: string[],
     usedAxes: boolean[],
@@ -27,12 +28,12 @@ export interface ControllerStatus {
     held: boolean,
     units: 'mm'|'in',
     feed: number,
-    incremental: false,
-    moving: false,
-    coolant: 0,
-    spindle: false,
-    line: 0,
-    error: false,
+    incremental: boolean,
+    moving: boolean,
+    coolant: number,
+    spindle: boolean,
+    line: number,
+    error: boolean,
     errorData?: XError,
     programRunning: boolean
 }
@@ -224,7 +225,7 @@ export default abstract class Controller extends EventEmitter {
      */
     abstract sendGcode(gline: GcodeLine, options?:{}):void;
 
-    send(thing: string | GcodeLine, options?:{}) {
+    send(thing: string | GcodeLine, options?:{}):void {
         if (typeof thing === 'object' && thing.isGcodeLine) {
             this.sendGcode(thing, options);
         }
@@ -326,7 +327,7 @@ export default abstract class Controller extends EventEmitter {
      * @param {Number} [feed]
      * @return {Promise{pos}}
      */
-    probe(pos:boolean[], feed?:number) { }
+    probe(pos:number[], feed?:number) { }
     /**
      * Return an object containing controller status.  Controller classes may override this, but should make an effort
      * to conform as much as possible to the format of this status object.

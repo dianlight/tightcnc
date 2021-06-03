@@ -2,12 +2,18 @@ import blessed from 'blessed';
 import CrispHooks from 'crisphooks';
 import { ConsoleUI } from './consoleui'
 export default class ConsoleUIMode extends CrispHooks {
-    constructor(consoleui:ConsoleUI) {
+
+    modeHints: {
+        keyNames: any
+        order: number
+        label: any
+    }[] = [];
+    activeModeHints:string[] = [];
+    modeIsActive = false;
+    box:blessed.Widgets.BoxElement
+
+    constructor(public consoleui:ConsoleUI) {
         super();
-        this.consoleui = consoleui;
-        this.modeHints = [];
-        this.activeModeHints = [];
-        this.modeIsActive = false;
         this.box = blessed.box({
             width: '100%',
             height: '100%',
@@ -22,8 +28,7 @@ export default class ConsoleUIMode extends CrispHooks {
     /**
      * Registers a hint to be automatically activated when the mode is activated, and deactivated when the mode is exited.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'keyNames' implicitly has an 'any' type.
-    registerModeHint(keyNames, label, order = 1000) {
+    registerModeHint(keyNames:string | string[], label:string, order = 1000) {
         let pos = this.modeHints.length;
         for (let i = 0; i < this.modeHints.length; i++) {
             if (this.modeHints[i].order > order) {
@@ -35,22 +40,28 @@ export default class ConsoleUIMode extends CrispHooks {
         this._refreshModeHints();
         return this.modeHints[pos];
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'hint' implicitly has an 'any' type.
-    removeModeHint(hint) {
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'h' implicitly has an 'any' type.
+
+    removeModeHint(hint:{
+        keyNames: any;
+        order: number;
+        label: any;
+    }) {
         this.modeHints = this.modeHints.filter((h) => h !== hint);
         this._refreshModeHints();
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'keys' implicitly has an 'any' type.
-    registerModeKey(keys, keyNames, keyLabel, fn, order = 1000) {
+    registerModeKey(keys:string|string[], keyNames:string|string[], keyLabel:string, fn:(ch: any, key: blessed.Widgets.Events.IKeyEventArg) => void, order = 1000) {
+        const tr = typeof keys
         if (!Array.isArray(keys))
             keys = [keys];
         let hint = this.registerModeHint(keyNames, keyLabel, order);
         this.box.key(keys, fn);
-        return { hint, keys, fn };
+        return { hint, keys:tr, fn };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'mkey' implicitly has an 'any' type.
-    removeModeKey(mkey) {
+    removeModeKey(mkey: {
+        hint: any
+        keys: string
+        fn: (ch: any, key: blessed.Widgets.Events.IKeyEventArg) => void
+    }) {
         this.removeModeHint(mkey.hint);
         this.box.unkey(mkey.keys, mkey.fn);
     }
@@ -74,7 +85,7 @@ export default class ConsoleUIMode extends CrispHooks {
             let hint = this.consoleui.addHint(modeHint.keyNames, modeHint.label);
             this.activeModeHints.push(hint);
         }
-        this.consoleui.mainPane.append(this.box);
+        this.consoleui!.mainPane?.append(this.box);
         this.box.focus();
         this.modeIsActive = true;
     }
@@ -87,6 +98,6 @@ export default class ConsoleUIMode extends CrispHooks {
             this.consoleui.removeHint(hint);
         }
         this.activeModeHints = [];
-        this.consoleui.mainPane.remove(this.box);
+        this.consoleui!.mainPane?.remove(this.box);
     }
 }

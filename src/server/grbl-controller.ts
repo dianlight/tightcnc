@@ -29,7 +29,17 @@ export default class GRBLController extends Controller {
     _serialListeners: {
         [key:string]: (data?:any)=>void
     } = {};
-    sendQueue:any[] = [];
+    sendQueue: {
+        hooks: CrispHooks
+        gcode?: GcodeLine
+        timeExecuted?: number
+        charCount?: number
+        goesToPlanner: number // boolean
+        duration?: number
+        str: string
+        fullSync: boolean
+        responseExpected?: boolean
+    }[] = [];
     // This is the index into sendQueue of the next entry to send to the device.  Can be 1 past the end of the queue if there are no lines queued to be sent.
     sendQueueIdxToSend = 0;
     // This is the index into sendQueue of the next entry that has been sent but a response is expected for.
@@ -64,7 +74,7 @@ export default class GRBLController extends Controller {
     grblDeviceVersion?:string; // main device version, from welcome message
     grblVersionDetails = null; // version details, from VER feedback message
     grblBuildOptions: {
-        [key:string]:any
+        [key: string]: any
     } = {}; // build option flags and values, from OPT feedback message
     _lastRecvSrOrAck?:string; // used as part of sync detection
     // used for jogging
@@ -637,8 +647,8 @@ export default class GRBLController extends Controller {
                 return new XError(XError.MACHINE_ERROR, 'GRBL error: ' + ecode, { grblErrorCode: ecode });
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
-    _handleReceiveSerialDataLine(line) {
+
+    _handleReceiveSerialDataLine(line: string) {
         let matches;
         //this.debug('receive line ' + line);
         this.emit('received', line);
@@ -805,8 +815,8 @@ export default class GRBLController extends Controller {
             return;
         this.emit('message', this._humanReadableMessage(str));
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    _handleDeviceParserUpdate(str) {
+
+    _handleDeviceParserUpdate(str: string) {
         // Ignore this if there's anything in the sendQueue with gcode attached (so we know the controller's parser is in sync)
         for (let entry of this.sendQueue) {
             if (entry.gcode)
@@ -878,29 +888,30 @@ export default class GRBLController extends Controller {
         if (name !== 'PRB')
             value = value[0];
         // Update any status vars
-        let statusObj = {};
+        let statusObj:{
+            [key:string]:any
+        } = {}
         if (name[0] === 'G' && name[1] === '5') {
             let n = parseInt(name[2]) - 4;
             if (n >= 0)
-                // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                 statusObj['coordSysOffsets.' + n] = value;
         }
         if (name === 'G28')
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             statusObj['storedPositions.0'] = value;
         if (name === 'G30')
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             statusObj['storedPositions.1'] = value;
         if (name === 'G92')
-            (statusObj as any).offset = value;
+            statusObj.offset = value;
         if (name === 'TLO')
-            (statusObj as any).toolLengthOffset = value;
+            statusObj.toolLengthOffset = value;
         if (name === 'PRB')
-            (statusObj as any).lastProbeReport = value;
+            statusObj.lastProbeReport = value;
         if (name === 'VER')
-            (statusObj as any).grblVersionDetails = value;
+            statusObj.grblVersionDetails = value;
         if (name === 'OPT') {
-            const optCharMap = {
+            const optCharMap: {
+                [key:string]:string
+            } = {
                 'V': 'variableSpindle',
                 'N': 'lineNumbers',
                 'M': 'mistCoolant',
@@ -923,14 +934,12 @@ export default class GRBLController extends Controller {
             for (let c of optChars) {
                 this.grblBuildOptions[c] = true;
                 if (c in optCharMap) {
-                    // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     this.grblBuildOptions[optCharMap[c]] = true;
                 }
             }
             for (let c in optCharMap) {
                 if (!this.grblBuildOptions[c]) {
                     this.grblBuildOptions[c] = false;
-                    // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     this.grblBuildOptions[optCharMap[c]] = false;
                 }
             }
@@ -942,14 +951,12 @@ export default class GRBLController extends Controller {
         this.receivedDeviceParameters[name] = value;
         this.emit('deviceParamUpdate', name, value);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'strOrBuf' implicitly has an 'any' type.
-    _writeToSerial(strOrBuf) {
+    _writeToSerial(strOrBuf:string|Buffer) {
         if (!this.serial)
             return;
         const ret = this.serial.write(strOrBuf);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-    _cancelRunningOps(err) {
+    _cancelRunningOps(err:XError) {
         this.debug('_cancelRunningOps()');
         this._commsReset(err);
         this.debug('_cancelRunningOps() emitting cancelRunningOps');
@@ -982,8 +989,7 @@ export default class GRBLController extends Controller {
             };
             for (let key in this.config) {
                 if (key in serialOptions) {
-                    // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                    serialOptions[key] = this.config[key];
+                    serialOptions[key as keyof OpenOptions] = this.config[key as keyof ControllerConfig] as any;
                 }
             }
             let port = this.config.port || '/dev/ttyACM1';
@@ -1008,8 +1014,7 @@ export default class GRBLController extends Controller {
             this.debug('initConnection calling _commsReset()');
             this._commsReset();
             // Set up serial port communications handlers
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            const onSerialError = (err) => {
+            const onSerialError = (err:XError) => {
                 this.debug('Serial error ' + err);
                 err = new XError(XError.COMM_ERROR, 'Serial port communication error', err);
                 if (!this._initializing)
@@ -1026,8 +1031,7 @@ export default class GRBLController extends Controller {
                 this.close(err);
                 this._retryConnect();
             };
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'buf' implicitly has an 'any' type.
-            const onSerialData = (buf) => {
+            const onSerialData = (buf:Buffer) => {
                 // Remove any stray XONs, XOFFs, and NULs from the stream
                 let newBuf = Buffer.alloc(buf.length);
                 let newBufIdx = 0;
@@ -1149,7 +1153,6 @@ export default class GRBLController extends Controller {
                 resolved = true;
                 resolve();
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             hooks.hookSync('error', (err) => {
                 if (resolved)
                     return;
@@ -1159,35 +1162,27 @@ export default class GRBLController extends Controller {
             this.send(line, { hooks: hooks });
         });
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'eventName' implicitly has an 'any' type... Remove this comment to see the full error message
-    _waitForEvent(eventName, condition = null) {
+    _waitForEvent(eventName:string, condition?:() => boolean) {
         // wait for the given event, or a cancelRunningOps event
         // return when the condition is true
         return new Promise((resolve, reject) => {
             let finished = false;
-            // @ts-expect-error ts-migrate(7034) FIXME: Variable 'eventHandler' implicitly has type 'any' ... Remove this comment to see the full error message
-            let eventHandler, errorHandler;
-            // @ts-expect-error ts-migrate(7019) FIXME: Rest parameter 'args' implicitly has an 'any[]' ty... Remove this comment to see the full error message
+            let eventHandler: (...args: any) => void, errorHandler:  (...args: any) => void;
             eventHandler = (...args) => {
                 if (finished)
                     return;
                 // @ts-expect-error ts-migrate(2721) FIXME: Cannot invoke an object which is possibly 'null'.
                 if (condition && !condition(...args))
                     return;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'eventHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
                 this.removeListener(eventName, eventHandler);
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'errorHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
                 this.removeListener('cancelRunningOps', errorHandler);
                 finished = true;
                 resolve(args[0]);
             };
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             errorHandler = (err) => {
                 if (finished)
                     return;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'eventHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
                 this.removeListener(eventName, eventHandler);
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'errorHandler' implicitly has an 'any' ty... Remove this comment to see the full error message
                 this.removeListener('cancelRunningOps', errorHandler);
                 finished = true;
                 reject(err);
@@ -1252,8 +1247,15 @@ export default class GRBLController extends Controller {
         this.timeEstVM.syncStateToMachine({ controller: this });
         this._startStatusUpdateLoops();
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
-    _sendBlock(block, immediate = false) {
+
+    _sendBlock(block: {
+        str: string,
+        hooks: CrispHooks,
+        gcode?: GcodeLine,
+        goesToPlanner: number,
+        fullSync: boolean
+        responseExpected?: boolean
+    }, immediate = false) {
         //this.debug('_sendBlock() ' + block.str);
         if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
@@ -1269,8 +1271,15 @@ export default class GRBLController extends Controller {
         this._checkSendLoop();
     }
     // Pushes a block onto the sendQueue such that it will be next to be sent, and force it to be sent immediately.
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
-    _sendBlockImmediate(block) {
+
+    _sendBlockImmediate(block:{
+        str: string,
+        hooks: CrispHooks,
+        gcode?: GcodeLine,
+        goesToPlanner: number,
+        fullSync: boolean
+        responseExpected?: boolean
+    }) {
         //this.debug('_sendBlockImmediate() ' + block.str);
         if (!this.serial)
             throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
@@ -1287,7 +1296,7 @@ export default class GRBLController extends Controller {
     // as there's stuff to shift off.
     _commsCheckExecutedLoop() {
         //this.debug('_commsCheckExecutedLoop()');
-        if (this._checkExecutedLoopTimeout !== null) {
+        if (this._checkExecutedLoopTimeout) {
             // there's already a timeout running
             //this.debug('Check executed loop already running');
             return;
@@ -1301,7 +1310,7 @@ export default class GRBLController extends Controller {
             this.sendQueueIdxToSend > this.sendQueueIdxToReceive // at least 1 unacked thing must be present, because the check to shift sendQueue occurs on ack
         )) {
             let shiftedAny = false;
-            while (this.sendQueueIdxToReceive > 0 && this.sendQueue[0].timeExecuted <= mtime) {
+            while (this.sendQueueIdxToReceive > 0 && (this.sendQueue[0]!.timeExecuted || 0) <= mtime) {
                 //this.debug('_commsCheckExecutedLoop() shifting send queue');
                 this._commsShiftSendQueue();
                 shiftedAny = true;
@@ -1310,10 +1319,10 @@ export default class GRBLController extends Controller {
                 this._checkSendLoop();
         }
         // if there's something queued at the front of sendQueue, wait until then
-        if (this.sendQueueIdxToReceive > 0 && this._checkExecutedLoopTimeout === null) {
+        if (this.sendQueueIdxToReceive > 0 && this._checkExecutedLoopTimeout === undefined) {
             const minWait = 100;
             const maxWait = 1000;
-            let twait = this.sendQueue[0].timeExecuted - mtime;
+            let twait = this.sendQueue[0].timeExecuted || 0 - mtime;
             if (twait < minWait)
                 twait = minWait;
             if (twait > maxWait)
@@ -1333,8 +1342,8 @@ export default class GRBLController extends Controller {
         let entry = this.sendQueue.shift();
         this.sendQueueIdxToSend--;
         this.sendQueueIdxToReceive--;
-        if (entry.hooks)
-            entry.hooks.triggerSync('executed', entry);
+        if (entry!.hooks)
+            entry!.hooks.triggerSync('executed', entry);
         if (this.sendQueue.length && this.sendQueueIdxToReceive) {
             this.lastLineExecutingTime = this._getCurrentMachineTime();
             //this.debug('_commsShiftSendQueue triggering executing hook: ' + this.sendQueue[0].str);
@@ -1379,7 +1388,7 @@ export default class GRBLController extends Controller {
                     // add in everything in the planner buffer between the head and this instructions (including this instruction)
                     // TODO: optimize out this loop by storing this value as a running tally
                     for (let i = 0; i < this.sendQueueIdxToReceive; i++)
-                        entry.timeExecuted += this.sendQueue[i].duration;
+                        entry.timeExecuted += this.sendQueue[i].duration || 0;
                 }
                 else {
                     // this line will start to execute right now, so base eta on current time
@@ -1424,8 +1433,7 @@ export default class GRBLController extends Controller {
             this.sendQueueIdxToSend--; // need to adjust this for the splice
             if (!error.data)
                 error.data = {};
-            // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
-            error.data.request = entry.str;
+            (error.data as any).request = entry.str;
             if (entry.hooks) {
                 entry.hooks.triggerSync('error', error);
             }
@@ -1450,7 +1458,7 @@ export default class GRBLController extends Controller {
             let entry = this.sendQueue[this.sendQueueIdxToSend];
             this._writeToSerial(entry.str + '\n');
             entry.charCount = entry.str.length + 1;
-            this.unackedCharCount += entry.charCount;
+            this.unackedCharCount += entry.charCount || 0;
             this.sendQueueIdxToSend++;
             if (this.sendImmediateCounter > 0)
                 this.sendImmediateCounter--;
@@ -1467,8 +1475,7 @@ export default class GRBLController extends Controller {
         }
     }
     // if preferImmediate is true, this function returns true if it's at all possible to send anything at all to the device
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'charCount' implicitly has an 'any' type... Remove this comment to see the full error message
-    _checkSendToDevice(charCount, preferImmediate = false) {
+    _checkSendToDevice(charCount:number, preferImmediate = false) {
         let bufferMaxFill = 115;
         let absoluteBufferMaxFill = 128;
         if (this.grblBuildOptions.rxBufferSize) {
@@ -1492,13 +1499,13 @@ export default class GRBLController extends Controller {
             return false;
         return true;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    _isImmediateCommand(str) {
+
+    _isImmediateCommand(str:string):boolean {
         str = str.trim();
         return str === '!' || str === '?' || str === '~' || str === '\x18';
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    _handleSendImmediateCommand(str) {
+
+    _handleSendImmediateCommand(str:string) {
         str = str.trim();
         this._writeToSerial(str);
         this.emit('sent', str);
@@ -1537,20 +1544,26 @@ export default class GRBLController extends Controller {
             // wait for welcome message to be received; rest of reset is handled in received line handler
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'code' implicitly has an 'any' type.
-    sendExtendedAsciiCommand(code) {
+    sendExtendedAsciiCommand(code:number) {
         let buf = Buffer.from([code]);
         this._writeToSerial(buf);
         this.emit('sent', '<<' + code + '>>');
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    _gcodeLineRequiresSync(gline) {
+
+    _gcodeLineRequiresSync(gline: GcodeLine):boolean {
         // things that touch the eeprom
-        return gline.has('G10') || gline.has('G28.1') || gline.has('G30.1') || gline.get('G', 'G54') || gline.has('G28') || gline.has('G30');
+        return (
+            gline.has('G10') ||
+            gline.has('G28.1') ||
+            gline.has('G30.1') ||
+            gline.get('G', 'G54') as unknown as boolean ||
+            gline.has('G28') ||
+            gline.has('G30'));
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    sendGcode(gline, options = {}) {
-        let hooks = (options as any).hooks || (gline.triggerSync ? gline : new CrispHooks());
+    sendGcode(gline: GcodeLine, options: {
+        hooks?: CrispHooks
+    } = {}) {
+        let hooks = options.hooks || /*(gline.triggerSync ?*/ gline /*: new CrispHooks())*/;
         hooks.hookSync('executing', () => this._updateStateFromGcode(gline));
         this._sendBlock({
             str: gline.toString(),
@@ -1560,8 +1573,8 @@ export default class GRBLController extends Controller {
             fullSync: this._gcodeLineRequiresSync(gline)
         }, (options as any).immediate);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    sendLine(str, options = {}) {
+ 
+    override sendLine(str:string, options = {}) {
         // Check for "immediate commands" like feed hold that don't go into the queue
         if (this._isImmediateCommand(str)) {
             //this._writeToSerial(str);
@@ -1584,7 +1597,7 @@ export default class GRBLController extends Controller {
         let block = {
             str: str,
             hooks: hooks,
-            gcode: null,
+            gcode: undefined,
             goesToPlanner: 0,
             fullSync: true
         };
@@ -1593,8 +1606,14 @@ export default class GRBLController extends Controller {
         // If can't parse as gcode (or starts with $), send as plain string
         this._sendBlock(block, (options as any).immediate);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
-    _updateStateOnOutgoingCommand(block) {
+    _updateStateOnOutgoingCommand(block:{
+        str: string,
+        hooks: CrispHooks,
+        gcode?: GcodeLine,
+        goesToPlanner: number,
+        fullSync: boolean
+        responseExpected?: boolean
+    }) {
         let cmd = block.str.trim();
         let matches;
         // Once homing is complete, set homing status
@@ -1616,18 +1635,20 @@ export default class GRBLController extends Controller {
             this.send('?');
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    _updateStateFromGcode(gline) {
+
+    _updateStateFromGcode(gline:GcodeLine) {
         //this.debug('_updateStateFromGcode: ' + gline.toString());
         // Do not update state components that we have definite values for from status reports based on if we've ever received such a key in this.currentStatusReport
-        let statusUpdates = {};
+        let statusUpdates: {
+            [key:string]:any
+        } = {};
         // Need to handle F even in the case of simple moves (in case grbl doesn't report it back to us), so do that first
         if (gline.has('F') && !('F' in this.currentStatusReport || 'FS' in this.currentStatusReport)) {
             (statusUpdates as any).feed = gline.get('F');
         }
         // Shortcut case for simple common moves which don't need to be tracked here
         let isSimpleMove = true;
-        for (let word of gline.words) {
+        if(gline.words) for (let word of gline.words) {
             if (word[0] === 'G' && word[1] !== 0 && word[1] !== 1) {
                 isSimpleMove = false;
                 break;
@@ -1645,28 +1666,24 @@ export default class GRBLController extends Controller {
         for (let i = 0; i < this.axisLabels.length; i++)
             zeropoint.push(0);
         if (gline.has('G10') && gline.has('L2') && gline.has('P')) {
-            let csys = gline.get('P') - 1;
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+            let csys = gline.get('P') as number - 1;
             statusUpdates['coordSysOffsets.' + csys] = [];
             for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
                 let axis = this.axisLabels[axisNum].toUpperCase();
                 let val = 0;
                 if (gline.has(axis))
-                    val = gline.get(axis);
-                // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+                    val = gline.get(axis) as number;
                 statusUpdates['coordSysOffsets.' + csys][axisNum] = val;
             }
         }
         if (gline.has('G10') && gline.has('L20') && gline.has('P')) {
-            let csys = gline.get('P') - 1;
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+            let csys = gline.get('P') as number - 1;
             statusUpdates['coordSysOffsets.' + csys] = [];
             for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
                 let axis = this.axisLabels[axisNum].toUpperCase();
                 let val = 0;
                 if (gline.has(axis))
-                    val = gline.get(axis);
-                // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+                    val = gline.get(axis) as number;
                 statusUpdates['coordSysOffsets.' + csys][axisNum] = this.mpos[axisNum] - val;
             }
         }
@@ -1675,10 +1692,9 @@ export default class GRBLController extends Controller {
         }
         if (gline.has('G28.1') || gline.has('G30.1')) {
             let posnum = gline.has('G28.1') ? 0 : 1;
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             statusUpdates['storedPositions.' + posnum] = this.mpos.slice();
         }
-        let csysCode = gline.get('G', 'G54');
+        let csysCode = gline.get('G', 'G54') as number;
         if (csysCode && csysCode >= 54 && csysCode <= 59 && Math.floor(csysCode) === csysCode) {
             (statusUpdates as any).activeCoordSys = csysCode - 54;
         }
@@ -1779,16 +1795,14 @@ export default class GRBLController extends Controller {
                 streamPaused = false;
             }
         };
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-        const cancelHandler = (err) => {
+        const cancelHandler = (err:unknown) => {
             this.removeListener('sent', sentListener);
             this.removeListener('cancelRunningOps', cancelHandler);
             canceled = true;
             waiter.reject(err);
             stream.emit('error', err);
         };
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-        stream.on(stream._isZStream ? 'chainerror' : 'error', (err) => {
+        stream.on(stream._isZStream ? 'chainerror' : 'error', (err:unknown) => {
             if (canceled)
                 return;
             this.removeListener('sent', sentListener);
@@ -1797,8 +1811,7 @@ export default class GRBLController extends Controller {
             canceled = true;
         });
         this.on('sent', sentListener);
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'chunk' implicitly has an 'any' type.
-        stream.on('data', (chunk) => {
+        stream.on('data', (chunk:string|GcodeLine) => {
             if (canceled)
                 return;
             if (!chunk)
@@ -1821,12 +1834,12 @@ export default class GRBLController extends Controller {
         this.on('cancelRunningOps', cancelHandler);
         return waiter.promise;
     }
-    _isSynced() {
+    _isSynced():boolean {
         return this.currentStatusReport.machineState.toLowerCase() === 'idle' &&
             (this.sendQueue.length === 0 || (this._disableSending && this.sendQueueIdxToReceive === this.sendQueueIdxToSend)) &&
             this._lastRecvSrOrAck === 'sr';
     }
-    override waitSync() {
+    override waitSync():Promise<void> {
         // Consider the machine to be synced when all of these conditions hold:
         // 1) The machine state indicated by the last received status report indicates that the machine is not moving
         // 2) this.sendQueue is empty (or sending is disabled, and all lines sent out have been processed)
@@ -1850,8 +1863,7 @@ export default class GRBLController extends Controller {
                     removeListeners();
                 }
             };
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            const checkSyncErrorHandler = (err) => {
+            const checkSyncErrorHandler = (err:any) => {
                 reject(err);
                 removeListeners();
             };
@@ -1895,7 +1907,6 @@ export default class GRBLController extends Controller {
             if (!this.held)
                 this.hold();
             // Wait for status report to confirm feed hold
-            // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '() => any' is not assignable to ... Remove this comment to see the full error message
             await this._waitForEvent('statusReportReceived', () => this.held && this.currentStatusReport.machineState.toLowerCase() !== 'hold:1');
             // If on an older version of grbl that doesn't support the 'hold complete' substate, wait an additional delay
             if (this.currentStatusReport.machineState.toLowerCase() !== 'hold:0') {
@@ -1969,8 +1980,7 @@ export default class GRBLController extends Controller {
         }
         await this.request('$H');
     }
-    // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
-    async move(pos, feed = null) {
+    override async move(pos:number[], feed?:number) {
         let gcode = feed ? 'G1' : 'G0';
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
             if (typeof pos[axisNum] === 'number') {
@@ -2006,10 +2016,9 @@ export default class GRBLController extends Controller {
         this.send(gcode);
         this.send('G90');
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'pos' implicitly has an 'any' type.
-    async probe(pos, feed = null) {
+
+    override async probe(pos:number[], feed?:number):Promise<any> {
         if (feed === null || feed === undefined)
-            // @ts-expect-error ts-migrate(2322) FIXME: Type '25' is not assignable to type 'null'.
             feed = 25;
         await this.waitSync();
         // Probe toward point

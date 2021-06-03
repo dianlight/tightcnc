@@ -5,7 +5,29 @@ const GcodeProcessor = require('../../lib/gcode-processor');
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
-import TightCNCServer from './tightcnc-server';
+import { TightCNCServer } from '..'; // Avoid Circular dependency issue
+import { JobSourceOptions } from './tightcnc-server';
+
+export interface JobStatus {
+    state: string,
+    jobOptions: any,
+    dryRunResults: any,
+    startTime: any,
+    error: string | null,
+    gcodeProcessors: {},
+    stats: {
+        time: any;
+        line: any;
+        lineCount: any;
+    },
+    progress: {
+        timeRunning: any;
+        estTotalTime: any;
+        estTimeRemaining: number;
+        percentComplete: number;
+    },
+    waits: any
+};
 export default class JobManager {
 
     currentJob?:any;
@@ -14,11 +36,11 @@ export default class JobManager {
     }
     initialize() {
     }
-    getStatus(job?:any) {
+    getStatus(job?:any):JobStatus|undefined {
         if (!job)
             job = this.currentJob;
         if (!job)
-            return null;
+            return;
         // Fetch the status from each gcode processor
         let gcodeProcessorStatuses = undefined;
         if (job.gcodeProcessors) {
@@ -66,7 +88,7 @@ export default class JobManager {
             stats: stats,
             progress: progress,
             waits: job.waitList
-        };
+        } as JobStatus;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gcodeProcessorStats' implicitly has an ... Remove this comment to see the full error message
     _mainJobStats(gcodeProcessorStats) {
@@ -94,11 +116,9 @@ export default class JobManager {
      *   @param {Boolean} [options.rawFile=false] - If true, pass the file unaltered to the controller, without running
      *     any gcode processors.  (Will disable status reports)
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
-    async startJob(jobOptions) {
+    async startJob(jobOptions:JobSourceOptions) {
         this.tightcnc.debug('Begin startJob');
-        // @ts-expect-error ts-migrate(7034) FIXME: Variable 'job' implicitly has type 'any' in some l... Remove this comment to see the full error message
-        let job = null;
+        let job:JobState;
         // First do a dry run of the job to fetch overall stats
         let dryRunResults = await this.dryRunJob(jobOptions);
         // Set up the gcode processors for this job
@@ -162,25 +182,19 @@ export default class JobManager {
         this.tightcnc.debug('startJob pipe stream');
         this.tightcnc.controller?.sendStream(source)
             .then(() => {
-            // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
             job.state = 'complete';
-            // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
             job.emitJobComplete();
         })
             .catch((err) => {
             if (err.code === XError.CANCELLED) {
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.state = 'cancelled';
             }
             else {
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.state = 'error';
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.error = err;
                 console.error('Job error: ' + err);
                 console.error(err.stack);
             }
-            // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
             job.emitJobError(err);
         });
         // Wait until the processorChainReady event (or chainerror event) fires on source (indicating any preprocessing is done)
@@ -192,9 +206,7 @@ export default class JobManager {
                 if (finished)
                     return;
                 finished = true;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.gcodeProcessors = chainById;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.startTime = new Date().toISOString();
                 resolve();
             });
@@ -203,9 +215,7 @@ export default class JobManager {
                 if (finished)
                     return;
                 finished = true;
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.state = 'error';
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'job' implicitly has an 'any' type.
                 job.error = err;
                 reject(err);
             });
@@ -214,8 +224,8 @@ export default class JobManager {
         this.tightcnc.debug('End startJob');
         return this.getStatus(job);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
-    async dryRunJob(jobOptions, outputFile?:string) {
+
+    async dryRunJob(jobOptions: JobSourceOptions, outputFile?: string) {
         this.tightcnc.debug('Begin dryRunJob');
         let origJobOptions = jobOptions;
         jobOptions = objtools.deepCopy(jobOptions);

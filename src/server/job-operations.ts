@@ -1,7 +1,9 @@
 import Operation from './operation';
 import  objtools from 'objtools';
 import commonSchema from 'common-schema';
-import TightCNCServer from './tightcnc-server';
+import TightCNCServer, { JobSourceOptions } from './tightcnc-server';
+
+
 
 const jobOptionsSchema = {
     type: 'object',
@@ -10,8 +12,7 @@ const jobOptionsSchema = {
         macro: {
             type: String,
             description: 'Name of generator macro to use as gcode source',
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-            validate: (str) => {
+            validate: (str:string) => {
                 if (str.indexOf(';') !== -1)
                     throw new commonSchema.FieldError('invalid', 'Cannot supply raw javascript');
                 if (!/^generator-/.test(str))
@@ -31,8 +32,8 @@ const jobOptionsSchema = {
             }
         ]
     },
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
-    validate(obj) {
+
+    validate(obj: JobSourceOptions) {
         if (!obj.filename && !obj.macro)
             throw new commonSchema.FieldError('invalid', 'Must supply either filename or macro');
         if (obj.filename && obj.macro)
@@ -43,17 +44,20 @@ class OpStartJob extends Operation {
     override getParamSchema() {
         return jobOptionsSchema;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params: JobSourceOptions) {
         let jobOptions = {
-            filename: params.filename ? (this as any).tightcnc.getFilename(params.filename, 'data') : undefined,
+            filename: params.filename ? this.tightcnc.getFilename(params.filename, 'data') : undefined,
             macro: params.macro,
             macroParams: params.macroParams,
             gcodeProcessors: params.gcodeProcessors,
             rawFile: params.rawFile
         };
-        return await (this as any).tightcnc.jobManager.startJob(jobOptions);
+        return await this.tightcnc!.jobManager?.startJob(jobOptions);
     }
+}
+
+interface JobOptionsDryRun extends JobSourceOptions {
+    outputFilename: string
 }
 class OpJobDryRun extends Operation {
     override getParamSchema() {
@@ -61,16 +65,16 @@ class OpJobDryRun extends Operation {
             outputFilename: { type: String, description: 'Save processed gcode from dry run into this file' }
         });
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+
+    async run(params: JobOptionsDryRun) {
         let jobOptions = {
-            filename: params.filename ? (this as any).tightcnc.getFilename(params.filename, 'data') : undefined,
+            filename: params.filename ? this.tightcnc.getFilename(params.filename, 'data') : undefined,
             macro: params.macro,
             macroParams: params.macroParams,
             gcodeProcessors: params.gcodeProcessors,
             rawFile: params.rawFile
         };
-        return await (this as any).tightcnc.jobManager.dryRunJob(jobOptions, params.outputFilename ? (this as any).tightcnc.getFilename(params.outputFilename, 'data') : null);
+        return await this.tightcnc!.jobManager?.dryRunJob(jobOptions, params.outputFilename ? this.tightcnc?.getFilename(params.outputFilename, 'data') : undefined);
     }
 }
 export default function registerOperations(tightcnc:TightCNCServer) {

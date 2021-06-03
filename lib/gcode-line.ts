@@ -353,7 +353,7 @@ export class GcodeLine extends CrispHooks {
 	 * @param {Number} minLineDigits=1 - Minimum number of digits to use for line number (N) words.
 	 * @return {String}
 	 */
-	toString(compact = false, precision = 4, minCommandDigits = 2, minLineDigits = 1):string {
+	override toString(compact = false, precision = 4, minCommandDigits = 2, minLineDigits = 1):string {
 		// if not modified, output the original
 		if (!this.modified && this.origLine) return this.origLine;
 		let line = '';

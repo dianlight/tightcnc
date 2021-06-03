@@ -2,7 +2,7 @@ import { ConsoleUI } from './consoleui';
 import JobOption from './job-option';
 //const blessed = require('blessed');
 import ListForm from './list-form';
-class JobOptionRawfile extends JobOption {
+export default class JobOptionRawfile extends JobOption {
     /**
      * This method is called when the option is selected in the job creation UI.  It
      * should handle any configuration for the option.
@@ -32,13 +32,12 @@ class JobOptionRawfile extends JobOption {
      * @method getDisplayString
      * @return {String}
      */
-    override getDisplayString() {
+    override getDisplayString():string|null {
         if (!(this as any).rawFile)
             return null;
         return 'Send Raw File: On';
     }
 }
-module.exports = JobOptionRawfile;
 
 module.exports.registerConsoleUI = (consoleui: ConsoleUI) => {
     consoleui.registerJobOption('Send Raw File (No Analysis)', JobOptionRawfile);

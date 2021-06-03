@@ -33,7 +33,7 @@ export default class GrblsimBinding extends AbstractBinding {
             const url = new URL(path)
             //console.log(url,url.href.substr(8))
             if (url.protocol !== 'grblsim:') return reject(new Error("Only grblsim://<path to grbl_sim.exe > path are supported"))
-            this.process = spawn(url.href.substr(8), ['1','-n','-s','./log/step.out','-b','./log/block.out'], {
+            this.process = spawn(url.href.substr(8), ['1','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
                 shell: false,
                 stdio: ['pipe','pipe','pipe']
             })
@@ -42,7 +42,7 @@ export default class GrblsimBinding extends AbstractBinding {
                 reject(err)
             })
             this.process.stdout.on("data", (data) => {
-//                console.log("<-",JSON.stringify(data.toString()))
+                console.log("<",JSON.stringify(data.toString()))
                 this._buffer.push(data)
             })
             this.process.stderr.on("data", (data) => {
@@ -128,7 +128,7 @@ export default class GrblsimBinding extends AbstractBinding {
      * @returns {Promise} Resolves after the data is passed to the operating system for writing.
      */
     override async write(buffer: Buffer): Promise<void> {
-        //console.log("->", JSON.stringify(buffer.toString()))
+        console.log(">", JSON.stringify(buffer.toString()))
         return new Promise((resolve, reject) => {
             if (!this.process) return reject(new Error("GRBL_sim process is closed!"))
             this.process.stdin.write(buffer, (error) => {
@@ -137,7 +137,7 @@ export default class GrblsimBinding extends AbstractBinding {
                     reject(error)
                 } else {
                     // GRBL_SIM need double EOL char as win send \r\n on command to process
-                    this.process?.stdin.write('\n')
+                    this.process?.stdin.write('\r')
                     resolve()
                 }             
             })

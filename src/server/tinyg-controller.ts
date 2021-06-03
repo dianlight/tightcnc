@@ -743,7 +743,6 @@ export default class TinyGController extends Controller {
                 resolved = true;
                 resolve(response);
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             hooks.hookSync('error', (err) => {
                 if (resolved)
                     return;
@@ -1538,7 +1537,6 @@ export default class TinyGController extends Controller {
                 // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
                 waiter.resolve(r);
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             hooks.hookSync('error', (err) => {
                 if (resolved)
                     return;

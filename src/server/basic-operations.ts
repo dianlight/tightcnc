@@ -203,7 +203,7 @@ class OpProbe extends Operation {
             }
         };
     }
-    async run(params:{pos:boolean[],feed?:number}) {
+    async run(params:{pos:number[],feed?:number}) {
         this.checkReady();
         return await this.tightcnc.controller?.probe(params.pos, params.feed);
     }

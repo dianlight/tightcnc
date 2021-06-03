@@ -1,7 +1,9 @@
 import mkdirp from 'mkdirp';
 import fs from 'fs';
 import path from 'path';
-import TightCNCServer from './tightcnc-server';
+import { TightCNCServer } from '..'; // Avoid Circular dependency issue
+
+
 export default class LoggerDisk {
     logDir: string
     maxFileSize: number

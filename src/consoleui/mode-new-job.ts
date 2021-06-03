@@ -5,12 +5,15 @@ import objtools from 'objtools';
 import fs from 'fs';
 import path from 'path';
 import { ConsoleUI } from './consoleui';
-export default class ModeNewJob extends ConsoleUIMode {
+import ModeControl from './mode-control';
+import JobOption from './job-option';
+export default class ModeNewJob extends ModeControl {
 
     jobFilename?: string
     jobMacro?: string
+    jobMacroParams: any
     jobOptionInstances?: {
-        [key:string]: any
+        [key:string]: JobOption
     }
     dryRunResults?: {
         stats: {
@@ -18,6 +21,9 @@ export default class ModeNewJob extends ConsoleUIMode {
             time: number
         }
     }
+    jobInfoBox?: blessed.Widgets.BoxElement
+    fileLastCwd?: string
+    foleLastCwd?: string
 
     constructor(consoleui:ConsoleUI) {
         super(consoleui);
@@ -57,13 +63,12 @@ export default class ModeNewJob extends ConsoleUIMode {
         else {
             jobInfoStr = '{bold}New Job Info:{/bold}\n' + jobInfoStr;
         }
-        this.jobInfoBox.setContent(jobInfoStr);
+        this.jobInfoBox?.setContent(jobInfoStr);
         this.consoleui.render();
     }
     selectJobFile() {
         this.consoleui.showWaitingBox();
-        this.consoleui.client.op('listFiles', {})
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'files' implicitly has an 'any' type.
+        this.consoleui.client?.op<string[]>('listFiles', {})
             .then((files) => {
             this.consoleui.hideWaitingBox();
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'f' implicitly has an 'any' type.
@@ -104,7 +109,6 @@ export default class ModeNewJob extends ConsoleUIMode {
             });
             this.consoleui.render();
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => {
             this.consoleui.clientError(err);
             this.consoleui.hideWaitingBox();
@@ -115,8 +119,7 @@ export default class ModeNewJob extends ConsoleUIMode {
         const macroFilterFn = (m) => {
             return /^generator-/.test(m);
         };
-        this.consoleui.macroSelector(null, null, macroFilterFn)
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'minfo' implicitly has an 'any' type.
+        this.consoleui.macroSelector(null, undefined, macroFilterFn)
             .then((minfo) => {
             if (!minfo)
                 return;
@@ -126,7 +129,6 @@ export default class ModeNewJob extends ConsoleUIMode {
             this.dryRunResults = undefined;
             this.updateJobInfoText();
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => this.consoleui.clientError(err));
     }
     selectJobOption() {
@@ -230,7 +232,7 @@ export default class ModeNewJob extends ConsoleUIMode {
                 }
                 //fileData = fileData.toString('utf8');
                 let fileBaseName = path.basename(filename);
-                this.consoleui.client.op('uploadFile', {
+                this.consoleui.client?.op('uploadFile', {
                     filename: fileBaseName,
                     data: fileData.toString('utf8')
                 })
@@ -243,7 +245,6 @@ export default class ModeNewJob extends ConsoleUIMode {
                     this.dryRunResults = undefined;
                     this.updateJobInfoText();
                 })
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .catch((err) => {
                     this.consoleui.hideWaitingBox();
                     this.consoleui.clientError(err);
@@ -256,7 +257,7 @@ export default class ModeNewJob extends ConsoleUIMode {
     makeJobOptionsObj() {
         if (!this.jobOptionInstances)
             this._instantiateJobOptions();
-        let obj = {};
+        let obj:any = {};
         if (this.jobFilename)
             (obj as any).filename = this.jobFilename;
         else if (this.jobMacro) {
@@ -320,15 +321,18 @@ export default class ModeNewJob extends ConsoleUIMode {
             (jobOptions as any).outputFilename = toFile;
         }
         this.consoleui.showWaitingBox('Running ...');
-        this.consoleui.client.op('jobDryRun', jobOptions)
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'result' implicitly has an 'any' type.
+        this.consoleui.client?.op<{
+            stats: {
+                lineCount: number;
+                time: number;
+            };
+        }>('jobDryRun', jobOptions)
             .then((result) => {
             this.dryRunResults = result;
             this.consoleui.showTempMessage('Dry run complete.');
             this.consoleui.hideWaitingBox();
             this.updateJobInfoText();
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => {
             this.consoleui.clientError(err);
             this.consoleui.hideWaitingBox();
@@ -344,8 +348,14 @@ export default class ModeNewJob extends ConsoleUIMode {
             return;
         }
         this.consoleui.showWaitingBox('Initializing ...');
-        this.consoleui.client.op('startJob', jobOptions)
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'result' implicitly has an 'any' type.
+        this.consoleui.client?.op<{
+            dryRunResults: {
+                stats: {
+                    lineCount: number
+                    time: number
+                }
+            }
+        }>('startJob', jobOptions)
             .then((result) => {
             if (result.dryRunResults) {
                 this.dryRunResults = result.dryRunResults;
@@ -355,7 +365,6 @@ export default class ModeNewJob extends ConsoleUIMode {
             this.updateJobInfoText();
             this.consoleui.activateMode('jobInfo');
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             .catch((err) => {
             this.consoleui.clientError(err);
             this.consoleui.hideWaitingBox();
@@ -374,7 +383,7 @@ export default class ModeNewJob extends ConsoleUIMode {
     resetJobInfo(update = true) {
         this.jobFilename = undefined;
         this.jobMacro = undefined;
-        this.jobMacroParams = null;
+        this.jobMacroParams = undefined;
         this.dryRunResults = undefined;
         this.jobOptionInstances = undefined;
         if (update) {
@@ -402,7 +411,7 @@ export default class ModeNewJob extends ConsoleUIMode {
         });
         this.box.append(this.jobInfoBox);
         this.updateJobInfoText();
-        this.consoleui.registerHomeKey(['n', 'N'], 'n', 'New Job', () => this.consoleui.activateMode('newJob'), 3);
+        this.consoleui.registerHomeKey(['n', 'N'], ['n'], 'New Job', () => this.consoleui.activateMode('newJob'), 3);
         this.registerModeKey(['escape'], ['Esc'], 'Home', () => this.consoleui.exitMode());
         this.registerModeKey(['f'], ['f'], 'Select File', () => this.selectJobFile());
         this.registerModeKey(['u'], ['u'], 'Upload File', () => this.uploadFile());

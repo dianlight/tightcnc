@@ -1,6 +1,7 @@
 import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
 import { ConsoleUI } from './consoleui';
+import ModeControl from './mode-control';
 function formatMinutes(secs: any) {
     let hours = Math.floor(secs / 3600);
     let minutes = Math.floor((secs - hours * 3600) / 60);
@@ -9,14 +10,16 @@ function formatMinutes(secs: any) {
         minutes = '0' + minutes;
     return '' + hours + ':' + minutes;
 }
-export default class ModeJobInfo extends ConsoleUIMode {
+export default class ModeJobInfo extends ModeControl /*ConsoleUIMode*/ {
+
+    infoTextbox?: blessed.Widgets.BoxElement
+    statusUpdateHandler: (param: any)=>void
 
     constructor(consoleui: ConsoleUI) {
         super(consoleui);
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'status' implicitly has an 'any' type.
         this.statusUpdateHandler = (status) => {
             let text = this.getStatusText(status);
-            this.infoTextbox.setContent(text);
+            this.infoTextbox?.setContent(text);
             this.consoleui.render();
         };
     }
@@ -76,7 +79,6 @@ export default class ModeJobInfo extends ConsoleUIMode {
         const registerKeybind = (kb) => {
             this.registerModeKey(kb.keys, kb.keyNames, kb.label, () => {
                 controlMode._executeKeybind(kb.action)
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .catch((err) => this.consoleui.clientError(err));
             }, 10);
         };

@@ -1,7 +1,8 @@
 import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
 import { ConsoleUI } from './consoleui';
-export default class ModeHome extends ConsoleUIMode {
+import ModeControl from './mode-control';
+export default class ModeHome extends ModeControl {
 
     constructor(consoleui: ConsoleUI) {
         super(consoleui);
