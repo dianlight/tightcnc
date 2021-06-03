@@ -7,6 +7,7 @@ import CrispHooks from 'crisphooks';
 import objtools from 'objtools';
 import TightCNCServer from './tightcnc-server';
 import SerialportRawSocketBinding from '../serialport-binding/serialportRawSocketBinding';
+import GrblsimBinding from '../serialport-binding/grblsimBinding';
 const GcodeVM = require('../../lib/gcode-vm');
 
 export interface GrblControllerConfig extends ControllerConfig {
@@ -977,7 +978,7 @@ export default class GRBLController extends Controller {
                 stopBits: 1,
                 parity: 'none',
                 rtscts: false,
-                xany: false
+                xany: false,
             };
             for (let key in this.config) {
                 if (key in serialOptions) {
@@ -990,6 +991,7 @@ export default class GRBLController extends Controller {
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
                 if (port.toLocaleLowerCase().startsWith('socket:')) SerialPort.Binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
+                else if(port.toLocaleLowerCase().startsWith('grblsim:')) SerialPort.Binding = GrblsimBinding as unknown as SerialPort.BaseBinding
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
