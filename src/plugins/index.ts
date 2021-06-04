@@ -1,15 +1,17 @@
+import { ConsoleUI } from "../consoleui/consoleui";
+import TightCNCServer from "../server/tightcnc-server";
+
 const pluginList = [ './autolevel', './move-splitter', './job-recovery', './tool-change', './runtime-override' ];
 
 const plugins = pluginList.map(async (reqName) => await import(reqName));
 
-module.exports.registerServerComponents = (tightcnc: any) => {
+export function registerServerComponents(tightcnc: TightCNCServer) {
 	for (let plugin of plugins) {
 		plugin.then( p => p.registerServerComponents(tightcnc))
 	}
 };
 
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUIComponents = (consoleui) => {
+export function registerConsoleUIComponents(consoleui:ConsoleUI) {
 	for (let plugin of plugins) {
 		plugin.then( p => p.registerConsoleUIComponents(consoleui))
 	}

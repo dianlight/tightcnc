@@ -1,12 +1,14 @@
 import XError from 'xerror';
 const GcodeProcessor = require('../../lib/gcode-processor');
-const GcodeLine = require('../../lib/gcode-line');
+import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
 import objtools from 'objtools';
 import Operation from '../server/operation';
 import pasync from 'pasync';
 import JobOption from '../consoleui/job-option';
 import ListForm from '../consoleui/list-form';
+import TightCNCServer, { StatusObject } from '../server/tightcnc-server';
+import { ConsoleUI } from '../consoleui/consoleui';
 //import blessed from 'blessed';
 // Order: Must be after recovery processor
 /**
@@ -25,58 +27,65 @@ import ListForm from '../consoleui/list-form';
  *   @param {Boolean} handleProgramStop - Whether to handle M0, M1, and M60
  *   @param {Boolean} stopSwitch - Whether the optional stop switch is engaged
  */
-class ToolChangeProcessor extends GcodeProcessor {
+export default class ToolChangeProcessor extends GcodeProcessor {
     static DEFAULT_ORDER = 800000;
-    constructor(options = {}) {
+    constructor(options: {
+        handleT?: boolean,
+        habdleM6?: boolean
+        toolChangeOnT?: boolean
+        handleProgramStop?: boolean
+        stopSwitch?: boolean
+    } = {}) {
         super(options, 'toolchange', true);
-        (this as any).vm = new GcodeVM(options);
-        (this as any).lastToolNumber = null;
-        (this as any).stopSwitch = (options as any).stopSwitch || false;
-        (this as any).handleT = ('handleT' in options) ? (options as any).handleT : true;
-        (this as any).handleM6 = ('handleM6' in options) ? (options as any).handleM6 : true;
-        (this as any).toolChangeOnT = ('toolChangeOnT' in options) ? (options as any).toolChangeOnT : true;
-        (this as any).handleProgramStop = ('handleProgramStop' in options) ? (options as any).handleProgramStop : true;
-        (this as any).programStopWaiter = null;
-        (this as any).maxDwell = 0;
-        (this as any).currentToolOffset = 0;
-        (this as any).toolOffsetAxis = (this as any).tightcnc.config.toolChange.toolOffsetAxis;
-        (this as any).toolOffsetAxisLetter = (this as any).tightcnc.controller.axisLabels[(this as any).toolOffsetAxis];
-        (this as any).currentlyStopped = false;
+        this.vm = new GcodeVM(options);
+        this.lastToolNumber = null;
+        this.stopSwitch = (options as any).stopSwitch || false;
+        this.handleT = ('handleT' in options) ? (options as any).handleT : true;
+        this.handleM6 = ('handleM6' in options) ? (options as any).handleM6 : true;
+        this.toolChangeOnT = ('toolChangeOnT' in options) ? (options as any).toolChangeOnT : true;
+        this.handleProgramStop = ('handleProgramStop' in options) ? (options as any).handleProgramStop : true;
+        this.programStopWaiter = null;
+        this.maxDwell = 0;
+        this.currentToolOffset = 0;
+        this.toolOffsetAxis = this.tightcnc.config.toolChange.toolOffsetAxis;
+        this.toolOffsetAxisLetter = this.tightcnc.controller.axisLabels[this.toolOffsetAxis];
+        this.currentlyStopped = false;
     }
     getStatus() {
         return {
-            stopped: (this as any).currentlyStopped,
-            tool: (this as any).lastToolNumber,
-            stopSwitch: (this as any).stopSwitch,
-            toolOffset: (this as any).currentToolOffset
+            stopped: this.currentlyStopped,
+            tool: this.lastToolNumber,
+            stopSwitch: this.stopSwitch,
+            toolOffset: this.currentToolOffset
         };
     }
+
     resumeFromStop() {
-        if (!(this as any).programStopWaiter)
+        if (!this.programStopWaiter)
             throw new XError(XError.INVALID_ARGUMENT, 'Program is not stopped');
-        (this as any).programStopWaiter.resolve();
+        this.programStopWaiter.resolve();
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    pushGcode(gline) {
+
+    pushGcode(gline?: string | GcodeLine) {
         if (!gline)
             return;
         if (typeof gline === 'string')
             gline = new GcodeLine(gline);
         // handle tool offset by adjusting Z if present
-        if ((this as any).currentToolOffset && gline.has((this as any).toolOffsetAxisLetter) && !gline.has('G53')) {
+        if (this.currentToolOffset && gline.has(this.toolOffsetAxisLetter) && !gline.has('G53')) {
             // by default use positive tool offsets (ie, a larger tool offset means a longer tool and increased Z height)
-            gline.set((this as any).toolOffsetAxisLetter, gline.get((this as any).toolOffsetAxisLetter) + (this as any).currentToolOffset * ((this as any).tightcnc.config.toolChange.negateToolOffset ? -1 : 1));
+            gline.set(this.toolOffsetAxisLetter, gline.get(this.toolOffsetAxisLetter) as number + this.currentToolOffset * (this.tightcnc.config.toolChange.negateToolOffset ? -1 : 1));
             gline.addComment('to'); // to=tool offset
         }
         super.pushGcode(gline);
-        (this as any).vm.runGcodeLine(gline);
-        if ((this as any).vm.getState().incremental)
+        this.vm.runGcodeLine(gline);
+        if (this.vm.getState().incremental)
             throw new XError(XError.INTERNAL_ERROR, 'Incremental mode not supported with tool change');
     }
     async _doToolChange() {
         // create a map from axis letters to current position in job
-        let vmState = objtools.deepCopy((this as any).vm.getState());
-        let controller = (this as any).tightcnc.controller;
+        let vmState = objtools.deepCopy(this.vm.getState());
+        let controller = this.tightcnc.controller;
         // If spindle/coolant on, turn them off
         let changedMachineProp = false;
         if (controller.spindle) {
@@ -91,16 +100,16 @@ class ToolChangeProcessor extends GcodeProcessor {
         if (changedMachineProp)
             await controller.waitSync();
         // Run pre-toolchange macro
-        let preToolChange = (this as any).tightcnc.config.toolChange.preToolChange;
-        await (this as any).tightcnc.runMacro(preToolChange, { pos: vmState.pos }, { gcodeProcessor: this, waitSync: true });
+        let preToolChange = this.tightcnc.config.toolChange.preToolChange;
+        await this.tightcnc.runMacro(preToolChange, { pos: vmState.pos }, { gcodeProcessor: this, waitSync: true });
         // Wait for resume
         await this._doProgramStop('tool_change');
         // Run post-toolchange macro
-        let postToolChange = (this as any).tightcnc.config.toolChange.postToolChange;
-        await (this as any).tightcnc.runMacro(postToolChange, { pos: vmState.pos }, { gcodeProcessor: this, waitSync: true });
+        let postToolChange = this.tightcnc.config.toolChange.postToolChange;
+        await this.tightcnc.runMacro(postToolChange, { pos: vmState.pos }, { gcodeProcessor: this, waitSync: true });
         // Restart spindle/coolant
         if (changedMachineProp) {
-            let lines = (this as any).vm.syncMachineToState({ vmState: vmState, include: ['spindle', 'coolant'] });
+            let lines = this.vm.syncMachineToState({ vmState: vmState, include: ['spindle', 'coolant'] });
             for (let line of lines)
                 this.pushGcode(line);
             await controller.waitSync();
@@ -108,8 +117,8 @@ class ToolChangeProcessor extends GcodeProcessor {
         if (origFeed)
             this.pushGcode('F' + origFeed);
         // Add dwell corresponding to longest seen in job
-        if ((this as any).maxDwell)
-            this.pushGcode('G4 P' + (this as any).maxDwell);
+        if (this.maxDwell)
+            this.pushGcode('G4 P' + this.maxDwell);
         // Move to position to restart job
         let moveBackGcode = (vmState.motionMode || 'G0');
         for (let axisNum = 0; axisNum < vmState.pos.length; axisNum++) {
@@ -120,66 +129,66 @@ class ToolChangeProcessor extends GcodeProcessor {
         this.pushGcode(moveBackGcode);
     }
     async _doProgramStop(waitname = 'program_stop') {
-        if ((this as any).programStopWaiter)
-            return await (this as any).programStopWaiter.promise;
-        (this as any).currentlyStopped = waitname;
-        (this as any).job.addWait(waitname);
-        (this as any).programStopWaiter = pasync.waiter();
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-        const chainerrorListener = (err) => {
-            if ((this as any).programStopWaiter) {
-                (this as any).programStopWaiter.reject(err);
+        if (this.programStopWaiter)
+            return await this.programStopWaiter.promise;
+        this.currentlyStopped = waitname;
+        this.job.addWait(waitname);
+        this.programStopWaiter = pasync.waiter();
+
+        const chainerrorListener = (err: any) => {
+            if (this.programStopWaiter) {
+                this.programStopWaiter.reject(err);
             }
         };
-        (this as any).on('chainerror', chainerrorListener);
+        this.on('chainerror', chainerrorListener);
         try {
-            await (this as any).programStopWaiter.promise;
-            (this as any).job.removeWait(waitname);
-            (this as any).currentlyStopped = false;
+            await this.programStopWaiter.promise;
+            this.job.removeWait(waitname);
+            this.currentlyStopped = false;
         }
         catch (err) {
             // this should only be reached in the case that a chainerror has already occurred on this stream, so just ignore the error here and let the chainerror propagate
         }
         finally {
-            (this as any).programStopWaiter = null;
-            (this as any).removeListener('chainerror', chainerrorListener);
+            this.programStopWaiter = null;
+            this.removeListener('chainerror', chainerrorListener);
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    async processGcode(gline) {
+
+    async processGcode(gline: GcodeLine):Promise<GcodeLine> {
         // Track the tool number
         if (gline.has('T'))
-            (this as any).lastToolNumber = gline.get('T');
+            this.lastToolNumber = gline.get('T');
         // Check if a pause
-        if (gline.has('G4') && gline.has('P') && gline.get('P') > (this as any).maxDwell)
-            (this as any).maxDwell = gline.get('P');
+        if (gline.has('G4') && gline.has('P') && gline.get('P') as number > this.maxDwell)
+            this.maxDwell = gline.get('P');
         // Determine if this line contains an word that will trigger a program stop
-        let isToolChange = ((this as any).handleT && (this as any).toolChangeOnT && gline.has('T')) || ((this as any).handleM6 && gline.has('M6'));
-        let isProgramStop = (this as any).handleProgramStop && (gline.has('M0') || gline.has('M60') || (gline.has('M1') && (this as any).stopSwitch));
+        let isToolChange = (this.handleT && this.toolChangeOnT && gline.has('T')) || (this.handleM6 && gline.has('M6'));
+        let isProgramStop = this.handleProgramStop && (gline.has('M0') || gline.has('M60') || (gline.has('M1') && this.stopSwitch));
         // Remove from the gline anything we're handling, and add a comment to it
-        if ((this as any).handleT && gline.has('T')) {
+        if (this.handleT && gline.has('T')) {
             gline.remove('T');
-            gline.addComment((this as any).toolChangeOnT ? 'tool change' : 'tool sel');
+            gline.addComment(this.toolChangeOnT ? 'tool change' : 'tool sel');
         }
-        if ((this as any).handleM6 && gline.has('M6')) {
+        if (this.handleM6 && gline.has('M6')) {
             gline.remove('M6');
             gline.addComment('tool change');
         }
-        if ((this as any).handleProgramStop && (gline.has('M0') || gline.has('M1') || gline.has('M60'))) {
+        if (this.handleProgramStop && (gline.has('M0') || gline.has('M1') || gline.has('M60'))) {
             gline.remove('M0');
             gline.remove('M1');
             gline.remove('M60');
             gline.addComment('pgm stop');
         }
         // If this is a dry run, don't do anything further, just return the gcode line without the program-stop-related words
-        if ((this as any).dryRun)
+        if (this.dryRun)
             return gline;
         // Check if this line indicates a program stop we have to handle
         if (isToolChange || isProgramStop) {
             // Flush downstream processors
             await this.flushDownstreamProcessorChain();
             // Wait for controller to sync
-            await (this as any).tightcnc.controller.waitSync();
+            await this.tightcnc.controller.waitSync();
             // Handle the operation
             if (isToolChange)
                 await this._doToolChange();
@@ -190,8 +199,8 @@ class ToolChangeProcessor extends GcodeProcessor {
     }
 }
 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
-    let currentJob = tightcnc.jobManager.currentJob;
+function findCurrentJobGcodeProcessor(tightcnc:TightCNCServer, name, throwOnMissing = true) {
+    let currentJob = tightcnc.jobManager!.currentJob;
     if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
         throw new XError(XError.INTERNAL_ERROR, 'No currently running job');
     }
@@ -214,7 +223,7 @@ class ResumeFromStopOperation extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        findCurrentJobGcodeProcessor((this as any).tightcnc, 'toolchange').resumeFromStop();
+        findCurrentJobGcodeProcessor(this.tightcnc, 'toolchange').resumeFromStop();
         return { success: true };
     }
 }
@@ -234,19 +243,19 @@ class SetToolOffsetOperation extends Operation {
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
-        let toolchange = findCurrentJobGcodeProcessor((this as any).tightcnc, 'toolchange');
+        let toolchange = findCurrentJobGcodeProcessor(this.tightcnc, 'toolchange');
         if (typeof params.toolOffset === 'number') {
             toolchange.currentToolOffset = params.toolOffset;
         }
         else {
-            let controller = (this as any).tightcnc.controller;
-            let axisNum = (this as any).tightcnc.config.toolChange.toolOffsetAxis;
-            let pos = controller.getPos();
-            let off = pos[axisNum];
+            let controller = this.tightcnc.controller;
+            let axisNum = this.tightcnc.config.toolChange.toolOffsetAxis;
+            let pos = controller?.getPos();
+            let off = pos![axisNum];
             if (params.accountForAutolevel) {
-                let autolevel = findCurrentJobGcodeProcessor((this as any).tightcnc, 'autolevel', false);
+                let autolevel = findCurrentJobGcodeProcessor(this.tightcnc, 'autolevel', false);
                 if (autolevel && autolevel.surfaceMap && axisNum === 2) {
-                    let surfaceOffset = autolevel.surfaceMap.predictZ(pos.slice(0, 2));
+                    let surfaceOffset = autolevel.surfaceMap.predictZ(pos?.slice(0, 2));
                     if (typeof surfaceOffset === 'number') {
                         off -= surfaceOffset;
                     }
@@ -257,24 +266,26 @@ class SetToolOffsetOperation extends Operation {
         return { success: true };
     }
 }
-module.exports.ToolChangeProcessor = ToolChangeProcessor;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerServerComponents = function (tightcnc) {
+
+export function registerServerComponents(tightcnc: TightCNCServer) {
     tightcnc.registerGcodeProcessor('toolchange', ToolChangeProcessor);
     tightcnc.registerOperation('resumeFromStop', ResumeFromStopOperation);
     tightcnc.registerOperation('setToolOffset', SetToolOffsetOperation);
 };
 class ToolChangeConsoleUIJobOption extends JobOption {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
-    constructor(consoleui) {
+
+    tcOptions = {
+        handleToolChange: false,
+        handleJobStop: true,
+        toolChangeOnM6: true,
+        toolChangeOnT: true,
+        stopSwitch: false
+    }
+    alOptions: any;
+
+    constructor(consoleui: ConsoleUI) {
         super(consoleui);
-        (this as any).tcOptions = {
-            handleToolChange: false,
-            handleJobStop: true,
-            toolChangeOnM6: true,
-            toolChangeOnT: true,
-            stopSwitch: false
-        };
+
     }
     override async optionSelected() {
         let formSchema = {
@@ -283,73 +294,73 @@ class ToolChangeConsoleUIJobOption extends JobOption {
             properties: {
                 handleToolChange: {
                     type: 'boolean',
-                    default: (this as any).tcOptions.handleToolChange,
+                    default: this.tcOptions.handleToolChange,
                     label: 'Handle tool change (T/M6)'
                 },
                 handleJobStop: {
                     type: 'boolean',
-                    default: (this as any).tcOptions.handleJobStop,
+                    default: this.tcOptions.handleJobStop,
                     label: 'Handle job stop (M0/M1)'
                 },
                 toolChangeOnM6: {
                     type: 'boolean',
-                    default: (this as any).tcOptions.toolChangeOnM6,
+                    default: this.tcOptions.toolChangeOnM6,
                     label: 'Tool change on M6'
                 },
                 toolChangeOnT: {
                     type: 'boolean',
-                    default: (this as any).tcOptions.toolChangeOnT,
+                    default: this.tcOptions.toolChangeOnT,
                     label: 'Tool change on T'
                 },
                 stopSwitch: {
                     type: 'boolean',
-                    default: (this as any).tcOptions.stopSwitch,
+                    default: this.tcOptions.stopSwitch,
                     label: 'Optional stop switch engaged'
                 }
             }
         };
-        let form = new ListForm((this as any).consoleui);
-        let r = await form.showEditor(null, formSchema, (this as any).alOptions);
+        let form = new ListForm(this.consoleui);
+        let r = await form.showEditor(null, formSchema, this.alOptions);
         if (r !== null)
-            (this as any).tcOptions = r;
-        (this as any).newJobMode.updateJobInfoText();
+            this.tcOptions = r;
+        this.newJobMode.updateJobInfoText();
     }
     override getDisplayString() {
         let strs = [];
-        if ((this as any).tcOptions.handleToolChange) {
+        if (this.tcOptions.handleToolChange) {
             let tcTypes = [];
-            if ((this as any).tcOptions.toolChangeOnM6)
+            if (this.tcOptions.toolChangeOnM6)
                 tcTypes.push('M6');
-            if ((this as any).tcOptions.toolChangeOnT)
+            if (this.tcOptions.toolChangeOnT)
                 tcTypes.push('T');
             strs.push('Tool Change Handling (' + tcTypes.join(',') + ')');
         }
-        if ((this as any).tcOptions.handleJobStop) {
+        if (this.tcOptions.handleJobStop) {
             strs.push('Job Stop Handling');
         }
         return strs.join('\n') || null;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
     addToJobOptions(obj) {
-        if ((this as any).tcOptions.handleToolChange || (this as any).tcOptions.handleJobStop) {
+        if (this.tcOptions.handleToolChange || this.tcOptions.handleJobStop) {
             if (!obj.gcodeProcessors)
                 obj.gcodeProcessors = [];
             obj.gcodeProcessors.push({
                 name: 'toolchange',
                 options: {
                     handleT: true,
-                    handleM6: (this as any).tcOptions.toolChangeOnM6,
-                    toolChangeOnT: (this as any).tcOptions.toolChangeOnT,
-                    handleProgramStop: (this as any).tcOptions.handleJobStop,
-                    stopSwitch: (this as any).tcOptions.stopSwitch
+                    handleM6: this.tcOptions.toolChangeOnM6,
+                    toolChangeOnT: this.tcOptions.toolChangeOnT,
+                    handleProgramStop: this.tcOptions.handleJobStop,
+                    stopSwitch: this.tcOptions.stopSwitch
                 },
                 order: 800000
             });
         }
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerConsoleUIComponents = function (consoleui) {
+
+module.exports.registerConsoleUIComponents = function (consoleui: ConsoleUI) {
     consoleui.registerJobOption('Tool Change / Job Stop', ToolChangeConsoleUIJobOption);
     const doToolOffset = async () => {
         let selected = await new ListForm(consoleui).selector(null, 'Set Tool Offset', ['Specify Offset', 'From Current Pos']);
@@ -362,7 +373,7 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
             },{});
             if (typeof offset === 'number') {
                 await consoleui.runWithWait(async () => {
-                    await consoleui.client.op('setToolOffset', {
+                    await consoleui.client?.op('setToolOffset', {
                         toolOffset: offset
                     });
                 });
@@ -370,7 +381,7 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
         }
         else if (selected === 1) {
             await consoleui.runWithWait(async () => {
-                await consoleui.client.op('setToolOffset', {});
+                await consoleui.client?.op('setToolOffset', {});
             });
         }
     };
@@ -386,27 +397,27 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
                 return;
         }
         await consoleui.runWithWait(async () => {
-            await consoleui.client.op('resumeFromStop', {});
+            await consoleui.client?.op('resumeFromStop', {});
         });
         offsetSelectedSinceToolChange = false;
     };
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'textobj' implicitly has an 'any' type.
-    consoleui.modes.jobInfo.hookSync('buildStatusText', (textobj) => {
-        let status = consoleui.lastStatus;
+
+    consoleui.modes.jobInfo.hookSync('buildStatusText', (textobj?:{text: string}) => {
+        let status = consoleui.lastStatus as StatusObject;
         let jobWaiting = (status.job && status.job.state === 'waiting' && status.job.waits[0]) || false;
         if (jobWaiting === 'tool_change') {
             let toolNum = objtools.getPath(status, 'job.gcodeProcessors.toolchange.tool');
-            textobj.text += '\n{blue-bg}Waiting for Tool Change{/blue-bg}\n';
+            textobj!.text += '\n{blue-bg}Waiting for Tool Change{/blue-bg}\n';
             if (toolNum !== null && toolNum !== undefined) {
-                textobj.text += 'Tool number: ' + toolNum + '\n';
+                textobj!.text += 'Tool number: ' + toolNum + '\n';
             }
-            textobj.text += 'Press c after changing tool.\n';
+            textobj!.text += 'Press c after changing tool.\n';
         }
         if (jobWaiting === 'program_stop') {
-            textobj.text += '\n{blue-bg}Program Stop{/blue-bg}\nPress c to continue from stop.\n';
+            textobj!.text += '\n{blue-bg}Program Stop{/blue-bg}\nPress c to continue from stop.\n';
         }
     });
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'status' implicitly has an 'any' type.
+
     consoleui.on('statusUpdate', (status) => {
         let jobWaiting = (status.job && status.job.state === 'waiting' && status.job.waits[0]) || false;
         if (!!jobWaiting !== lastJobWaitingBool) {

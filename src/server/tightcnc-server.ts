@@ -90,7 +90,7 @@ export default class TightCNCServer extends EventEmitter {
      * @constructor
      * @param {Object} config
      */
-    constructor(private config?:any) {
+    constructor(public config?:any) {
         super();
         if (!config) {
             config = littleconf.getConfig();
@@ -109,13 +109,14 @@ export default class TightCNCServer extends EventEmitter {
         macrooperation(this);
         this.registerGcodeProcessor('gcodevm', require('../../lib/gcode-processors/gcode-vm'));
         // Register bundled plugins
-        require('../plugins').registerServerComponents(this);
+        import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
         // Register external plugins
         for (let plugin of (this.config.plugins || [])) {
-            let p = require(plugin);
-            if (p.registerServerComponents) {
-                require(plugin).registerServerComponents(this);
-            }
+            import(plugin).then((p) => {
+                if (p.registerServerComponents) {
+                    p.registerServerComponents(this);
+                }                    
+            })
         }
     }
     /**
