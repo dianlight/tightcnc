@@ -19,8 +19,7 @@ async function startServer() {
 	let tightcnc = new TightCNCServer(config);
 	await tightcnc.initServer();
 
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
-	function authMiddleware(ctx) {
+	function authMiddleware(ctx:any) {
 		let authHeader = ctx.req.header('Authorization');
 		if (!authHeader) throw new XError(XError.ACCESS_DENIED, 'Authorization header is required.');
 
@@ -41,7 +40,7 @@ async function startServer() {
 	}
 
 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'operationName' implicitly has an 'any' ... Remove this comment to see the full error message
-	function registerOperationAPICall(operationName, operation) {
+	function registerOperationAPICall(operationName:string, operation) {
 		let paramSchema = operation.getParamSchema();
 		if (paramSchema && !Schema.isSchema(paramSchema)) paramSchema = createSchema(paramSchema);
 		router.register(

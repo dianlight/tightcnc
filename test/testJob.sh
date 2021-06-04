@@ -1,0 +1,1 @@
+npm run cli:js -- job -f 'Gerber_TopLayer.GTL_iso_combined_cnc.nc' -p 'toolchange:handleT=true:handleM6=true'

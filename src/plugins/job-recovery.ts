@@ -13,8 +13,8 @@
  * axis configuration with clearance on Z at machine position 0 (ie, G53 G0 Z0).
  */
 import XError from 'xerror';
-const GcodeProcessor = require('../../lib/gcode-processor');
-const GcodeLine = require('../../lib/gcode-line');
+import GcodeProcessor from '../../lib/gcode-processor';
+import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
 import Operation from '../server/operation';
 import objtools from 'objtools';
@@ -64,7 +64,7 @@ class JobRecoveryTracker extends GcodeProcessor {
             predictedTimeOffset: 0
         };
     }
-    initProcessor() {
+    override initProcessor() {
         if ((this as any).dryRun)
             return;
         const saveLoop = async () => {
@@ -159,7 +159,7 @@ class JobRecoveryProcessor extends GcodeProcessor {
         // A rotating buffer of backUpLines glines, so we can back up that number of lines after the resume condition is met.
         (this as any).recoveryLineBuffer = [];
     }
-    async initProcessor() {
+    override async initProcessor() {
         // Load recovery file
         (this as any).recoveryInfo = await new Promise((resolve, reject) => {
             fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
@@ -175,9 +175,9 @@ class JobRecoveryProcessor extends GcodeProcessor {
             });
         });
     }
-    async copyProcessor() {
-        return super.copyProcessor();
-    }
+    //override async copyProcessor() {
+    //    return super.copyProcessor();
+    //}
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'vmState' implicitly has an 'any' type.
     syncMachineToVMState(vmState) {
         let lines = (this as any).vm.syncMachineToState({

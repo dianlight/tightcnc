@@ -173,22 +173,22 @@ export class GcodeLine extends CrispHooks {
 	 * @param {Number} [pos=null] - Position in the word array to add the word, if it doesn't exist.
 	 */
 	set(letter:string, value?:number, pos?:number):void {
-		if (letter.length > 1 && (value === null || value === undefined)) {
+		if (letter.length > 1 && (!value)) {
 			// Handle case of supplying a single string
 			return this.set(letter[0], parseFloat(letter.slice(1)), pos);
 		}
 
 		letter = letter.toUpperCase();
-		let wordIdx = null;
+		let wordIdx:number|undefined = undefined;
 		for (let i = 0; i < this.words!.length; i++) {
 			if (this.words![i][0] === letter) {
-				if (wordIdx !== null) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line');
+				if (wordIdx) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line');
 				wordIdx = i;
 			}
 		}
 
-		if (wordIdx !== null) {
-			if (value === null || value === undefined) {
+		if (wordIdx) {
+			if (!value) {
 				this.words?.splice(wordIdx, 1);
 				this.modified = true;
 			} else {
@@ -200,9 +200,9 @@ export class GcodeLine extends CrispHooks {
 			return;
 		}
 
-		if (value === null || value === undefined) return;
+		if (!value) return;
 
-		if (pos === null || pos === undefined) {
+		if (!pos) {
 			// Guess position of word
 			let posMap: {
 				[key:string]:number
@@ -222,7 +222,7 @@ export class GcodeLine extends CrispHooks {
 						break;
 					}
 				}
-				if (pos === null || pos === undefined) {
+				if (!pos) {
 					for (let i = coordIdx + 1; i < coordOrder.length; i++) {
 						if (posMap[coordOrder[i]] !== undefined) {
 							pos = posMap[coordOrder[i]];
@@ -230,7 +230,7 @@ export class GcodeLine extends CrispHooks {
 						}
 					}
 				}
-				if (pos === null || pos === undefined) {
+				if (!pos) {
 					pos = this.words!.length;
 				}
 			} else {
@@ -265,7 +265,7 @@ export class GcodeLine extends CrispHooks {
 				if (letter === word[0] + word[1]) return true;
 			}
 			return false;
-		} else if (mgroup !== null) {
+		} else if (mgroup) {
 			let vals = this.get(letter, mgroup, true);
 			return (vals as []).length > 0;
 		} else {

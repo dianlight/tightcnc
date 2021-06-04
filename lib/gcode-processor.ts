@@ -1,9 +1,26 @@
-const zstreams = require('zstreams');
+import zstreams from 'zstreams';
 import GcodeLine from './gcode-line';
+import XError from 'xerror';
+import { deepCopy } from 'objtools';
 //const GcodeLine = require('./gcode-line');
 //const CrispHooks = require('crisphooks');
 
-class GcodeProcessor extends zstreams.Transform {
+export default class GcodeProcessor extends zstreams.Transform {
+
+    id: string;
+    syncWaitingForLine?:GcodeLine; // used to determine when the last line pushed from this processor is received by the next in the chain
+    dryRun = false; // will be set to true in the case of a "dry run" where the gcode stream isn't sent to a real controller
+
+    gcodeProcessorName: string;
+    gcodeProcessorChain: GcodeProcessor[] = []
+    gcodeProcessorChainIdx: number = 0
+    modifiesGcode:boolean;
+    processorOptions:any;
+    processorId:any;
+    tightcnc:any;
+    job:any;
+    preprocessInputGcode: ()=>void
+    gcodeProcessorChainById: { [key: string]: GcodeProcessor; } = {};
 
     /**
      * This is the superclass for gcode processor streams.  Gcode processors can transform and analyze gcode
@@ -21,7 +38,11 @@ class GcodeProcessor extends zstreams.Transform {
      *   without modifying them.  (Adding additional properties that don't affect the gcode itself doesn't
      *   count as modification)
      */
-    constructor(options, name, modifiesGcode = true) {
+    constructor(options: {
+        id?: string
+        tightcnc?: unknown /* No return dependencies from lib to src */
+        job?: unknown
+    }, name:string, modifiesGcode = true) {
         super({ objectMode: true, highWaterMark: 20 });
         this.gcodeProcessorName = name;
         this.modifiesGcode = modifiesGcode;
@@ -29,8 +50,7 @@ class GcodeProcessor extends zstreams.Transform {
         this.processorId = options.id || name;
         this.tightcnc = options.tightcnc || null;
         this.job = options.job || null;
-        this.dryRun = false; // will be set to true in the case of a "dry run" where the gcode stream isn't sent to a real controller
-        this.syncWaitingForLine = null; // used to determine when the last line pushed from this processor is received by the next in the chain
+        this.id = options.id || this.constructor.name /* Missing? */
         this.preprocessInputGcode = () => {
             // This function is filled in later prior to initialization
             throw new XError(XError.INTERNAL_ERROR, 'Cannot call preprocessInputGcode outside of initProcessor()');
@@ -48,7 +68,7 @@ class GcodeProcessor extends zstreams.Transform {
      * @method addToChain
      * @param {GcodeProcessor[]} processorChain - Array of GcodeProcessor instances in the chain so far.
      */
-    addToChain(processorChain) {
+    addToChain(processorChain:GcodeProcessor[]) {
         processorChain.push(this);
     }
 
@@ -74,8 +94,9 @@ class GcodeProcessor extends zstreams.Transform {
      * @method copyProcessor
      * @return {GcodeProcessor|Promise{GcodeProcessor}} - A copy of this instance, already initialized.
      */
-    async copyProcessor() {
-        let c = new(this.constructor)(this.processorOptions);
+    async copyProcessor():Promise<GcodeProcessor> {
+//        let c = new(this.constructor)(this.processorOptions);
+        let c = deepCopy(this)
         c.preprocessInputGcode = this.preprocessInputGcode;
         await c.initProcessor();
         return c;
@@ -104,7 +125,7 @@ class GcodeProcessor extends zstreams.Transform {
      * @param {GcodeLine} gline
      * @return {GcodeLine|GcodeLine[]|Promise|null}
      */
-    processGcode(gline) {}
+    processGcode(gline:GcodeLine):GcodeLine|GcodeLine[]|Promise<GcodeLine|GcodeLine[]>|void {}
 
     /**
      * Override this method to flush any cached gcode remaining.  Analog of transform stream _flush, but unlike _flush,
@@ -113,7 +134,7 @@ class GcodeProcessor extends zstreams.Transform {
      * @method flushGcode
      * @return {GcodeLine|GcodeLine[]|Promise|null}
      */
-    flushGcode() {}
+    flushGcode():GcodeLine|GcodeLine[]|Promise<GcodeLine|GcodeLine[]>|void {}
 
     /**
      * Return a status object to be included in job status reports.  null to not generate a status
@@ -122,8 +143,8 @@ class GcodeProcessor extends zstreams.Transform {
      * @method getStatus
      * @return {Object|Null}
      */
-    getStatus() {
-        return null;
+    getStatus():any|void {
+        return;
     }
 
     // Does not represent flushed status of the processor logic itself.  Only the streams
@@ -139,8 +160,8 @@ class GcodeProcessor extends zstreams.Transform {
      * @method waitFlush
      * @return {Promise}
      */
-    async waitFlush() {
-        await new Promise((resolve, reject) => {
+    async waitFlush():Promise<void> {
+        await new Promise<void>((resolve, reject) => {
             if (this._isFlushed()) return resolve();
             let done = false;
             this.once('_gcpFlushed', () => {
@@ -148,7 +169,7 @@ class GcodeProcessor extends zstreams.Transform {
                 done = true;
                 resolve();
             });
-            this.once('chainerror', (err) => {
+            this.once('chainerror', (err:any) => {
                 if (done) return;
                 done = true;
                 reject(err);
@@ -156,7 +177,7 @@ class GcodeProcessor extends zstreams.Transform {
         });
     }
 
-    pushGcode(gline) {
+    pushGcode(gline:GcodeLine|GcodeLine[]) {
         if (!gline) return;
         if (Array.isArray(gline)) {
             for (let l of gline) {
@@ -186,44 +207,44 @@ class GcodeProcessor extends zstreams.Transform {
         }
     }
 
-    _checkFlushedOnPush(gline) {
+    _checkFlushedOnPush(gline:GcodeLine) {
         if (!this.gcodeProcessorChain) return;
         this.syncWaitingForLine = gline; // use this property to store the most recently pushed gline, or null if it has been flushed
         // the last processor in the chain needs to be handled specially; add a hook and consider it flushed once sent by the controller
         if (this.gcodeProcessorChainIdx === this.gcodeProcessorChain.length - 1) {
             gline.hookSync('sent', () => {
                 if (gline === this.syncWaitingForLine) {
-                    this.syncWaitingForLine = null;
+                    this.syncWaitingForLine = undefined;
                     this.emit('_gcpFlushed');
                 }
             });
         }
     }
 
-    _checkFlushedOnRecv(gline) {
+    _checkFlushedOnRecv(gline:GcodeLine) {
         if (!this.gcodeProcessorChain) return;
         if (this.gcodeProcessorChainIdx < 1) return; // no previous stream to check if first in chain
         let prevProcessor = this.gcodeProcessorChain[this.gcodeProcessorChainIdx - 1];
         if (!prevProcessor) return;
         if (prevProcessor.syncWaitingForLine === gline) {
             // previous processor's write buffer, and this processor's read buffer, have now been flushed
-            prevProcessor.syncWaitingForLine = null;
+            prevProcessor.syncWaitingForLine = undefined;
             prevProcessor.emit('_gcpFlushed');
         }
     }
 
-    _transform(chunk, encoding, cb) {
+    override _transform(chunk:GcodeLine|undefined, encoding:any, cb:(err?:any)=>any) {
         if (!chunk) return cb();
         this._checkFlushedOnRecv(chunk);
         let r;
         try {
             r = this.processGcode(chunk);
-        } catch (err) {
+        } catch (err:any) {
             cb(err);
             return;
         }
-        if (r && typeof r.then === 'function') {
-            r.then((r2) => {
+        if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
+            (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
                 try {
                     this.pushGcode(r2);
                     cb();
@@ -235,7 +256,7 @@ class GcodeProcessor extends zstreams.Transform {
             });
         } else {
             try {
-                this.pushGcode(r);
+                this.pushGcode(r as GcodeLine);
                 cb();
             } catch (err) {
                 cb(err);
@@ -243,7 +264,7 @@ class GcodeProcessor extends zstreams.Transform {
         }
     }
 
-    _flush(cb) {
+    override _flush(cb:(err?:any)=>any) {
         let r;
         try {
             r = this.flushGcode();
@@ -251,8 +272,8 @@ class GcodeProcessor extends zstreams.Transform {
             cb(err);
             return;
         }
-        if (r && typeof r.then === 'function') {
-            r.then((r2) => {
+        if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
+            (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
                 try {
                     if (r2) {
                         this.pushGcode(r2);
@@ -266,7 +287,7 @@ class GcodeProcessor extends zstreams.Transform {
             });
         } else if (r) {
             try {
-                this.pushGcode(r);
+                this.pushGcode(r as GcodeLine);
                 cb();
             } catch (err) {
                 cb(err);
@@ -278,7 +299,7 @@ class GcodeProcessor extends zstreams.Transform {
 
 }
 
-function callLineHooks(gline) {
+export function callLineHooks(gline:GcodeLine) {
     if (!gline.triggerSync) return;
     gline.triggerSync('queued');
     gline.triggerSync('sent');
@@ -288,29 +309,29 @@ function callLineHooks(gline) {
 }
 
 // filename can be either a filename, or an array of string gcode lines, or a function that, when called, returns a readable object zstream of GcodeLine's.
-function makeSourceStream(filename) {
+function makeSourceStream(filename:string|string[]|(() => any /* zstreams.Readable */)) {
     let lineStream;
 
-    const glineCleanup = (gline) => {
+    const glineCleanup = (gline:GcodeLine) => {
         // to remove unnecessary references and ensure these are cleaned up properly, remove all hooks from the gcode line when it's executed or errored
-        gline.hookSync('executed', 1000, () => gline._hooks = {});
-        gline.hookSync('error', 1000, () => gline._hooks = {});
+        gline.hookSync('executed', 1000, () => (gline as any)._hooks = {});
+        gline.hookSync('error', 1000, () => (gline as any)._hooks = {});
     };
 
     if (Array.isArray(filename)) {
         lineStream = zstreams.fromArray(filename);
     } else if (typeof filename === 'function') {
-        return filename().through((gline) => {
+        return filename().through((gline:GcodeLine) => {
             glineCleanup(gline);
             return gline;
         });
     } else {
         lineStream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream(/\r?\n/));
     }
-    return lineStream.through((lineStr) => {
+    return lineStream.through((lineStr:string) => {
         // remove blanks
         let gline = new GcodeLine(lineStr);
-        if (!gline.words.length && !gline.comment) return undefined;
+        if (!gline.words!.length && !gline.comment) return undefined;
         glineCleanup(gline);
         return gline;
     });
@@ -336,14 +357,16 @@ function makeSourceStream(filename) {
  *   to retrieve state data from processors.  This property is not available until after the 'processorChainReady'
  *   event is fired on the returned stream.
  */
-function buildProcessorChain(filename, processors, stringifyLines = false) {
+export function buildProcessorChain(filename:string|string[]|(() => any), processors:GcodeProcessor[], stringifyLines = false) {
     // use pass through so we can return a stream immediately while doing async stuff
     let passthroughStream = new zstreams.PassThrough({ objectMode: true });
 
     const doBuildChain = async() => {
 
-        let chain = [];
-        let chainById = {};
+        let chain:GcodeProcessor[] = [];
+        let chainById: {
+            [key:string]:GcodeProcessor
+        } = {};
 
         // Add each processor to the chain using its addToChain() method.  The processors may choose
         // to add additional dependencies to the chain.
@@ -359,14 +382,16 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
         // Initialize each processor in the chain.  For each one, include a function that can be
         // called to run through all the gcode from the source and any prior processor streams.
         // This can be used to precompute any data needed by the processor.
-        const _initProcessor = async(chainIdx) => {
+        const _initProcessor = async(chainIdx:number) => {
             // create the preprocessInputGcode method for this processor
             const preprocessInputGcode = function() {
                 // Use a passthrough as a placeholder so we can return a stream instead of
                 // a promise that resolves to a stream.
                 let passthroughStream = new zstreams.PassThrough({ objectMode: true });
-                let preprocessChain = [];
-                let preprocessChainById = {};
+                let preprocessChain:GcodeProcessor[] = [];
+                let preprocessChainById: {
+                    [key:string]:GcodeProcessor
+                } = {};
                 const buildPreprocessChain = async() => {
                     // This needs to construct a chain of all processors in the chain prior to this
                     // one, using copyProcessor() to construct and initialize each one.
@@ -384,7 +409,7 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
                         stream.pipe(gp);
                         stream = gp;
                     }
-                    stream = stream.through((gline) => {
+                    stream = stream.through((gline:GcodeLine) => {
                         // call hooks on all glines passing through to ensure gcode processors relying on hooks don't break
                         callLineHooks(gline);
                         return gline;
@@ -393,8 +418,8 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
                 };
                 buildPreprocessChain()
                     .catch((err) => passthroughStream.emit('error', err));
-                passthroughStream.gcodeProcessorChain = preprocessChain;
-                passthroughStream.gcodeProcessorChainById = preprocessChainById;
+                (passthroughStream as any).gcodeProcessorChain = preprocessChain;
+                (passthroughStream as any).gcodeProcessorChainById = preprocessChainById;
                 return passthroughStream;
             };
             chain[chainIdx].preprocessInputGcode = preprocessInputGcode;
@@ -417,7 +442,7 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
         }
 
         if (stringifyLines) {
-            let stringifyStream = new zstreams.ThroughStream((gline) => {
+            let stringifyStream = new zstreams.ThroughStream((gline:GcodeLine) => {
                 return gline.toString() + '\n';
             }, {
                 writableObjectMode: true,
@@ -441,8 +466,8 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
 
     doBuildChain()
         .then((s) => {
-            passthroughStream.gcodeProcessorChain = s.gcodeProcessorChain;
-            passthroughStream.gcodeProcessorChainById = s.gcodeProcessorChainById;
+            (passthroughStream as any).gcodeProcessorChain = s.gcodeProcessorChain;
+            (passthroughStream as any).gcodeProcessorChainById = s.gcodeProcessorChainById;
             passthroughStream.emit('processorChainReady', s.gcodeProcessorChain, s.gcodeProcessorChainById);
         }, (err) => {
             passthroughStream.emit('error', err);
@@ -451,6 +476,3 @@ function buildProcessorChain(filename, processors, stringifyLines = false) {
     return passthroughStream;
 }
 
-module.exports = GcodeProcessor;
-module.exports.buildProcessorChain = buildProcessorChain;
-module.exports.callLineHooks = callLineHooks;

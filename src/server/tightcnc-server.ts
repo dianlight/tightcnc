@@ -4,7 +4,7 @@ import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
 import mkdirp from 'mkdirp';
-const GcodeProcessor = require('../../lib/gcode-processor');
+import GcodeProcessor,{ buildProcessorChain } from '../../lib/gcode-processor';
 //import GcodeLine from '../../lib/gcode-line';
 import zstreams from 'zstreams';
 import EventEmitter from 'events';
@@ -12,9 +12,9 @@ import path from 'path';
 import fs from 'fs';
 import JobManager, { JobStatus } from './job-manager';
 import stable from 'stable';
-import Macros from './macros';
+import Macros, { MacroOptions } from './macros';
 import pasync from 'pasync';
-const { createSchema } = require('common-schema');
+import { createSchema } from 'common-schema';
 import littleconf from 'littleconf'
 import joboperations from './job-operations'
 import macrooperation from './macro-operations'
@@ -22,6 +22,7 @@ import basicoperation from './basic-operations'
 import Controller, { ControllerStatus } from './controller';
 //import GcodeLine from '../../lib/gcode-line';
 import JobState from './job-state';
+import GcodeLine from '../../lib/gcode-line';
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -310,18 +311,17 @@ export default class TightCNCServer extends EventEmitter {
                 return zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
             }
             else if (options.macro) {
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-                return this.macros.generatorMacroStream(options.macro, options.macroParams || {}).through((gline) => gline.toString());
+                return this.macros.generatorMacroStream(options.macro, options.macroParams || {}).through((gline:GcodeLine) => gline.toString());
             }
             else {
                 return zstreams.fromArray(options.data);
             }
         }
         // 
-        let macroStreamFn = null;
+        let macroStreamFn:(() => any)|undefined;
         if (options.macro) {
             macroStreamFn = () => {
-                return this.macros.generatorMacroStream(options.macro, options.macroParams || {});
+                return this.macros.generatorMacroStream(options.macro as string, options.macroParams || {});
             };
         }
         // Sort gcode processors
@@ -368,17 +368,20 @@ export default class TightCNCServer extends EventEmitter {
                 gcodeProcessorInstances.push(inst);
             }
         }
-        return (GcodeProcessor as any).buildProcessorChain(options.filename || options.data || macroStreamFn, gcodeProcessorInstances, false);
+        
+        if(options.filename)return buildProcessorChain(options.filename, gcodeProcessorInstances, false);
+        else if(options.data)return buildProcessorChain(options.data, gcodeProcessorInstances, false);
+        else if(macroStreamFn)return buildProcessorChain(macroStreamFn, gcodeProcessorInstances, false);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macro' implicitly has an 'any' type.
-    async runMacro(macro, params = {}, options:{ gcodeProcessor: any; push: () => {}; waitsync?: boolean} = {}) {
+
+    async runMacro(macro: string | string[], params = {}, options: MacroOptions) {
         return await this.macros.runMacro(macro, params, options);
     }
-    // @ts-expect-error ts-migrate(7023) FIXME: 'requestInput' implicitly has return type 'any' be... Remove this comment to see the full error message
-    async requestInput(prompt, schema) {
+
+    async requestInput(prompt?:string|object, schema?:any):Promise<any>{
         if (prompt && typeof prompt === 'object' && !schema) {
             schema = prompt;
-            prompt = null;
+            prompt = undefined;
         }
         if (schema) {
             if (typeof schema.getData !== 'function') {
@@ -401,8 +404,8 @@ export default class TightCNCServer extends EventEmitter {
         let result = await this.waitingForInput.waiter.promise;
         return result;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'value' implicitly has an 'any' type.
-    provideInput(value) {
+
+    provideInput(value:any) {
         if (!this.waitingForInput)
             throw new XError(XError.INVALID_ARGUMENT, 'Not currently waiting for input');
         let w = this.waitingForInput;

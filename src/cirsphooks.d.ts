@@ -5,6 +5,7 @@ declare module 'crisphooks' {
         })
         hook<T>(doSomething: string, callback: (value?:T) => void, errorCallback: (error:any)=>void):Promise<T>|T|void;
         trigger<T>(doSomething: string, priority?:number):Promise<T>;
+        hookSync<T>(doSomething: string,priority:number, callback: (value?:T) => void):T|void;
         hookSync<T>(doSomething: string, callback: (value?:T) => void):T|void;
         hookASync<T>(doSomething: string, callback: (value?:T, next?:()=>void) => void):T|void;
         triggerASync<T>(doSomething: string, priority?: number, callback: (error: eny) => void): void;

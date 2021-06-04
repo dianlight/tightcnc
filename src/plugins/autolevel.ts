@@ -5,7 +5,7 @@ import  XError from 'xerror';
 import  objtools from'objtools';
 import { kdTree } from 'kd-tree-javascript';
 import fs from 'fs';
-const GcodeProcessor = require('../../lib/gcode-processor');
+import GcodeProcessor from '../../lib/gcode-processor';
 const GcodeVM = require('../../lib/gcode-vm');
 import { MoveSplitter } from './move-splitter';
 import  JobOption from '../consoleui/job-option';
@@ -402,9 +402,20 @@ class OpProbeSurface extends Operation {
     }
 }
 class AutolevelGcodeProcessor extends GcodeProcessor {
-    constructor(options = {}) {
+    surfaceMapFilename: string;
+    vm: any;
+    surfaceMap?: SurfaceLevelMap;
+    surfaceMapData?: {
+        points: number[][]
+        minSpacing: number
+    }
+
+    constructor(options: {
+        id?:string
+        surfaceMapFilename: string
+    }) {
         super(options, 'autolevel', true);
-        this.surfaceMapFilename = (options as any).surfaceMapFilename;
+        this.surfaceMapFilename = options.surfaceMapFilename;
         this.vm = new GcodeVM(options);
     }
     _loadSurfaceMap() {
@@ -417,7 +428,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
                 if (err)
                     return reject(new XError('Error loading surface map', err));
                 this.surfaceMapData = JSON.parse(data.toString('utf8'));
-                this.surfaceMap = new SurfaceLevelMap(this.surfaceMapData.points);
+                this.surfaceMap = new SurfaceLevelMap(this.surfaceMapData!.points);
                 resolve();
             });
         });
@@ -427,11 +438,11 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
         await this._loadSurfaceMap();
         chain.push(new MoveSplitter({
             tightcnc: this.tightcnc,
-            maxMoveLength: this.surfaceMapData.minSpacing
+            maxMoveLength: this.surfaceMapData!.minSpacing
         }));
         super.addToChain(chain);
     }
-    async initProcessor() {
+    override async initProcessor() {
         await this._loadSurfaceMap();
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
@@ -454,8 +465,8 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
             throw new XError(XError.INVALID_ARGUMENT, 'Motion code ' + motionCode + ' not supported for autolevel');
         // Get the Z value for the X and Y ending position
         let toXY = [endVMState.pos[0], endVMState.pos[1]];
-        let zOffset = this.surfaceMap.predictZ(toXY);
-        if (zOffset === null)
+        let zOffset = this.surfaceMap?.predictZ(toXY);
+        if (!zOffset || zOffset === null)
             return gline;
         let newZ = endVMState.pos[2] + zOffset;
         // Set the new Z value

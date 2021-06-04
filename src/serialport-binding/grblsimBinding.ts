@@ -33,7 +33,7 @@ export default class GrblsimBinding extends AbstractBinding {
             const url = new URL(path)
             //console.log(url,url.href.substr(8))
             if (url.protocol !== 'grblsim:') return reject(new Error("Only grblsim://<path to grbl_sim.exe > path are supported"))
-            this.process = spawn(url.href.substr(8), ['1','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
+            this.process = spawn(url.href.substr(8), ['10','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
                 shell: false,
                 stdio: ['pipe','pipe','pipe']
             })

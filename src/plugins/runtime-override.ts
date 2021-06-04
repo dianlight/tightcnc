@@ -1,6 +1,6 @@
 import XError from 'xerror';
-const GcodeProcessor = require('../../lib/gcode-processor');
-const GcodeLine = require('../../lib/gcode-line');
+import GcodeProcessor from '../../lib/gcode-processor';
+import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
 import objtools from 'objtools';
 import pasync from 'pasync';
@@ -21,22 +21,28 @@ import commonSchema from 'common-schema';
  *   @param {Number} [maxTotalLinesBuffered=40] - Maximum number of buffered not-executed lines downstream
  */
 class RuntimeOverride extends GcodeProcessor {
+
     static DEFAULT_ORDER = 950000;
+
+    maxTotalLinesBuffered:number;
+    feedMultiplier = 1;
+    vm:any
+    lastLineCounterExecuted = 0;
+    nextExecutedWaiter?:any;
+
+
     constructor(options = {}) {
         super(options, 'runtimeoverride', true);
         this.maxTotalLinesBuffered = (options as any).maxTotalLinesBuffered || 40;
-        this.feedMultiplier = 1;
         this.vm = new GcodeVM(options);
-        this.lastLineCounterExecuted = 0;
-        this.nextExecutedWaiter = null;
     }
-    getStatus() {
+    override getStatus() {
         return {
             feedMultiplier: this.feedMultiplier
         };
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    async processGcode(gline) {
+
+    override async processGcode(gline:GcodeLine) {
         if (this.dryRun)
             return gline;
         this.vm.runGcodeLine(gline);
@@ -47,7 +53,7 @@ class RuntimeOverride extends GcodeProcessor {
             await this.nextExecutedWaiter.promise;
         }
         if (this.feedMultiplier !== 1 && gline.has('F')) {
-            gline.set('F', gline.get('F') * this.feedMultiplier);
+            gline.set('F', gline.get('F') as number * this.feedMultiplier);
             gline.addComment('ro');
         }
         gline.hookSync('executed', () => {
@@ -61,8 +67,7 @@ class RuntimeOverride extends GcodeProcessor {
         });
         return gline;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'm' implicitly has an 'any' type.
-    setFeedMultiplier(m) {
+    setFeedMultiplier(m:number) {
         this.feedMultiplier = m;
         if (this.vm.getState().seenWordSet.F) {
             this.pushGcode(new GcodeLine('F' + (this.vm.getState().feed * m)));

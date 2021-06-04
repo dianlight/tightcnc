@@ -1,6 +1,6 @@
-import XError from 'xerror';
-const GcodeProcessor = require('../../lib/gcode-processor');
-const GcodeLine = require('../../lib/gcode-line');
+//import XError from 'xerror';
+import GcodeProcessor from '../../lib/gcode-processor';
+import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
 import  objtools from 'objtools';
 /**
@@ -17,8 +17,7 @@ export class MoveSplitter extends GcodeProcessor {
         (this as any).maxMoveLength = (options as any).maxMoveLength || 10;
         (this as any).vm = new GcodeVM(options);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    processGcode(gline) {
+    override processGcode(gline:GcodeLine) {
         let startVMState = objtools.deepCopy((this as any).vm.getState());
         // Run the line through the gcode VM
         let { isMotion, changedCoordOffsets, motionCode } = (this as any).vm.runGcodeLine(gline);
@@ -64,10 +63,10 @@ export class MoveSplitter extends GcodeProcessor {
         // This is a move that needs to be split up.
         // Output a version of the original gline without any of the coordinates specified, to set any other modes it may be setting (including feed)
         for (let i = 0; i < axisDiffs.length; i++) {
-            gline.set(endVMState.axisLabels[i], null);
+            gline.set(endVMState.axisLabels[i]);
         }
         // don't send if line is now empty, or only contains the motion gcode
-        if (gline.words.length > 1 || (gline.words.length === 1 && 'G' + gline.get('G') !== motionCode) || gline.comment) {
+        if (gline.words!.length > 1 || (gline.words!.length === 1 && 'G' + gline.get('G') !== motionCode) || gline.comment) {
             gline.addComment('sp');
             this.pushGcode(gline);
         }

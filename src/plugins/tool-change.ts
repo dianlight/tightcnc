@@ -1,5 +1,5 @@
 import XError from 'xerror';
-const GcodeProcessor = require('../../lib/gcode-processor');
+import GcodeProcessor from '../../lib/gcode-processor';
 import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
 import objtools from 'objtools';
@@ -9,6 +9,7 @@ import JobOption from '../consoleui/job-option';
 import ListForm from '../consoleui/list-form';
 import TightCNCServer, { StatusObject } from '../server/tightcnc-server';
 import { ConsoleUI } from '../consoleui/consoleui';
+import { isArray } from 'util';
 //import blessed from 'blessed';
 // Order: Must be after recovery processor
 /**
@@ -29,7 +30,24 @@ import { ConsoleUI } from '../consoleui/consoleui';
  */
 export default class ToolChangeProcessor extends GcodeProcessor {
     static DEFAULT_ORDER = 800000;
+
+    vm:any;
+    lastToolNumber?:number
+    stopSwitch:boolean
+    handleT:boolean
+    handleM6:boolean
+    toolChangeOnT:boolean
+    handleProgramStop:boolean
+    programStopWaiter?:any
+    maxDwell:number
+    currentToolOffset:number
+    toolOffsetAxis:any
+    toolOffsetAxisLetter:any
+    currentlyStopped?:boolean|string
+
+
     constructor(options: {
+        id?: any
         handleT?: boolean,
         habdleM6?: boolean
         toolChangeOnT?: boolean
@@ -38,20 +56,17 @@ export default class ToolChangeProcessor extends GcodeProcessor {
     } = {}) {
         super(options, 'toolchange', true);
         this.vm = new GcodeVM(options);
-        this.lastToolNumber = null;
         this.stopSwitch = (options as any).stopSwitch || false;
         this.handleT = ('handleT' in options) ? (options as any).handleT : true;
         this.handleM6 = ('handleM6' in options) ? (options as any).handleM6 : true;
         this.toolChangeOnT = ('toolChangeOnT' in options) ? (options as any).toolChangeOnT : true;
         this.handleProgramStop = ('handleProgramStop' in options) ? (options as any).handleProgramStop : true;
-        this.programStopWaiter = null;
         this.maxDwell = 0;
         this.currentToolOffset = 0;
         this.toolOffsetAxis = this.tightcnc.config.toolChange.toolOffsetAxis;
         this.toolOffsetAxisLetter = this.tightcnc.controller.axisLabels[this.toolOffsetAxis];
-        this.currentlyStopped = false;
     }
-    getStatus() {
+    override getStatus() {
         return {
             stopped: this.currentlyStopped,
             tool: this.lastToolNumber,
@@ -63,24 +78,28 @@ export default class ToolChangeProcessor extends GcodeProcessor {
     resumeFromStop() {
         if (!this.programStopWaiter)
             throw new XError(XError.INVALID_ARGUMENT, 'Program is not stopped');
-        this.programStopWaiter.resolve();
+        this.programStopWaiter?.resolve();
     }
 
-    pushGcode(gline?: string | GcodeLine) {
+    override pushGcode(gline?: string | GcodeLine | GcodeLine[]) {
         if (!gline)
             return;
         if (typeof gline === 'string')
             gline = new GcodeLine(gline);
-        // handle tool offset by adjusting Z if present
-        if (this.currentToolOffset && gline.has(this.toolOffsetAxisLetter) && !gline.has('G53')) {
-            // by default use positive tool offsets (ie, a larger tool offset means a longer tool and increased Z height)
-            gline.set(this.toolOffsetAxisLetter, gline.get(this.toolOffsetAxisLetter) as number + this.currentToolOffset * (this.tightcnc.config.toolChange.negateToolOffset ? -1 : 1));
-            gline.addComment('to'); // to=tool offset
+        if (Array.isArray(gline)) {
+            gline.forEach( (g)=> this.pushGcode(g))
+        } else {
+            // handle tool offset by adjusting Z if present
+            if (this.currentToolOffset && gline.has(this.toolOffsetAxisLetter) && !gline.has('G53')) {
+                // by default use positive tool offsets (ie, a larger tool offset means a longer tool and increased Z height)
+                gline.set(this.toolOffsetAxisLetter, gline.get(this.toolOffsetAxisLetter) as number + this.currentToolOffset * (this.tightcnc.config.toolChange.negateToolOffset ? -1 : 1));
+                gline.addComment('to'); // to=tool offset
+            }
+            super.pushGcode(gline);
+            this.vm.runGcodeLine(gline);
+            if (this.vm.getState().incremental)
+                throw new XError(XError.INTERNAL_ERROR, 'Incremental mode not supported with tool change');
         }
-        super.pushGcode(gline);
-        this.vm.runGcodeLine(gline);
-        if (this.vm.getState().incremental)
-            throw new XError(XError.INTERNAL_ERROR, 'Incremental mode not supported with tool change');
     }
     async _doToolChange() {
         // create a map from axis letters to current position in job
@@ -155,13 +174,13 @@ export default class ToolChangeProcessor extends GcodeProcessor {
         }
     }
 
-    async processGcode(gline: GcodeLine):Promise<GcodeLine> {
+    override async processGcode(gline: GcodeLine):Promise<GcodeLine> {
         // Track the tool number
         if (gline.has('T'))
-            this.lastToolNumber = gline.get('T');
+            this.lastToolNumber = gline.get('T') as number;
         // Check if a pause
         if (gline.has('G4') && gline.has('P') && gline.get('P') as number > this.maxDwell)
-            this.maxDwell = gline.get('P');
+            this.maxDwell = gline.get('P') as number;
         // Determine if this line contains an word that will trigger a program stop
         let isToolChange = (this.handleT && this.toolChangeOnT && gline.has('T')) || (this.handleM6 && gline.has('M6'));
         let isProgramStop = this.handleProgramStop && (gline.has('M0') || gline.has('M60') || (gline.has('M1') && this.stopSwitch));
@@ -188,7 +207,7 @@ export default class ToolChangeProcessor extends GcodeProcessor {
             // Flush downstream processors
             await this.flushDownstreamProcessorChain();
             // Wait for controller to sync
-            await this.tightcnc.controller.waitSync();
+            await (this.tightcnc as TightCNCServer).controller?.waitSync();
             // Handle the operation
             if (isToolChange)
                 await this._doToolChange();

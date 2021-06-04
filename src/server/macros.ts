@@ -9,7 +9,7 @@ import objtools from 'objtools';
 import { createSchema } from 'common-schema';
 import { TightCNCServer } from '..'; // Avoid Circular dependency issue
 import GcodeLine from '../../lib/gcode-line';
-const { GcodeProcessor } = require('../../lib/gcode-processor');
+import GcodeProcessor from '../../lib/gcode-processor';
 
 interface MacroData {
         name: string;
@@ -21,6 +21,13 @@ interface MacroData {
         stat: fs.Stats;
 }
 
+
+export interface MacroOptions {
+    gcodeProcessor?: GcodeProcessor;
+    push?: (gline: GcodeLine) => Promise<void>
+    sync?: () => Promise<never>
+    waitSync?: boolean;
+}
 
 export default class Macros {
     macroCache:{
@@ -413,11 +420,7 @@ export default class Macros {
      *     output stream instead of being directly executed on the controller.
      *   @param {Function} options.push - Provide a function for handling pushing gcode lines.
      */
-    async runMacro(macro: string | string[], params = {}, options: {
-        gcodeProcessor: any // typeof GcodeProcessor
-        push: () => {}
-        waitSync?: boolean
-    }) {
+    async runMacro(macro: string | string[], params = {}, options: MacroOptions) {
         if (typeof macro === 'string' && macro.indexOf(';') !== -1) {
             // A javascript string blob
             return await this.runJS(macro, params, options);
@@ -454,18 +457,16 @@ export default class Macros {
             throw new XError(XError.INVALID_ARGUMENT, 'Unknown macro type');
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macro' implicitly has an 'any' type.
-    generatorMacroStream(macro, params) {
+    generatorMacroStream(macro:string, params:any):MacroGcodeSourceStream {
         return new MacroGcodeSourceStream(this, macro, params);
     }
 }
 class MacroGcodeSourceStream extends zstreams.Readable {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'macros' implicitly has an 'any' type.
-    constructor(macros, macro, macroParams) {
+    pushReadWaiter?:any;
+
+    constructor(macros:Macros, macro:string, macroParams?:any) {
         super({ objectMode: true });
-        this.pushReadWaiter = null;
         let gotChainError = false;
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
         this.on('chainerror', (err) => {
             gotChainError = true;
             if (this.pushReadWaiter) {
@@ -474,8 +475,7 @@ class MacroGcodeSourceStream extends zstreams.Readable {
             }
         });
         macros.runMacro(macro, macroParams, {
-            // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
-            push: async (gline) => {
+            push: async (gline:GcodeLine) => {
                 let r = this.push(gline);
                 if (!r) {
                     // wait until _read is called
@@ -492,14 +492,13 @@ class MacroGcodeSourceStream extends zstreams.Readable {
             .then(() => {
             this.push(null);
         })
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            .catch((err) => {
+            .catch((err:any) => {
             if (!gotChainError) {
                 this.emit('error', new XError(XError.INTERNAL_ERROR, 'Error running generator macro', err));
             }
         });
     }
-    _read() {
+    override _read() {
         if (this.pushReadWaiter) {
             this.pushReadWaiter.resolve();
             this.pushReadWaiter = null;

@@ -60,6 +60,7 @@ export default class GRBLController extends Controller {
     sendImmediateCounter = 0;
     _disableSending = false;
     currentStatusReport: {
+        [key:string]:any
         machineState?:any
     } = {};
     axisMaxFeeds = [500, 500, 500];
@@ -136,9 +137,9 @@ export default class GRBLController extends Controller {
         }
         return mtime;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    debug(str) {
-        const enableDebug = false;
+
+    debug(str: string) {
+        const enableDebug = true; // FIXME: Remmove debug linr
         if (this.tightcnc)
             this.tightcnc.debug('GRBL: ' + str);
         else if (enableDebug)
@@ -174,8 +175,8 @@ export default class GRBLController extends Controller {
         else
             return super.getPos();
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'obj' implicitly has an 'any' type.
-    _handleStatusUpdate(obj) {
+
+    _handleStatusUpdate(obj: any) {
         let changed = false;
         let wasReady = this.ready;
         for (let key in obj) {
@@ -189,18 +190,20 @@ export default class GRBLController extends Controller {
         if (!wasReady && this.ready && !this._initializing && !this._resetting)
             this.emit('ready');
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'srString' implicitly has an 'any' type.
-    _handleReceiveStatusReport(srString) {
+
+    _handleReceiveStatusReport(srString: string) {
         // Parse status report
         // Detect if it's an old-style (0.9) or new style (1.1) status report based on if it contains a pipe
-        let statusReport = {};
-        let parts;
+        let statusReport: {
+            [key:string]:any
+        } = {};
+        let parts:string[];
         if (srString.indexOf('|') === -1) {
             // old style
             // process the string into an array of strings in the form 'key:val'
             parts = srString.split(',');
             for (let i = 0; i < parts.length;) {
-                if (!isNaN(parts[i]) && i > 0) {
+                if (!isNaN(+parts[i]) && i > 0) {
                     // this part contains no label, so glue it onto the previous part
                     parts[i - 1] += ',' + parts[i];
                     parts.splice(i, 1);
@@ -219,14 +222,13 @@ export default class GRBLController extends Controller {
             let part = parts[i];
             if (i === 0) {
                 // Is machine state
-                (statusReport as any).machineState = part;
+                statusReport.machineState = part;
             }
             else {
                 // Split into key and value, then split value on comma if present, parsing numbers
                 let matches = this._regexSrSplit.exec(part);
                 let key = matches?matches[1]:undefined;
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 's' implicitly has an 'any' type.
-                let val:any = matches[2].split(',').map((s) => {
+                let val:any = matches![2].split(',').map((s) => {
                     if (s !== '' && !isNaN(parseFloat(s))) {
                         return parseFloat(s);
                     }
@@ -236,8 +238,7 @@ export default class GRBLController extends Controller {
                 });
                 if (val.length === 1)
                     val = val[0];
-                // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-                statusReport[key] = val;
+                if(key)statusReport[key] = val;
             }
         }
         // Parsed mapping is now in statusReport
@@ -256,7 +257,6 @@ export default class GRBLController extends Controller {
         }
         // Update this.currentStatusReport
         for (let key in statusReport) {
-            // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
             this.currentStatusReport[key] = statusReport[key];
         }
         // Update the class properties
@@ -366,8 +366,7 @@ export default class GRBLController extends Controller {
                     (obj as any).spindle = true;
                     (obj as any).spindleDirection = 1;
                 }
-                // @ts-expect-error ts-migrate(2367) FIXME: This condition will always return 'true' since the... Remove this comment to see the full error message
-                else if (a.indexOf('C' !== -1)) {
+                else if (a.indexOf('C') !== -1) {
                     (obj as any).spindle = true;
                     (obj as any).spindleDirection = -1;
                 }
@@ -426,11 +425,11 @@ export default class GRBLController extends Controller {
         this._handleStatusUpdate(obj);
         this.emit('statusReportReceived', statusReport);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'setting' implicitly has an 'any' type.
-    _handleSettingFeedback(setting, value) {
+
+    _handleSettingFeedback(setting: string|number, value: string | number) {
         // parse value
-        if (value && !isNaN(value))
-            value = parseFloat(value);
+        if (value && typeof value !== "number" && !isNaN(+value))
+            value = parseFloat(value as string);
         // store in this.grblSettings
         let oldVal = this.grblSettings[setting];
         this.grblSettings[setting] = value;
@@ -440,29 +439,29 @@ export default class GRBLController extends Controller {
         if (setting === 22)
             this.homableAxes = value ? (this.config.homableAxes || [true, true, true]) : [false, false, false];
         if (setting === 30)
-            this.spindleSpeedMax = value;
+            this.spindleSpeedMax = value as number;
         if (setting === 31)
-            this.spindleSpeedMin = value;
+            this.spindleSpeedMin = value as number;
         if (setting === 110) {
-            this.axisMaxFeeds[0] = value;
+            this.axisMaxFeeds[0] = value as number;
             this.timeEstVM.options.maxFeed[0] = value;
         }
         if (setting === 111) {
-            this.axisMaxFeeds[1] = value;
+            this.axisMaxFeeds[1] = value as number;
             this.timeEstVM.options.maxFeed[1] = value;
         }
         if (setting === 112) {
-            this.axisMaxFeeds[2] = value;
+            this.axisMaxFeeds[2] = value as number;
             this.timeEstVM.options.maxFeed[2] = value;
         }
         if (setting === 120) {
-            this.timeEstVM.options.acceleration[0] = value * 3600;
+            this.timeEstVM.options.acceleration[0] = +value * 3600;
         }
         if (setting === 121) {
-            this.timeEstVM.options.acceleration[1] = value * 3600;
+            this.timeEstVM.options.acceleration[1] = +value * 3600;
         }
         if (setting === 122) {
-            this.timeEstVM.options.acceleration[2] = value * 3600;
+            this.timeEstVM.options.acceleration[2] = +value * 3600;
         }
         // fire event
         if (value !== oldVal) {
@@ -470,10 +469,10 @@ export default class GRBLController extends Controller {
             this.emit('settingsUpdate');
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'alarm' implicitly has an 'any' type.
-    _alarmCodeToError(alarm) {
-        if (alarm && !isNaN(alarm))
-            alarm = parseInt(alarm);
+ 
+    _alarmCodeToError(alarm:number| string) {
+        if (alarm && typeof alarm !== "number" && !isNaN(+alarm))
+            alarm = parseInt(alarm as string);
         if (typeof alarm === 'string')
             alarm = alarm.toLowerCase().trim();
         switch (typeof alarm === 'string' ? alarm.toLowerCase() : alarm) {
@@ -506,8 +505,7 @@ export default class GRBLController extends Controller {
     // Converts the grbl message to an XError
     // Returns null if the message does not indicate an error
     // Note that just receiving a message that can be interpreted as an error doesn't mean the machine is alarmed; that should be checked separately
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    _msgToError(str) {
+    _msgToError(str:string) {
         switch (str.trim()) {
             case "'$H'|'$X' to unlock":
                 return new XError(XError.MACHINE_ERROR, 'Position unknown; home machine or clear error', { subcode: 'position_unknown', grblMsg: str });
@@ -530,10 +528,9 @@ export default class GRBLController extends Controller {
         }
     }
     // Converts an error code from an "error:x" message to an XError
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ecode' implicitly has an 'any' type.
-    _responseCodeToError(ecode) {
-        if (ecode && !isNaN(ecode))
-            ecode = parseInt(ecode);
+    _responseCodeToError(ecode:number|string) {
+        if (ecode && typeof ecode !== "number" && !isNaN(+ecode))
+            ecode = parseInt(ecode as string);
         switch (ecode) {
             case 1:
             case 'Expected command letter':
@@ -792,8 +789,8 @@ export default class GRBLController extends Controller {
         // Unmatched line
         console.error('Received unknown line from grbl: ' + line);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'msg' implicitly has an 'any' type.
-    _humanReadableMessage(msg) {
+
+    _humanReadableMessage(msg: string): string {
         switch (msg) {
             case "'$H'|'$X' to unlock":
                 return 'Position lost; home machine or clear error';
@@ -805,8 +802,8 @@ export default class GRBLController extends Controller {
                 return msg;
         }
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.
-    _handleReceivedMessage(str, unwrapped = false) {
+
+    _handleReceivedMessage(str: string, unwrapped = false) {
         // suppress some messages during certain operations where the messages are handled automatically and
         // don't need to be reported to the user
         if (this._ignoreUnlockedMessage && str === 'Caution: Unlocked')
@@ -866,27 +863,26 @@ export default class GRBLController extends Controller {
         // Perform status updates
         this._handleStatusUpdate(statusUpdates);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'name' implicitly has an 'any' type.
-    _handleDeviceParameterUpdate(name, value) {
+
+    _handleDeviceParameterUpdate(name: string, _value: string) {
         name = name.toUpperCase();
         // Parse the value.  Supported formats:
         // - <number> - parsed as number
         // - <number>,<number>,<number> - parsed as number array
         // - <value>:<value> - parsed as array of other values (numbers or number arrays)
-        value = value.split(':');
+        let value:(string|number|number[])[] = _value.split(':');
         for (let j = 0; j < value.length; j++) {
             let a = value[j];
-            let parts = a.split(',');
+            let parts:(string|number)[] = (a as string).split(',');
             for (let i = 0; i < parts.length; i++) {
-                if (parts[i] && !isNaN(parts[i]))
-                    parts[i] = parseFloat(parts[i]);
+                if (parts[i] && !isNaN(+parts[i]))
+                    parts[i] = parseFloat(parts[i] as string);
             }
-            if (parts.length < 2)
-                parts = parts[0];
-            value[j] = parts;
+            if (parts.length < 2)value[j] = parts[0];
+            else value[j] = parts as number[];
         }
         if (name !== 'PRB')
-            value = value[0];
+            value = value[0] as any;
         // Update any status vars
         let statusObj:{
             [key:string]:any
@@ -930,7 +926,7 @@ export default class GRBLController extends Controller {
                 'L': 'powerUpLockWithoutHoming'
             };
             this.grblBuildOptions = {};
-            let optChars = value[0].toUpperCase();
+            let optChars = (value[0] as string).toUpperCase();
             for (let c of optChars) {
                 this.grblBuildOptions[c] = true;
                 if (c in optCharMap) {
@@ -951,6 +947,7 @@ export default class GRBLController extends Controller {
         this.receivedDeviceParameters[name] = value;
         this.emit('deviceParamUpdate', name, value);
     }
+
     _writeToSerial(strOrBuf:string|Buffer) {
         if (!this.serial)
             return;

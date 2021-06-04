@@ -1,12 +1,12 @@
 import objtools from 'objtools';
 import XError from 'xerror';
 import zstreams from 'zstreams';
-const GcodeProcessor = require('../../lib/gcode-processor');
+import GcodeProcessor, {callLineHooks} from '../../lib/gcode-processor';
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
-import { TightCNCServer } from '..'; // Avoid Circular dependency issue
-import { JobSourceOptions } from './tightcnc-server';
+//import { TightCNCServer } from '..'; // Avoid Circular dependency issue
+import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
 
 export interface JobStatus {
     state: string,
@@ -14,7 +14,7 @@ export interface JobStatus {
     dryRunResults: any,
     startTime: any,
     error: string | null,
-    gcodeProcessors: {},
+    gcodeProcessors: GcodeProcessor,
     stats: {
         time: any;
         line: any;
@@ -269,7 +269,7 @@ export default class JobManager {
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
         source = source.through((gline) => {
             // call hooks on each line (since there's no real controller to do it)
-            (GcodeProcessor as any).callLineHooks(gline);
+            callLineHooks(gline);
             return gline;
         });
         job.sourceStream = source;

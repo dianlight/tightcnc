@@ -11,7 +11,7 @@ export { default as ListForm } from './consoleui/list-form'
 
 // lib
 export const TightCNCClient = require('../lib/clientlib')
-export const GcodeLine = require('../lib/gcode-line')
+export { default as GcodeLine } from '../lib/gcode-line'
 export const GcodeVM = require('../lib/gcode-vm')
-export const GcodeProcessor = require('../lib/gcode-processor')
+export { default as GcodeProcessor } from '../lib/gcode-processor'
 export const GcodeVMProcessor = require('../lib/gcode-processors/gcode-vm')

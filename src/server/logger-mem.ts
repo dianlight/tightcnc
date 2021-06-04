@@ -38,7 +38,7 @@ export default class LoggerMem {
         this.lines = [];
         this.nextNum = 1;
     }
-    section(start:number, end:number, limit:number) {
+    section(start?:number, end?:number, limit?:number) {
         if (start === null || start === undefined)
             start = 0;
         if (start < 0)
