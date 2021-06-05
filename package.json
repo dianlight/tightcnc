@@ -19,9 +19,9 @@
         "cli:js": "node ./bin/cli.js"
     },
     "bin": {
-        "tightcnc-server": "./bin/tightcnc-server.js",
+        "tightcnc": "./bin/cli.js",
         "tightcnc-consoleui": "./bin/tightcnc-consoleui.js",
-        "tightcnc": "./bin/cli.js"
+        "tightcnc-server": "./bin/tightcnc-server.js"
     },
     "main": "src/index.js",
     "dependencies": {

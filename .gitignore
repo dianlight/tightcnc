@@ -24,3 +24,12 @@ npm-debug.log
 .DS_Store
 log/cnc-0001.log
 EEPROM.DAT
+
+#Yarn 2.x
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
