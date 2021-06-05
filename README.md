@@ -16,7 +16,7 @@ Planned task upgrade:
   - [x] Support for raw socket comunication - serialport-binding
     - [ ] Manage connection errors
   - [ ] Support for websocket comunication - serilaport-binding
-  - [x] Support grbl-sim in process comunication - serilaport-binding
+  - [x] Support grbl-sim in process comunication - serilaport-binding  - *Broken on mac only?*
 - [ ] Support start without config
 - [ ] Support for new API
   - [ ] Reload Config
@@ -24,9 +24,10 @@ Planned task upgrade:
 - [ ] Sender as Worker
   - [x] ~~~support Virtual comunication API Adapter ( comunication as plugin )~~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
-- [ ] More firmware
-  - [ ] Support grblHal
-  - [ ] Support Marlin  
+- [ ] Firmware
+  - [ ] Test TinyG * Need HW or Emulator* 
+  - [ ] Support grblHal * Need HW or Emulator* 
+  - [ ] Support Marlin * Need HW or Emulator*  
 # TightCNC
 
 TightCNC is a CNC controller interface application with a focus on backend robustness and stability.  The architecture
