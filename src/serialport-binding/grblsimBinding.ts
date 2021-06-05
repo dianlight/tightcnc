@@ -136,8 +136,6 @@ export default class GrblsimBinding extends AbstractBinding {
                     console.error(error)
                     reject(error)
                 } else {
-                    // GRBL_SIM need double EOL char as win send \r\n on command to process
-                    this.process?.stdin.write('\r')
                     resolve()
                 }             
             })

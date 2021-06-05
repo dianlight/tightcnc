@@ -3,7 +3,7 @@
 This fork scope is to upgrate TightCNC to better use in my GCODEGO project. 
 Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
- - [ ] Generate dist with types
+ - [x] Generate dist with types
  - [ ] Code cleanup
   - [ ] Correct all ts-migrate FIXME:
   - [ ] Use import not required
@@ -16,13 +16,13 @@ Planned task upgrade:
   - [x] Support for raw socket comunication - serialport-binding
     - [ ] Manage connection errors
   - [ ] Support for websocket comunication - serilaport-binding
-  - [x] Support grbl-sim in process comunication - serilaport-binding  - *Broken on mac only?*
+  - [x] Support grbl-sim in process comunication - serilaport-binding  - *For MacOs use my branch [dianlight/grblsim](https://github.com/dianlight/grbl-sim)*
 - [ ] Support start without config
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
 - [ ] Sender as Worker
-  - [x] ~~~support Virtual comunication API Adapter ( comunication as plugin )~~~ Serialport binding
+  - [x] ~~support Virtual comunication API Adapter ( comunication as plugin )~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
 - [ ] Firmware
   - [ ] Test TinyG * Need HW or Emulator* 
