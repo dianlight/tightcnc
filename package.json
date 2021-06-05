@@ -39,7 +39,7 @@
         "moment": "^2.29.1",
         "objtools": "^3.0.0",
         "pasync": "^2.0.2",
-        "request": "^2.88.0",
+        "request": "^2.88.2",
         "serialport": "^9.1.0",
         "stable": "^0.1.8",
         "xerror": "^2.0.0",

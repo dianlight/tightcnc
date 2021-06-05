@@ -5567,7 +5567,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"request@npm:^2.88.0":
+"request@npm:^2.88.2":
   version: 2.88.2
   resolution: "request@npm:2.88.2"
   dependencies:
@@ -6373,7 +6373,7 @@ resolve@^1.14.2:
     moment: ^2.29.1
     objtools: ^3.0.0
     pasync: ^2.0.2
-    request: ^2.88.0
+    request: ^2.88.2
     serialport: ^9.1.0
     stable: ^0.1.8
     ts-migrate: ^0.1.19
