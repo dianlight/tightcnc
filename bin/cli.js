@@ -1,7 +1,6 @@
-#!/usr/bin/env node
-
+global.XMLHttpRequest = require("xhr2");
 const littleconf = require('littleconf');
-const TightCNCClient = require('../dist/lib/clientlib').default;
+const TightCNCClient = require('../dist/client/clientlib').default;
 const objtools = require('objtools');
 const fs = require('fs');
 const path = require('path');

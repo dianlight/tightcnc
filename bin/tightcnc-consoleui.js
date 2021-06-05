@@ -1,3 +1,3 @@
 #!/usr/bin/env node
 
-require('../dist/consoleui/consoleui');
+require('../dist/server/consoleui');

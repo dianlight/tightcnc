@@ -1,3 +1,3 @@
 #!/usr/bin/env node
 
-require('../dist/src/server/server');
+require('../dist/server/server');
