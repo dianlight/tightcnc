@@ -1,9 +1,9 @@
 import { ConsoleUI } from "../consoleui/consoleui";
 import TightCNCServer from "../server/tightcnc-server";
 
-const pluginList = [ './autolevel', './move-splitter', './job-recovery', './tool-change', './runtime-override' ];
+const pluginList = [ 'autolevel', 'move-splitter', 'job-recovery', 'tool-change', 'runtime-override' ];
 
-const plugins = pluginList.map(async (reqName) => await import(reqName));
+const plugins = pluginList.map(async (reqName) => await import(`./${reqName}`));
 
 export function registerServerComponents(tightcnc: TightCNCServer) {
 	for (let plugin of plugins) {

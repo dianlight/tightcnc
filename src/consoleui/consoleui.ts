@@ -84,7 +84,7 @@ export class ConsoleUI extends EventEmitter {
             [key: string]: string
         }; titleBox: blessed.Widgets.BoxElement; box: blessed.Widgets.BoxElement; line: blessed.Widgets.LineElement;
     };
-    curTempMessageTimeout?: NodeJS.Timeout;
+    curTempMessageTimeout?: number /* NodeJS.Timeout */;
     waitingBox?: blessed.Widgets.BoxElement;
     lastStatus?: StatusObject;
     activeMode: any;
@@ -756,7 +756,7 @@ export class ConsoleUI extends EventEmitter {
         this.curTempMessageTimeout = setTimeout(() => {
             delete this.curTempMessageTimeout;
             this.setMessage('');
-        }, time * 1000);
+        }, time * 1000) as unknown as number;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
     clientError(err) {

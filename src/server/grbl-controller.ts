@@ -55,7 +55,7 @@ export default class GRBLController extends Controller {
     // The machine timestamp that the most recent line began executing
     lastLineExecutingTime?:number;
     timeEstVM = new GcodeVM({ maxFeed: [1000, 1000, 1000], acceleration: [36000, 36000, 36000] });
-    _checkExecutedLoopTimeout?:NodeJS.Timeout;
+    _checkExecutedLoopTimeout?:number /*NodeJS.Timeout*/;
     // Number of blocks in sendQueue to send immediately even if it would exceed normal backpressure
     sendImmediateCounter = 0;
     _disableSending = false;
@@ -91,7 +91,7 @@ export default class GRBLController extends Controller {
     _ignoreUnlockPromptMessage?: boolean
     _waitingToRetry?: boolean
     _welcomeMessageWaiter?: any
-    _statusUpdateLoops: NodeJS.Timeout[] = []
+    _statusUpdateLoops: number[] /* NodeJS.Timeout[]*/ = []
     serialReceiveBuf?:string
     _retryConnectFlag?:boolean
 
@@ -1207,7 +1207,7 @@ export default class GRBLController extends Controller {
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .catch((err) => this.emit('error', err));
             }, interval);
-            this._statusUpdateLoops.push(ival);
+            this._statusUpdateLoops.push(ival as unknown as number);
         };
         startUpdateLoop((this.config as GrblControllerConfig).statusUpdateInterval || 250, async () => {
             if (this.serial)
@@ -1329,7 +1329,7 @@ export default class GRBLController extends Controller {
                 //this.debug('Retrying _commsCheckExecutedLoop');
                 this._checkExecutedLoopTimeout = undefined;
                 this._commsCheckExecutedLoop();
-            }, twait);
+            }, twait) as unknown as number;
         }
     }
     _commsShiftSendQueue() {

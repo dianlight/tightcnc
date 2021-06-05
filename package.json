@@ -11,14 +11,17 @@
         "typescript"
     ],
     "scripts": {
-        "build": "webpack --progress",
-        "watch": "tsc -w",
+        "build": "webpack --progress --mode production",
+        "build:dev": "webpack --mode development --stats-error-details",
+        "watch": "webpack --mode development --watch --stats-error-details",
         "server:debug": "ts-node --inspect-brk ./src/server/server.ts",
         "server": "ts-node ./src/server/server.ts",
         "consoleui": "ts-node ./src/consoleui/consoleui.ts",
-        "server:js": "node ./bin/tightcnc-server.js",
-        "consoleui:js": "node ./bin/tightcnc-consoleui.js",
-        "cli:js": "node ./bin/cli.js"
+        "server:bin": "node ./bin/tightcnc-server.js",
+        "consoleui:bin": "node ./bin/tightcnc-consoleui.js",
+        "cli:bin": "node ./bin/cli.js",
+        "server:js": "node ./dist/server/server.js",
+        "consoleui:js": "node ./dist/consoleui/consoleui.js"
     },
     "bin": {
         "tightcnc": "./bin/cli.js",
@@ -76,7 +79,7 @@
         "webpack-node-externals": "^3.0.0"
     },
     "license": "Apache-2.0",
-    "type": "commonjs",
+    "_type": "commonjs",
     "repository": {
         "type": "git",
         "url": "https://github.com/crispy1989/tightcnc.git"

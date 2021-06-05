@@ -5,6 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "server",
+            "cwd": "${workspaceRoot}",
+            "program": "${workspaceFolder}/src/server/server.ts",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "pwa-node",
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/dist/server/server.js",
+                "!**/node_modules/**"
+            ],
+            "args": [],
+            "runtimeArgs": ["--input-type=module","--trace-warnings"],
+            "preLaunchTask": "npm: build:dev"
+        },
+
+        {
             "name": "ts-node - server",
             "type": "node",
             "request": "launch",
