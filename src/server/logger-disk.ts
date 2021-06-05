@@ -18,15 +18,8 @@ export default class LoggerDisk {
     }
     async init() {
         // Create directory if doesn't exist
-        await new Promise<void>((resolve, reject) => {
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-            mkdirp(this.logDir, (err) => {
-                if (err)
-                    reject(err);
-                else
-                    resolve();
-            });
-        });
+        await mkdirp(this.logDir)
+        
         // Get list of all log files currently in directory
         let files = await new Promise<string[]>((resolve, reject) => {
             fs.readdir(this.logDir, (err, files) => {
