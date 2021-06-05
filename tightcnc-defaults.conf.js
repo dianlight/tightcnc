@@ -7,7 +7,7 @@ module.exports = {
     serverPort: 2363,
     host: 'http://localhost',
     baseDir: path.resolve(basepath, 'tightcnc'),
-    controller: 'TinyG',
+    _controller: 'TinyG',
     controllers: {
         TinyG: {
             // serial port settings
