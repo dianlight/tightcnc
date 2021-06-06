@@ -1,11 +1,13 @@
 import  Operation from './operation';
 import objtools from 'objtools';
 import XError from 'xerror';
-import TightCNCServer from './tightcnc-server';
+import TightCNCServer, { StatusObject } from './tightcnc-server';
 import GcodeLine from '../../lib/gcode-line';
 class OpGetStatus extends Operation {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params: {
+        fields: string[],
+        sync?: boolean
+    }):Promise<Partial<StatusObject>> {
         if (params.sync) {
             await this.tightcnc.controller?.waitSync();
         }

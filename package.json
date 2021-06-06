@@ -29,7 +29,7 @@
         "tightcnc-server": "./bin/tightcnc-server.js"
     },
     "main": "dist/server/server.js",
-    "types": "types/index.d.ts",
+    "types": "types/src/index.d.ts",
     "dependencies": {
         "@serialport/binding-abstract": "^9.0.7",
         "@serialport/stream": "^9.0.7",

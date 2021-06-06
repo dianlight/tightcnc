@@ -268,7 +268,7 @@ class SetToolOffsetOperation extends Operation {
         }
         else {
             let controller = this.tightcnc.controller;
-            let axisNum = this.tightcnc.config.toolChange.toolOffsetAxis;
+            let axisNum = this.tightcnc.config!.toolChange.toolOffsetAxis;
             let pos = controller?.getPos();
             let off = pos![axisNum];
             if (params.accountForAutolevel) {

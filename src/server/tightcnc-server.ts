@@ -55,6 +55,105 @@ export interface JobSourceOptions {
     job?: JobState
 }
 
+export type TightCNCControllers = {
+        TinyG: {
+            // serial port settings
+            port: string,
+            baudRate: number,
+            dataBits: number,
+            stopBits: 1|0,
+            parity: 'none',
+            rtscts: boolean,
+            xany: boolean,
+
+            usedAxes: [ boolean, boolean, boolean, boolean, boolean, boolean ], // which axes of xyzabc are actually used
+            homableAxes: [ boolean, boolean, boolean ], // which axes can be homed
+
+            // This parameter governs how "aggressive" we can be with queueing data to the device.  The tightcnc controller
+            // software already adjusts data queueing to make sure front-panel commands can be immediately handled, but
+            // sometimes the tinyg seems to get desynced, and on occasion, it seems to crash under these circumstances
+            // (with an error similar to "cannot get planner buffer").  If this is happening to you, try reducing this number.
+            // The possible negative side effect is that setting this number too low may cause stuttering with lots of fast
+            // moves.  Setting this to 4 is the equivalent of the tinyg "line mode" protocol.
+            maxUnackedRequests: number
+        },
+        grbl: {
+            // serial port settings
+            port: string, // '/dev/ttyACM1',
+            baudRate: number,
+            dataBits: number,
+            stopBits: 1|0,
+            parity: 'none',
+
+            usedAxes: [boolean, boolean, boolean],
+            homableAxes: [boolean, boolean, boolean]
+        }
+}
+
+export interface TightCNCConfig {
+    enableServer: boolean,
+    baseDir: string,
+    authKey: string, //'abc123',
+    serverPort: number, // 2363,
+    host: string, //'http://localhost',
+    controller: keyof TightCNCControllers,
+    controllers: TightCNCControllers,
+    paths: {
+        [key:string]:string,
+        data: string,
+        log: string,
+        macro: string
+    },
+    plugins: string[],
+    operations: {
+        probeSurface: {
+            defaultOptions: {
+                probeSpacing: number,
+                probeFeed: number,
+                clearanceHeight: number,
+                autoClearance: boolean,
+                autoClearanceMin: number,
+                probeMinZ: number,
+                numProbeSamples: number,
+                extraProbeSampleClearance: number
+            }
+        }
+    },
+    logger: {
+        maxFileSize: number,
+        keepFiles: number
+    },
+    loggerMem:{
+        size: number;
+        shiftBatchSize: number;
+    }
+    messageLog:{
+        size: number;
+        shiftBatchSize: number;
+    }
+    recovery: {
+        // rewind this number of seconds before the point where the job stopped
+        backUpTime: number,
+        // additionall back up for this number of lines before that (to account for uncertainty in which lines have been executed)
+        backUpLines: number,
+        // This is a list of gcode lines to execute to move the machine into a clearance position where it won't hit the workpiece
+        // The values {x}, {y}, etc. are replaced with the coordinates of the position (touching the workpiece) to resume the job.
+        moveToClearance: string[],
+        // List of gcode lines to execute to move from the clearance position to the position to restart the job.
+        moveToWorkpiece: string[]
+    },
+    toolChange: {
+        preToolChange: string[],
+        postToolChange: string[],
+        // Which axis number tool offsets apply to (in standard config, Z=2)
+        toolOffsetAxis: number,
+        negateToolOffset: boolean
+    },
+    enableDebug: boolean,
+    debugToStdout: boolean,
+    suppressDuplicateErrors?: boolean
+}
+
 /**
  * This is the central class for the application server.  Operations, gcode processors, and controllers
  * are registered here.
@@ -91,15 +190,15 @@ export default class TightCNCServer extends EventEmitter {
      * @constructor
      * @param {Object} config
      */
-    constructor(public config?:any) {
+    constructor(public config?:TightCNCConfig) {
         super();
         if (!config) {
             config = littleconf.getConfig();
         }
-        if (config.enableServer === false) {
+        if (config!.enableServer === false) {
             throw new XError(XError.INVALID_ARGUMENT, 'enableServer config flag now found.  Ensure configuration is correct - check the documentation.');
         }
-        this.baseDir = this.config?.baseDir;
+        this.baseDir = this.config!.baseDir;
         // Register builtin modules
         import('./tinyg-controller').then( (namespace)=>this.registerController('TinyG',namespace.default))
         import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
@@ -112,7 +211,7 @@ export default class TightCNCServer extends EventEmitter {
         // Register bundled plugins
         import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
         // Register external plugins
-        for (let plugin of (this.config.plugins || [])) {
+        for (let plugin of (this.config!.plugins || [])) {
             import(plugin).then((p) => {
                 if (p.registerServerComponents) {
                     p.registerServerComponents(this);
@@ -127,27 +226,26 @@ export default class TightCNCServer extends EventEmitter {
      */
     async initServer() {
         // Whether to suppress duplicate error messages from being output sequentially
-        const suppressDuplicateErrors = this.config.suppressDuplicateErrors === undefined ? true : this.config.suppressDuplicateErrors;
+        const suppressDuplicateErrors = this.config!.suppressDuplicateErrors === undefined ? true : this.config!.suppressDuplicateErrors;
         // Create directories if missing
         this.getFilename(undefined, 'data', true, true, true);
         this.getFilename(undefined, 'macro', true, true, true);
         // Initialize the disk and in-memory communications loggers
-        this.loggerDisk = new LoggerDisk(this.config.logger, this);
+        this.loggerDisk = new LoggerDisk(this.config!.logger, this);
         await this.loggerDisk.init();
-        this.loggerMem = new LoggerMem(this.config.loggerMem || {});
+        this.loggerMem = new LoggerMem(this.config!.loggerMem || {});
         this.loggerMem.log('other', 'Server started.');
         this.loggerDisk.log('other', 'Server started.');
         // Initialize the message log
-        this.messageLog = new LoggerMem(this.config.messageLog || {});
+        this.messageLog = new LoggerMem(this.config!.messageLog || {});
         this.messageLog.log('Server started.');
         // Initialize macros
         await this.macros.initMacros();
         // Set up the controller
-        if (this.config.controller) {
-            let controllerClass = this.controllerClasses[this.config.controller];
-            let controllerConfig = this.config.controllers[this.config.controller];
+        if (this.config!.controller) {
+            let controllerClass = this.controllerClasses[this.config!.controller];
+            let controllerConfig = this.config!.controllers[this.config!.controller];
             this.controller = new (<any>controllerClass)(controllerConfig);
-            //(this.controller as Controller).tightcnc = this; FIXME: Serve?!?
             let lastError:string|undefined; // used to suppress duplicate error messages on repeated connection retries
             this.controller?.on('error', (err) => {
                 let errrep = JSON.stringify(err.toObject ? err.toObject() : err.toString) + err;
@@ -195,9 +293,9 @@ export default class TightCNCServer extends EventEmitter {
         this.loggerDisk?.log('other', 'Message: ' + msg);
     }
     debug(str:string) {
-        if (!this.config.enableDebug)
+        if (!this.config!.enableDebug)
             return;
-        if (this.config.debugToStdout) {
+        if (this.config!.debugToStdout) {
             console.log('Debug: ' + str);
         }
         if (this.loggerDisk) {
@@ -211,7 +309,7 @@ export default class TightCNCServer extends EventEmitter {
             throw new XError(XError.INVALID_ARGUMENT, 'May not ascend directories');
         let base = this.baseDir;
         if (place) {
-            let placePath = this.config.paths[place];
+            let placePath = this.config!.paths[place];
             if (!placePath)
                 throw new XError(XError.INVALID_ARGUMENT, 'No such place ' + place);
             base = path.resolve(base, placePath);
@@ -234,7 +332,7 @@ export default class TightCNCServer extends EventEmitter {
         this.controllerClasses[name] = cls;
     }
     registerOperation(name:string, cls:any) {
-        this.operations[name] = new cls(this, this.config.operations[name] || {});
+        this.operations[name] = new cls(this, (this.config!.operations as any)[name] || {});
     }
     registerGcodeProcessor(name:string, cls:any) {
         this.gcodeProcessors[name] = cls;
