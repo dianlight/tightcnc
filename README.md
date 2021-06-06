@@ -5,6 +5,8 @@ Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [x] Generate dist with types
  - [ ] Code cleanup
+  - [ ] Plugin indipendent UI interfaces
+    - [ ] Remove clientui codebase
   - [ ] Correct all ts-migrate FIXME:
   - [ ] Use import not required
  - [ ] Remove not Typescript friendly dependencies 
@@ -13,11 +15,11 @@ Planned task upgrade:
  - [x] Clientlib migration
   - [x] Expose clientlib d.ts
 - [x] Upgrade to serialport 9.x 
-  - [x] Support for raw socket comunication - serialport-binding
+  - [x] Support for raw socket communication - serialport-binding
     - [ ] Manage connection errors
   - [ ] Support for websocket comunication - serilaport-binding
   - [x] Support grbl-sim in process comunication - serilaport-binding  - *For MacOs use my branch [dianlight/grblsim](https://github.com/dianlight/grbl-sim)*
-- [ ] Support start without config
+- [x] ~~Support start without config~~ (Removed controlles from default conf!)
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
@@ -25,8 +27,9 @@ Planned task upgrade:
   - [x] ~~support Virtual comunication API Adapter ( comunication as plugin )~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
 - [ ] Firmware
+  - [ ] Support grblHal (Simulator)[https://github.com/grblHAL/Simulator] 
   - [ ] Test TinyG * Need HW or Emulator* 
-  - [ ] Support grblHal * Need HW or Emulator* 
+  - [ ] Support g2core * Need HW of Emulator*
   - [ ] Support Marlin * Need HW or Emulator*  
 # TightCNC
 
