@@ -55,8 +55,19 @@ export interface JobSourceOptions {
     job?: JobState
 }
 
-export type TightCNCControllers = {
-        TinyG?: {
+export type TightCNCGrblConfig = {
+            // serial port settings
+            port: string, // '/dev/ttyACM1',
+            baudRate: number,
+            dataBits: number,
+            stopBits: 1|0,
+            parity: 'none',
+
+            usedAxes: [boolean, boolean, boolean],
+            homableAxes: [boolean, boolean, boolean]
+}
+
+export type TightCNCTinyGConfig = {
             // serial port settings
             port: string,
             baudRate: number,
@@ -76,18 +87,11 @@ export type TightCNCControllers = {
             // The possible negative side effect is that setting this number too low may cause stuttering with lots of fast
             // moves.  Setting this to 4 is the equivalent of the tinyg "line mode" protocol.
             maxUnackedRequests: number
-        },
-        grbl?: {
-            // serial port settings
-            port: string, // '/dev/ttyACM1',
-            baudRate: number,
-            dataBits: number,
-            stopBits: 1|0,
-            parity: 'none',
+}
 
-            usedAxes: [boolean, boolean, boolean],
-            homableAxes: [boolean, boolean, boolean]
-        }
+export type TightCNCControllers = {
+        TinyG?: TightCNCTinyGConfig,
+        grbl?: TightCNCGrblConfig
 }
 
 export interface TightCNCConfig {
