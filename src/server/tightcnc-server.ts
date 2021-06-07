@@ -56,7 +56,7 @@ export interface JobSourceOptions {
 }
 
 export type TightCNCControllers = {
-        TinyG: {
+        TinyG?: {
             // serial port settings
             port: string,
             baudRate: number,
@@ -77,7 +77,7 @@ export type TightCNCControllers = {
             // moves.  Setting this to 4 is the equivalent of the tinyg "line mode" protocol.
             maxUnackedRequests: number
         },
-        grbl: {
+        grbl?: {
             // serial port settings
             port: string, // '/dev/ttyACM1',
             baudRate: number,
