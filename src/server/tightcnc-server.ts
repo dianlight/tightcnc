@@ -19,6 +19,7 @@ import littleconf from 'littleconf'
 import joboperations from './job-operations'
 import macrooperation from './macro-operations'
 import basicoperation from './basic-operations'
+import systemoperation from './system-operations'
 import Controller, { ControllerStatus } from './controller';
 //import GcodeLine from '../../lib/gcode-line';
 import JobState from './job-state';
@@ -208,9 +209,11 @@ export default class TightCNCServer extends EventEmitter {
         import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
         
         basicoperation(this);
+        systemoperation(this);
         registerOperations(this);
         joboperations(this);
         macrooperation(this);
+
         this.registerGcodeProcessor('gcodevm', require('../../lib/gcode-processors/gcode-vm'));
         // Register bundled plugins
         import('../plugins').then( (namespace) => namespace.registerServerComponents(this));

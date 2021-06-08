@@ -23,6 +23,7 @@ Planned task upgrade:
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
+  - [ ] Get available serials ports
 - [ ] Sender as Worker
   - [x] ~~support Virtual comunication API Adapter ( comunication as plugin )~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi
