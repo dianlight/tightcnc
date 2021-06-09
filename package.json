@@ -39,6 +39,7 @@
         "crisphooks": "^2.0.1",
         "cross": "^1.0.0",
         "express": "^4.17.1",
+        "json-rpc-2.0": "^0.2.16",
         "kd-tree-javascript": "^1.0.3",
         "littleconf": "^1.0.1",
         "mkdirp": "^1.0.4",
@@ -51,7 +52,6 @@
         "term.js": "^0.0.7",
         "xerror": "^2.0.0",
         "xhr2": "^0.2.1",
-        "yaar": "^3.0.2",
         "yargs": "^17.0.1",
         "zstreams": "^5.0.0"
     },

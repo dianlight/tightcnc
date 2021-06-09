@@ -2469,7 +2469,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"body-parser@npm:1.19.0, body-parser@npm:^1.19.0":
+"body-parser@npm:1.19.0":
   version: 1.19.0
   resolution: "body-parser@npm:1.19.0"
   dependencies:
@@ -3098,16 +3098,6 @@ __metadata:
   version: 1.0.2
   resolution: "core-util-is@npm:1.0.2"
   checksum: 089015ee3c462dfceba70faa1df83b42a7bb35db26dae6af283247b06fe3216c65fccd9f00eebcaf98300dc31e981d56aae9f90b624f8f6ff1153e235ff88b65
-  languageName: node
-  linkType: hard
-
-"cors@npm:^2.8.5":
-  version: 2.8.5
-  resolution: "cors@npm:2.8.5"
-  dependencies:
-    object-assign: ^4
-    vary: ^1
-  checksum: c83e88c15428b87ff55853ec5ce961b650c7aa3de536aadebbeb2334872d86a8be57165a77996f3b746366c950c2d51624a9b76b88fb7f18d178eca051ca1ae2
   languageName: node
   linkType: hard
 
@@ -5191,6 +5181,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-rpc-2.0@npm:^0.2.16":
+  version: 0.2.16
+  resolution: "json-rpc-2.0@npm:0.2.16"
+  checksum: 967001c5e93c62d8d6ce3ed81036dc64a68a5804a66bcc3b83334194a02b1e52f917db135c509bc969b3e30d488f483df0d89dd40f852077762a5e42f07cc202
+  languageName: node
+  linkType: hard
+
 "json-schema-traverse@npm:^0.4.1":
   version: 0.4.1
   resolution: "json-schema-traverse@npm:0.4.1"
@@ -6029,7 +6026,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"object-assign@npm:^4, object-assign@npm:^4.1.0":
+"object-assign@npm:^4.1.0":
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
   checksum: 66cf021898fc1b13ea573ea8635fbd5a76533f50cecbc2fcd5eee1e8029af41bcebe7023788b6d0e06cbe4401ecea075d972f78ec74467cdc571a0f1a4d1a081
@@ -7780,6 +7777,7 @@ __metadata:
     crisphooks: ^2.0.1
     cross: ^1.0.0
     express: ^4.17.1
+    json-rpc-2.0: ^0.2.16
     kd-tree-javascript: ^1.0.3
     littleconf: ^1.0.1
     markdown-toc: ^1.2.0
@@ -7804,7 +7802,6 @@ __metadata:
     webpack-node-externals: ^3.0.0
     xerror: ^2.0.0
     xhr2: ^0.2.1
-    yaar: ^3.0.2
     yargs: ^17.0.1
     zstreams: ^5.0.0
   bin:
@@ -8267,7 +8264,7 @@ typescript@^4.3.2:
   languageName: node
   linkType: hard
 
-"vary@npm:^1, vary@npm:~1.1.2":
+"vary@npm:~1.1.2":
   version: 1.1.2
   resolution: "vary@npm:1.1.2"
   checksum: 591f059f727ac1ba0d97cb7767f8583a03fcbb07db7be2b7dce838ede520ec0e958a41cb19077054769077fdc49a9b9a2dc391c83426bfee89c054b8cc7404bf
@@ -8563,24 +8560,6 @@ typescript@^4.3.2:
   version: 5.0.8
   resolution: "y18n@npm:5.0.8"
   checksum: 56275bfa72a8a585c4d2905b086862fb881dfe7871adcefe4ecf4c1a6a78c6389b459b427c0a8672ccdb09731a78143acc71f0bcc8dc8d8427869fafe7f18b95
-  languageName: node
-  linkType: hard
-
-"yaar@npm:^3.0.2":
-  version: 3.0.2
-  resolution: "yaar@npm:3.0.2"
-  dependencies:
-    body-parser: ^1.19.0
-    common-schema: ^3.0.0
-    cors: ^2.8.5
-    crisphooks: ^2.0.1
-    express: ^4.17.1
-    lodash: ^4.17.20
-    objtools: ^3.0.0
-    pasync: ^2.0.2
-    xerror: ^2.0.0
-    zstreams: ^5.0.0
-  checksum: bad00217c914490e2359b6e3669249cddfbb1f35af8ee6ba5cf2d1ccf26fc0a4e4eb2ca5209163cc6ffebb73c5515b147927b862f0761a8f6a576066ac1613a1
   languageName: node
   linkType: hard
 

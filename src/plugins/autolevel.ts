@@ -330,6 +330,7 @@ class OpProbeSurface extends Operation {
         startProbeSurface(this.tightcnc, options);
         return surfaceProbeStatus;
     }
+    /*
     getParamSchema() {
         return {
             surfaceMapFilename: {
@@ -399,7 +400,7 @@ class OpProbeSurface extends Operation {
                 description: 'When probing multiple times per point, the clearance to use for all but the first probe'
             }
         };
-    }
+    }*/
 }
 class AutolevelGcodeProcessor extends GcodeProcessor {
     surfaceMapFilename: string;

@@ -32,7 +32,7 @@ export default abstract class Operation {
      * @method getParamSchema
      * @return {Object|Schema}
      */
-    abstract getParamSchema(): unknown
+    //abstract getParamSchema(): unknown
     
     checkReady() {
         if (!this.tightcnc.controller || !this.tightcnc.controller.ready) {

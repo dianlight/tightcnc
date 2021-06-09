@@ -1,6 +1,6 @@
 import Operation from './operation';
 import  objtools from 'objtools';
-import commonSchema from 'common-schema';
+//import commonSchema from 'common-schema';
 import TightCNCServer, { JobSourceOptions } from './tightcnc-server';
 
 
@@ -12,11 +12,13 @@ const jobOptionsSchema = {
         macro: {
             type: String,
             description: 'Name of generator macro to use as gcode source',
-            validate: (str:string) => {
+            validate: (str: string) => {
+                /*
                 if (str.indexOf(';') !== -1)
                     throw new commonSchema.FieldError('invalid', 'Cannot supply raw javascript');
                 if (!/^generator-/.test(str))
                     throw new commonSchema.FieldError('invalid', 'Macro name must begin with generator-');
+                    */
             }
         },
         macroParams: {
@@ -34,16 +36,20 @@ const jobOptionsSchema = {
     },
 
     validate(obj: JobSourceOptions) {
+        /*
         if (!obj.filename && !obj.macro)
             throw new commonSchema.FieldError('invalid', 'Must supply either filename or macro');
         if (obj.filename && obj.macro)
             throw new commonSchema.FieldError('invalid', 'Cannot supply both filename and macro');
+            */
     }
 };
 class OpStartJob extends Operation {
+    /*
     override getParamSchema() {
         return jobOptionsSchema;
     }
+    */
     async run(params: JobSourceOptions) {
         let jobOptions = {
             filename: params.filename ? this.tightcnc.getFilename(params.filename, 'data') : undefined,
@@ -60,11 +66,13 @@ interface JobOptionsDryRun extends JobSourceOptions {
     outputFilename: string
 }
 class OpJobDryRun extends Operation {
+    /*
     override getParamSchema() {
         return objtools.merge({}, jobOptionsSchema, {
             outputFilename: { type: String, description: 'Save processed gcode from dry run into this file' }
         });
     }
+    */
 
     async run(params: JobOptionsDryRun) {
         let jobOptions = {

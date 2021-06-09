@@ -1,13 +1,12 @@
 import Operation from './operation';
-//const fs = require('fs');
-//const path = require('path');
-import commonSchema from 'common-schema';
+//import commonSchema from 'common-schema';
 import TightCNCServer from './tightcnc-server';
-//const XError = require('xerror');
 class OpListMacros extends Operation {
+    /*
     override getParamSchema() {
         return {};
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let list = await (this as any).tightcnc.macros.listAllMacros();
@@ -23,6 +22,7 @@ class OpListMacros extends Operation {
     }
 }
 class OpRunMacro extends Operation {
+    /*
     override getParamSchema() {
         return {
             macro: {
@@ -46,6 +46,7 @@ class OpRunMacro extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         (this as any).checkReady();

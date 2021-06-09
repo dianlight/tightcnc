@@ -1,10 +1,11 @@
 import Operation from './operation';
 import  fs from 'fs';
 import  path from 'path';
-import commonSchema from 'common-schema';
+//import commonSchema from 'common-schema';
 import XError from 'xerror';
 import TightCNCServer from './tightcnc-server';
 class OpListFiles extends Operation {
+    /*
     override getParamSchema() {
         return {
             dir: {
@@ -15,6 +16,7 @@ class OpListFiles extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let dir = this.tightcnc.getFilename(undefined, params.dir, false, true, true);
@@ -67,6 +69,7 @@ class OpListFiles extends Operation {
     }
 }
 class OpUploadFile extends Operation {
+    /*
     override getParamSchema() {
         return {
             filename: {
@@ -88,6 +91,7 @@ class OpUploadFile extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let fullFilename = this.tightcnc.getFilename(params.filename, 'data', false, true);

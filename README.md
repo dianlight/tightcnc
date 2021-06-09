@@ -5,6 +5,7 @@ Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [x] Generate dist with types
  - [ ] Code cleanup
+  - [ ] Remove yaar and use a Typescript system.
   - [ ] Plugin indipendent UI interfaces
     - [ ] Remove clientui codebase
   - [ ] Correct all ts-migrate FIXME:
@@ -466,7 +467,7 @@ message('Moving to starting position');
 push('G0 X' + startPosition.x + ' Y' + startPosition.y);
 ```
 
-Parameters are specified in [common schema format](https://www.npmjs.com/package/common-schema).
+~~Parameters are specified in [common schema format](https://www.npmjs.com/package/common-schema).~~
 
 Additionally, there may be cases that you want to merge in another macro's parameters with your macro's (typically when calling that macro and allowing the user to define the params).
 To do this, add a `mergeParams` option to `macroMeta()` containing an array of macro names to pull additional parameters from.

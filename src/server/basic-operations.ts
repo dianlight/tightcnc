@@ -23,6 +23,7 @@ class OpGetStatus extends Operation {
         }
         return ret;
     }
+    /*
     getParamSchema() {
         return {
             fields: {
@@ -37,14 +38,17 @@ class OpGetStatus extends Operation {
             }
         };
     }
+    */
 }
 class OpSend extends Operation {
+    /*
     getParamSchema() {
         return {
             line: { type: String, required: true, description: 'Line of gcode to send' },
             wait: { type: Boolean, default: false, description: 'Whether to wait for the line to be received' }
         };
     }
+    */
     async run(params:{line: string|GcodeLine, wait:boolean}) {
         if (params.wait) {
             this.tightcnc.controller?.send(params.line);
@@ -56,37 +60,38 @@ class OpSend extends Operation {
     }
 }
 class OpHold extends Operation {
-    getParamSchema() { return {}; }
+    //getParamSchema() { return {}; }
     run() {
         this.tightcnc.controller?.hold();
     }
 }
 class OpResume extends Operation {
-    getParamSchema() { return {}; }
+    //getParamSchema() { return {}; }
     run() {
         this.tightcnc.controller?.resume();
     }
 }
 class OpCancel extends Operation {
-    getParamSchema() { return {}; }
+    //getParamSchema() { return {}; }
     run() {
         this.tightcnc.controller?.cancel();
         this.tightcnc.cancelInput();
     }
 }
 class OpReset extends Operation {
-    getParamSchema() { return {}; }
+    //getParamSchema() { return {}; }
     run() {
         this.tightcnc.controller?.reset();
     }
 }
 class OpClearError extends Operation {
-    getParamSchema() { return {}; }
+    //getParamSchema() { return {}; }
     run() {
         this.tightcnc.controller?.clearError();
     }
 }
 class OpRealTimeMove extends Operation {
+    /*
     getParamSchema() {
         return {
             axis: {
@@ -101,12 +106,14 @@ class OpRealTimeMove extends Operation {
             }
         };
     }
+    */
     run(params:{axis:number, inc:number}) {
         this.checkReady();
         this.tightcnc.controller?.realTimeMove(params.axis, params.inc);
     }
 }
 class OpMove extends Operation {
+    /*
     getParamSchema() {
         return {
             pos: {
@@ -121,12 +128,14 @@ class OpMove extends Operation {
             }
         };
     }
+    */
     async run(params:{pos:number[],feed?:number}) {
         this.checkReady();
         await this.tightcnc.controller?.move(params.pos, params.feed);
     }
 }
 class OpHome extends Operation {
+    /*
     getParamSchema() {
         return {
             axes: {
@@ -136,6 +145,7 @@ class OpHome extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         this.checkReady();
@@ -143,6 +153,7 @@ class OpHome extends Operation {
     }
 }
 class OpSetAbsolutePos extends Operation {
+    /*
     getParamSchema() {
         return {
             pos: {
@@ -158,6 +169,7 @@ class OpSetAbsolutePos extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let pos = params.pos;
@@ -191,6 +203,7 @@ class OpSetAbsolutePos extends Operation {
     }
 }
 class OpProbe extends Operation {
+    /*
     getParamSchema() {
         return {
             pos: {
@@ -205,12 +218,14 @@ class OpProbe extends Operation {
             }
         };
     }
+    */
     async run(params:{pos:number[],feed?:number}) {
         this.checkReady();
         return await this.tightcnc.controller?.probe(params.pos, params.feed);
     }
 }
 class OpSetOrigin extends Operation {
+    /*
     getParamSchema() {
         return {
             coordSys: {
@@ -230,6 +245,7 @@ class OpSetOrigin extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let pos = params.pos;
@@ -262,15 +278,19 @@ class OpSetOrigin extends Operation {
         await this.tightcnc.controller?.waitSync();
     }
 }
+
 class OpWaitSync extends Operation {
+    /*
     override getParamSchema() {
         return {};
     }
+    */
     override async run() {
         await this.tightcnc.controller?.waitSync();
     }
 }
 class OpGetLog extends Operation {
+    /*
     override getParamSchema() {
         return {
             logType: {
@@ -294,6 +314,7 @@ class OpGetLog extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     override async run(params) {
         let logger;
@@ -310,6 +331,7 @@ class OpGetLog extends Operation {
     }
 }
 class OpProvideInput extends Operation {
+    /*
     override getParamSchema() {
         return {
             inputId: {
@@ -324,6 +346,7 @@ class OpProvideInput extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     run(params) {
         if (this.tightcnc.waitingForInput && this.tightcnc.waitingForInput.id === params.inputId) {
@@ -335,6 +358,7 @@ class OpProvideInput extends Operation {
     }
 }
 class OpCancelInput extends Operation {
+    /*
     override getParamSchema() {
         return {
             inputId: {
@@ -344,6 +368,7 @@ class OpCancelInput extends Operation {
             }
         };
     }
+    */
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     run(params) {
         if (this.tightcnc.waitingForInput && this.tightcnc.waitingForInput.id === params.inputId) {

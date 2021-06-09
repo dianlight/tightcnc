@@ -9,6 +9,8 @@ export interface ClientConfig {
 }
 export default class TightCNCClient {
 
+    idseq = Date.now()
+
     constructor(private config: ClientConfig) { }
 
     async op<T>(opname: string, params: {
@@ -16,6 +18,8 @@ export default class TightCNCClient {
     } = {}):Promise<T> {
         let url = this.config.host + ':' + (this.config.port || this.config.serverPort || 2363) + '/v1/jsonrpc';
         let requestData = {
+            id: this.idseq++,
+            jsonrpc: "2.0",
             method: opname,
             params: params
         };
@@ -25,7 +29,7 @@ export default class TightCNCClient {
                 'Content-type': 'application/json'
             }
         });
-        if (response.data.error !== null) {
+        if (response.data.error) {
             throw XError.fromObject(response.data.error);
         }
         return response.data.result;

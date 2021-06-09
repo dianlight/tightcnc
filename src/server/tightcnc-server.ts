@@ -4,8 +4,7 @@ import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
 import mkdirp from 'mkdirp';
-import GcodeProcessor,{ buildProcessorChain } from '../../lib/gcode-processor';
-//import GcodeLine from '../../lib/gcode-line';
+import { buildProcessorChain } from '../../lib/gcode-processor';
 import zstreams from 'zstreams';
 import EventEmitter from 'events';
 import path from 'path';
@@ -21,7 +20,6 @@ import macrooperation from './macro-operations'
 import basicoperation from './basic-operations'
 import systemoperation from './system-operations'
 import Controller, { ControllerStatus } from './controller';
-//import GcodeLine from '../../lib/gcode-line';
 import JobState from './job-state';
 import GcodeLine from '../../lib/gcode-line';
 import { exit } from 'process';
