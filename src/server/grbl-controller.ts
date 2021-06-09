@@ -91,7 +91,7 @@ export default class GRBLController extends Controller {
     _ignoreUnlockPromptMessage?: boolean
     _waitingToRetry?: boolean
     _welcomeMessageWaiter?: any
-    _statusUpdateLoops: number[] /* NodeJS.Timeout[]*/ = []
+    _statusUpdateLoops?: number[] /* NodeJS.Timeout[]*/ 
     serialReceiveBuf?:string
     _retryConnectFlag?:boolean
 
@@ -1203,8 +1203,7 @@ export default class GRBLController extends Controller {
         if (this._statusUpdateLoops)
             return;
         this._statusUpdateLoops = [];
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'interval' implicitly has an 'any' type.
-        const startUpdateLoop = (interval, fn) => {
+        const startUpdateLoop = (interval:number, fn: ()=>Promise<void> ) => {
             let fnIsRunning = false;
             let ival = setInterval(() => {
                 if (!this.serial)
@@ -1213,12 +1212,10 @@ export default class GRBLController extends Controller {
                     return;
                 fnIsRunning = true;
                 fn()
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .then(() => { fnIsRunning = false; }, (err) => { fnIsRunning = false; throw err; })
-                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
                     .catch((err) => this.emit('error', err));
             }, interval);
-            this._statusUpdateLoops.push(ival as unknown as number);
+            this._statusUpdateLoops?.push(ival as unknown as number);
         };
         startUpdateLoop((this.config as GrblControllerConfig).statusUpdateInterval || 250, async () => {
             if (this.serial)
