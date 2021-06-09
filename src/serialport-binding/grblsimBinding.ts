@@ -37,8 +37,9 @@ export default class GrblsimBinding extends AbstractBinding {
                 shell: false,
                 stdio: ['pipe','pipe','pipe']
             })
+            console.log('grblsim pid',this.process.pid)
             this.process.on('error', (err) => {
-                console.error(err)
+                console.error('Z:',err)
                 reject(err)
             })
             this.process.stdout.on("data", (data) => {
@@ -48,10 +49,16 @@ export default class GrblsimBinding extends AbstractBinding {
             this.process.stderr.on("data", (data) => {
                 console.error("<grbl console> ",JSON.stringify(data.toString()))
             })
-            this.process.on('exit', (code) => {
-                console.error("Grbl_sim exit code ", code)
+            this.process.on('exit', (code,signal) => {
+                console.error("Grbl_sim exit code: ", code,signal)
                 this.isOpen = false
+                this.process = undefined
+                this.open(path,options)
             })
+            process.on('beforeExit', (code) => {
+                console.error(`TightCNC server shutdown.. ${code}`)
+                this.closeSync()
+            } )
             this.isOpen = true
             resolve()
         })
@@ -61,21 +68,26 @@ export default class GrblsimBinding extends AbstractBinding {
      * Closes an open port
      */
     override async close(): Promise<void> {
+        console.log("Closign GRBLSym")
         return new Promise<void>((resolve, reject) => {
             if (!this.process) return reject(new Error('no process to close!'))
             return super.close().then(() => {
-                this.process?.stdin.write(0x06) // ^F
-                if (this.process?.connected) {
-                    console.error("Process Alive. Kill it!")
-                    this.process?.kill('SIGKILL')
-                }
-                this.process = undefined;
-                this.isOpen = false;
+                this.closeSync()
                 resolve()
             });
         })
     }
 
+    private closeSync():void {
+        this.process?.stdin.write("\x06") // ^F
+        if (this.process?.connected) {
+            console.error("Process Alive. Kill it!")
+            this.process?.kill('SIGKILL')
+        }
+        console.log("Process closed?", !this.process?.connected);
+        this.process = undefined;
+        this.isOpen = false;
+    }
     /**
      * Request a number of bytes from the SerialPort. This function is similar to Node's
      * [`fs.read`](http://nodejs.org/api/fs.html#fs_fs_read_fd_buffer_offset_length_position_callback)

@@ -128,6 +128,17 @@ export default class GRBLController extends Controller {
         this.axisMaxFeeds = (config as any).axisMaxFeeds || [500, 500, 500];
         // Mapping from a grbl settings index (numeric) to its value
     }
+
+    override async disconnect(): Promise<void> {
+        return new Promise(resolve => {
+            this.serial?.removeAllListeners("close")
+            this.serial?.close(() => {
+                console.log("Serial Closed gracefull2")
+                resolve()
+            })                
+        })
+    }
+
     _getCurrentMachineTime() {
         let ctime = new Date().getTime();
         let mtime = ctime - this.machineTimeBaseline;

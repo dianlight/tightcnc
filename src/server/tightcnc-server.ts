@@ -24,6 +24,7 @@ import Controller, { ControllerStatus } from './controller';
 //import GcodeLine from '../../lib/gcode-line';
 import JobState from './job-state';
 import GcodeLine from '../../lib/gcode-line';
+import { exit } from 'process';
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -293,7 +294,35 @@ export default class TightCNCServer extends EventEmitter {
         for (let opname in this.operations) {
             await this.operations[opname].init();
         }
+        // Setup Exit Hooks
+    
+        process.on('SIGINT',  (code) => {
+            console.debug('SIGINT received...');
+            this.controller?.disconnect().then( ()=> process.exit(0))
+          });
+        
+        process.on('SIGTERM', (code) => {
+            console.debug('SIGTERM received...');
+            this.controller?.disconnect().then( ()=> process.exit(0))
+        });
+        
     }
+
+    /**
+     * Graceful shutwown server
+     */
+    async shutdown(): Promise<void>{
+        return new Promise((resolve) => {
+            if (this.controller) {
+                this.controller.disconnect().then( ()=> exit(0))
+                
+            } else {
+                exit(0)
+            }
+        })
+    }
+
+
     message(msg:string) {
         this.messageLog?.log(msg);
         this.loggerMem?.log('other', 'Message: ' + msg);

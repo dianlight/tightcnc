@@ -19,11 +19,13 @@ Planned task upgrade:
     - [ ] Manage connection errors
   - [ ] Support for websocket comunication - serilaport-binding
   - [x] Support grbl-sim in process comunication - serilaport-binding  - *For MacOs use my branch [dianlight/grblsim](https://github.com/dianlight/grbl-sim)*
-- [x] ~~Support start without config~~ (Removed controlles from default conf!)
+  - [ ] User Port as url to manage transparent binging. ( serial: socket: grblsim: )
+- [x] ~~Support start without config~~ (Removed controllers from default conf!)
 - [ ] Support for new API
   - [ ] Reload Config
   - [ ] Is Alive
-  - [ ] Get available serials ports
+  - [x] Get available serials ports
+    - [ ] Based on controller to use custom bundings.
 - [ ] Sender as Worker
   - [x] ~~support Virtual comunication API Adapter ( comunication as plugin )~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi

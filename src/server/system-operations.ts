@@ -13,6 +13,14 @@ class OpGetAvailableSerials extends Operation {
     getParamSchema() { return {} }
 }
 
+class OpShutdown extends Operation {
+    async run(): Promise<void> {
+        this.tightcnc!.shutdown()
+    }
+
+    getParamSchema() { return {} }
+}
+
 export default function registerOperations(tightcnc: TightCNCServer) {
     tightcnc.registerOperation('getAvailableSerials', OpGetAvailableSerials);
 }

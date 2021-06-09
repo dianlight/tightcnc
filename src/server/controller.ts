@@ -89,6 +89,14 @@ export default abstract class Controller extends EventEmitter {
         // See resetState() for property definitions.
         this.resetState();
     }
+
+    /**
+     *  Perform the disconnection from the controlle 
+     */
+    async disconnect(): Promise<void> {
+    }
+
+
     /**
      * Gets current offsets from machine coordinate system.
      *
