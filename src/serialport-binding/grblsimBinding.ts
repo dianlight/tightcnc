@@ -43,7 +43,7 @@ export default class GrblsimBinding extends AbstractBinding {
                 reject(err)
             })
             this.process.stdout.on("data", (data) => {
-                console.log("<",JSON.stringify(data.toString()))
+            //    console.log("<",JSON.stringify(data.toString()))
                 this._buffer.push(data)
             })
             this.process.stderr.on("data", (data) => {
@@ -140,7 +140,7 @@ export default class GrblsimBinding extends AbstractBinding {
      * @returns {Promise} Resolves after the data is passed to the operating system for writing.
      */
     override async write(buffer: Buffer): Promise<void> {
-        console.log(">", JSON.stringify(buffer.toString()))
+       // console.log(">", JSON.stringify(buffer.toString()))
         return new Promise((resolve, reject) => {
             if (!this.process) return reject(new Error("GRBL_sim process is closed!"))
             this.process.stdin.write(buffer, (error) => {
