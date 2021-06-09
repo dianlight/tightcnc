@@ -238,18 +238,22 @@ export default class GRBLController extends Controller {
             else {
                 // Split into key and value, then split value on comma if present, parsing numbers
                 let matches = this._regexSrSplit.exec(part);
-                let key = matches?matches[1]:undefined;
-                let val:any = matches![2].split(',').map((s) => {
-                    if (s !== '' && !isNaN(parseFloat(s))) {
-                        return parseFloat(s);
-                    }
-                    else {
-                        return s;
-                    }
-                });
-                if (val.length === 1)
-                    val = val[0];
-                if(key)statusReport[key] = val;
+                if (!matches || matches.length < 2) {
+                    console.error("Error in status parsing:",part)
+                } else {
+                    let key = matches ? matches[1] : undefined;
+                    let val: any = matches![2].split(',').map((s) => {
+                        if (s !== '' && !isNaN(parseFloat(s))) {
+                            return parseFloat(s);
+                        }
+                        else {
+                            return s;
+                        }
+                    });
+                    if (val.length === 1)
+                        val = val[0];
+                    if (key) statusReport[key] = val;
+                }
             }
         }
         // Parsed mapping is now in statusReport
@@ -658,7 +662,7 @@ export default class GRBLController extends Controller {
 
     _handleReceiveSerialDataLine(line: string) {
         let matches;
-        //this.debug('receive line ' + line);
+        this.debug('receive line ' + line);
         this.emit('received', line);
         // Check for ok
         if (this._regexOk.test(line)) {

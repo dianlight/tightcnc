@@ -6,6 +6,7 @@ import TightCNCServer from './tightcnc-server';
 //import XError  from 'xerror';
 import { createJSONRPCErrorResponse, JSONRPC, JSONRPCID, JSONRPCMethod, JSONRPCRequest, JSONRPCResponse, JSONRPCResponsePromise, JSONRPCServer } from 'json-rpc-2.0';
 import Operation from './operation';
+import cors from 'cors'
 
 const config = littleconf.getConfig()
 
@@ -13,9 +14,10 @@ const config = littleconf.getConfig()
 async function startServer() {
 
 	// const router = new APIRouter();
-	const server = new JSONRPCServer();
+	const server = new JSONRPCServer()
 	const app = express();
-	app.use(express.json({}));
+	app.use(express.json({}))
+	app.use(cors())
 	/*
 	app.use(router.getExpressRouter());
 	router.version(1).addInterface(new JSONRPCInterface({
@@ -28,7 +30,7 @@ async function startServer() {
 	await tightcnc.initServer();
 
 	app.post("/v1/jsonrpc", (req, res) => {
-		console.debug("Request!",req)
+		//console.debug("Request!",req)
 		const jsonRPCRequest = req.body;
 		let authHeader = req.header('Authorization');
 		if (!authHeader) {

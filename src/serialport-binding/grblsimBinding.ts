@@ -53,7 +53,7 @@ export default class GrblsimBinding extends AbstractBinding {
                 console.error("Grbl_sim exit code: ", code,signal)
                 this.isOpen = false
                 this.process = undefined
-                this.open(path,options)
+                if(!signal)this.open(path,options)
             })
             process.on('beforeExit', (code) => {
                 console.error(`TightCNC server shutdown.. ${code}`)
