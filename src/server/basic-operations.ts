@@ -49,7 +49,7 @@ class OpSend extends Operation {
         };
     }
     */
-    async run(params:{line: string|GcodeLine, wait:boolean}) {
+    async run(params:{line: string, wait?:boolean}) {
         if (params.wait) {
             this.tightcnc.controller?.send(params.line);
             await this.tightcnc.controller?.waitSync();
@@ -146,8 +146,7 @@ class OpHome extends Operation {
         };
     }
     */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params:{axes:boolean[]}) {
         this.checkReady();
         await this.tightcnc.controller?.home(params.axes);
     }

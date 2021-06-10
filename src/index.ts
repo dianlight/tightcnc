@@ -2,7 +2,7 @@
 //export { default as Controller } from './server/controller'
 //export { default as Operation } from './server/operation'
 export { default as TightCNCServer,TightCNCControllers,TightCNCTinyGConfig,TightCNCGrblConfig,TightCNCConfig, StatusObject } from './server/tightcnc-server'
-export { ControllerStatus } from './server/controller';
+export { ControllerStatus, ControllerCapabilities } from './server/controller';
 export { PortInfo } from 'serialport'
 export { default as XError } from 'xerror';
 //export { default as TinyGController } from './server/tinyg-controller'

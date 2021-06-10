@@ -12,6 +12,26 @@ export interface ControllerConfig {
     realTimeMovesMaxOvershootFactor?:number
 
 }
+
+export interface ControllerCapabilities {
+        variableSpindle:boolean // 'V': 'variableSpindle',
+   //     'N': 'lineNumbers',
+        mistCoolant: boolean, //'M': 'mistCoolant',
+        floodCoolant: boolean,
+        coreXY: boolean, // 'C': 'coreXY',
+    //    'P': 'parking',
+    //    'Z': 'homingForceOrigin',
+        homingSingleAxis:boolean, //'H': 'homingSingleAxis', $HX $HY $HZ
+    //    'T': 'twoLimitSwitch',
+    //    'A': 'allowProbeFeedOverride',
+    //    '*': 'disableRestoreAllEEPROM',
+    //    '$': 'disableRestoreSettings',
+    //    '#': 'disableRestoreParams',
+    //    'I': 'disableBuildInfoStr',
+    //    'E': 'disableSyncOnEEPROMWrite',
+    //    'W': 'disableSyncOnWCOChange',
+        startUpHomeLock: boolean // 'L': 'powerUpLockWithoutHoming'
+}
 export interface ControllerStatus {
     spindleDirection: number;
     ready: boolean,
@@ -35,7 +55,8 @@ export interface ControllerStatus {
     line: number,
     error: boolean,
     errorData?: XError,
-    programRunning: boolean
+    programRunning: boolean,
+    capabilities: ControllerCapabilities
 }
 
 export default abstract class Controller extends EventEmitter {
@@ -364,10 +385,21 @@ export default abstract class Controller extends EventEmitter {
             moving: c.moving,
             coolant: c.coolant,
             spindle: c.spindle,
+            spindleDirection: c.spindleDirection,
+            spindleSpeed: c.spindleSpeed,
             line: c.line,
             error: c.error,
             errorData: c.errorData,
-            programRunning: c.programRunning
+            programRunning: c.programRunning,
+            capabilities: {
+                variableSpindle:false, // 'V': 'variableSpindle',
+                mistCoolant: false, //'M': 'mistCoolant',
+                floodCoolant: false,
+                coreXY: false, // 'C': 'coreXY',
+                homingSingleAxis:false, //'H': 'homingSingleAxis', $HX $HY $HZ
+                startUpHomeLock: false // 'L': 'powerUpLockWithoutHoming'
+            }
+        
         } as ControllerStatus;
     }
     listUsedAxisNumbers() {

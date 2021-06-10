@@ -4,6 +4,8 @@ This fork scope is to upgrate TightCNC to better use in my GCODEGO project.
 Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [x] Generate dist with types
+ - [ ] Correct macro loading
+ - [ ] Remove XError
  - [ ] Code cleanup
   - [ ] Remove yaar and use a Typescript system.
   - [ ] Plugin indipendent UI interfaces
@@ -17,16 +19,19 @@ Planned task upgrade:
   - [x] Expose clientlib d.ts
 - [x] Upgrade to serialport 9.x 
   - [x] Support for raw socket communication - serialport-binding
-    - [ ] Manage connection errors
+    - [x] Manage connection errors
   - [ ] Support for websocket comunication - serilaport-binding
   - [x] Support grbl-sim in process comunication - serilaport-binding  - *For MacOs use my branch [dianlight/grblsim](https://github.com/dianlight/grbl-sim)*
   - [ ] User Port as url to manage transparent binging. ( serial: socket: grblsim: )
 - [x] ~~Support start without config~~ (Removed controllers from default conf!)
 - [ ] Support for new API
-  - [ ] Reload Config
-  - [ ] Is Alive
+  - [x] ~~Reload Config~~ Use restart
+  - [x] ~~Is Alive~~ **Not needed!**
   - [x] Get available serials ports
     - [ ] Based on controller to use custom bundings.
+  - [x] Controller Capability
+    - [x] Home single axes 
+    - [ ] Laser / Spindle mode
 - [ ] Sender as Worker
   - [x] ~~support Virtual comunication API Adapter ( comunication as plugin )~~ Serialport binding
     - [ ] Web-Serial/Web-USB API - serialport-binding-webserialapi

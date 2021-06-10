@@ -22,6 +22,30 @@ export interface GrblControllerStatus extends ControllerStatus {
     }
 }
 
+interface GRBLOptions {
+    [key:string]:boolean|number
+
+    'variableSpindle': boolean,
+    'lineNumbers':boolean,
+    'mistCoolant':boolean,
+    'coreXY':boolean,
+    'parking':boolean,
+    'homingForceOrigin':boolean,
+    'homingSingleAxis':boolean,
+    'twoLimitSwitch':boolean,
+    'allowProbeFeedOverride':boolean,
+    'disableRestoreAllEEPROM':boolean,
+    'disableRestoreSettings':boolean,
+    'disableRestoreParams':boolean,
+    'disableBuildInfoStr':boolean,
+    'disableSyncOnEEPROMWrite':boolean,
+    'disableSyncOnWCOChange':boolean,
+    'powerUpLockWithoutHoming': boolean
+    blockBufferSize:number;
+    rxBufferSize: number;
+
+}
+
 export default class GRBLController extends Controller {
     serial?:SerialPort;
     _initializing = false;
@@ -74,9 +98,7 @@ export default class GRBLController extends Controller {
     toolLengthOffset = 0;
     grblDeviceVersion?:string; // main device version, from welcome message
     grblVersionDetails = null; // version details, from VER feedback message
-    grblBuildOptions: {
-        [key: string]: any
-    } = {}; // build option flags and values, from OPT feedback message
+    grblBuildOptions:Partial<GRBLOptions> = {}; // build option flags and values, from OPT feedback message
     _lastRecvSrOrAck?:string; // used as part of sync detection
     // used for jogging
     realTimeMovesTimeStart = [0, 0, 0, 0, 0, 0];
@@ -945,17 +967,17 @@ export default class GRBLController extends Controller {
             for (let c of optChars) {
                 this.grblBuildOptions[c] = true;
                 if (c in optCharMap) {
-                    this.grblBuildOptions[optCharMap[c]] = true;
+                    this.grblBuildOptions[optCharMap[c] as keyof GRBLOptions] = true;
                 }
             }
             for (let c in optCharMap) {
                 if (!this.grblBuildOptions[c]) {
                     this.grblBuildOptions[c] = false;
-                    this.grblBuildOptions[optCharMap[c]] = false;
+                    this.grblBuildOptions[optCharMap[c] as keyof GRBLOptions ] = false;
                 }
             }
-            this.grblBuildOptions.blockBufferSize = value[1];
-            this.grblBuildOptions.rxBufferSize = value[2];
+            this.grblBuildOptions.blockBufferSize = value[1] as number;
+            this.grblBuildOptions.rxBufferSize = value[2] as number;
         }
         this._handleStatusUpdate(statusObj);
         // Update parameters mapping
@@ -1983,12 +2005,24 @@ export default class GRBLController extends Controller {
             this.send('$X');
         }
     }
-    async home() {
+    
+    override async home(axes?: boolean[]): Promise<void> {
         if (!this.homableAxes || !this.homableAxes.some((v) => v)) {
             throw new XError(XError.INVALID_ARGUMENT, 'No axes configured to be homed');
         }
-        await this.request('$H');
+        if (this.grblBuildOptions.homingSingleAxis && axes) {
+            for (let index = this.axisLabels.length-1; index >= 0 ; index--) {
+                if (axes[index]) {
+                    console.debug(`$H${this.axisLabels[index]}`)
+                    await this.request(`$H${this.axisLabels[index]}`)
+                }
+            }
+        } else {
+            console.debug("Home All");
+            await this.request('$H');
+        }
     }
+
     override async move(pos:number[], feed?:number) {
         let gcode = feed ? 'G1' : 'G0';
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
@@ -2079,8 +2113,16 @@ export default class GRBLController extends Controller {
         this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
         return tripPos;
     }
+
     override getStatus():GrblControllerStatus {
         let o = super.getStatus();
+        o.capabilities.variableSpindle = this.grblBuildOptions.variableSpindle!;
+        o.capabilities.mistCoolant = this.grblBuildOptions.mistCoolant!; //'M': 'mistCoolant',
+        o.capabilities.floodCoolant = true;
+        o.capabilities.coreXY = this.grblBuildOptions.coreXY!; // 'C': 'coreXY',
+        o.capabilities.homingSingleAxis = this.grblBuildOptions.homingSingleAxis!; //'H': 'homingSingleAxis', $HX $HY $HZ
+        o.capabilities.startUpHomeLock = this.grblBuildOptions.powerUpLockWithoutHoming!; // 'L': 'powerUpLockWithoutHoming'
+
         (o as GrblControllerStatus).comms = {
             sendQueueLength: this.sendQueue.length,
             sendQueueIdxToSend: this.sendQueueIdxToSend,
