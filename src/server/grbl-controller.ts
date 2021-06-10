@@ -2002,11 +2002,13 @@ export default class GRBLController extends Controller {
     _numInFlightRequests() {
         return this.sendQueue.length - this.sendQueueIdxToReceive;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'axisNum' implicitly has an 'any' type.
-    realTimeMove(axisNum, inc) {
+
+    override realTimeMove(axisNum:number, inc:number) {
         // Make sure there aren't too many requests in the queue
-        if (this._numInFlightRequests() > ((this.config as GrblControllerConfig).realTimeMovesMaxQueued || 8))
-            return false;
+        if (this._numInFlightRequests() > ((this.config as GrblControllerConfig).realTimeMovesMaxQueued || 4)) {
+            console.debug("Skip Realtime Request ",this._numInFlightRequests())
+            return false;            
+        }
         // Rate-limit real time move requests according to feed rate
         let rtmTargetFeed = (this.axisMaxFeeds[axisNum] || 500) * 0.98; // target about 98% of max feed rate
         let counterDecrement = (new Date().getTime() - this.realTimeMovesTimeStart[axisNum]) / 1000 * rtmTargetFeed / 60;

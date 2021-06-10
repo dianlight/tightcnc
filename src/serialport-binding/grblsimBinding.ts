@@ -33,7 +33,7 @@ export default class GrblsimBinding extends AbstractBinding {
             const url = new URL(path)
             //console.log(url,url.href.substr(8))
             if (url.protocol !== 'grblsim:') return reject(new Error("Only grblsim://<path to grbl_sim.exe > path are supported"))
-            this.process = spawn(url.href.substr(8), ['10','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
+            this.process = spawn(url.href.substr(8), ['-t','10','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
                 shell: false,
                 stdio: ['pipe','pipe','pipe']
             })
@@ -47,10 +47,10 @@ export default class GrblsimBinding extends AbstractBinding {
                 this._buffer.push(data)
             })
             this.process.stderr.on("data", (data) => {
-                console.error("<grbl console> ",JSON.stringify(data.toString()))
+                console.error("<grbl>",JSON.stringify(data.toString()))
             })
             this.process.on('exit', (code,signal) => {
-                console.error("Grbl_sim exit code: ", code,signal)
+                console.error("<grbl>Exit:", code,'Signal:',signal)
                 this.isOpen = false
                 this.process = undefined
                 if(!signal)this.open(path,options)
@@ -79,12 +79,9 @@ export default class GrblsimBinding extends AbstractBinding {
     }
 
     private closeSync():void {
-        this.process?.stdin.write("\x06") // ^F
-        if (this.process?.connected) {
-            console.error("Process Alive. Kill it!")
-            this.process?.kill('SIGKILL')
-        }
-        console.log("Process closed?", !this.process?.connected);
+        console.error("Process Alive. Kill it!")
+        this.process?.kill('SIGINT')
+        console.error("Process closed?", !this.process?.connected);
         this.process = undefined;
         this.isOpen = false;
     }
