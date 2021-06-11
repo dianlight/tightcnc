@@ -18,7 +18,7 @@ export interface GrblControllerStatus extends ControllerStatus {
     comms:{
         sendQueueLength: number,
         sendQueueIdxToSend: number,
-        sendQueueIdxToReceive: number
+        sendQueueIdxToReceive: number,
     }
 }
 
@@ -107,8 +107,6 @@ export default class GRBLController extends Controller {
     tightcnc?: TightCNCServer;
     _wpos?: any
     grblReportInches?: any
-    spindleSpeedMax ?:number;
-    spindleSpeedMin?: number;
     _ignoreUnlockedMessage?: boolean
     _ignoreUnlockPromptMessage?: boolean
     _waitingToRetry?: boolean
@@ -2126,7 +2124,7 @@ export default class GRBLController extends Controller {
         (o as GrblControllerStatus).comms = {
             sendQueueLength: this.sendQueue.length,
             sendQueueIdxToSend: this.sendQueueIdxToSend,
-            sendQueueIdxToReceive: this.sendQueueIdxToReceive
+            sendQueueIdxToReceive: this.sendQueueIdxToReceive,
         };
         return o as GrblControllerStatus;
     }

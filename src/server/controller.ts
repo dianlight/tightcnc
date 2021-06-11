@@ -33,7 +33,6 @@ export interface ControllerCapabilities {
         startUpHomeLock: boolean // 'L': 'powerUpLockWithoutHoming'
 }
 export interface ControllerStatus {
-    spindleDirection: number;
     ready: boolean,
     axisLabels: string[],
     usedAxes: boolean[],
@@ -52,11 +51,15 @@ export interface ControllerStatus {
     moving: boolean,
     coolant: number,
     spindle: boolean,
+    spindleDirection: number;
+    spindleSpeed: number;
     line: number,
     error: boolean,
     errorData?: XError,
     programRunning: boolean,
     capabilities: ControllerCapabilities
+    spindleSpeedMax?: number,
+    spindleSpeedMin?: number
 }
 
 export default abstract class Controller extends EventEmitter {
@@ -86,9 +89,9 @@ export default abstract class Controller extends EventEmitter {
     spindleDirection = 1;
     spindleSpeed = null;
     inverseFeed = false;
+    spindleSpeedMax?: number
+    spindleSpeedMin?: number
 
-
-    
     /**
      * Base class for CNC controllers.  Each subclass corresponds to a type of CNC controller and manages the connection
      * to that controller.
@@ -215,6 +218,9 @@ export default abstract class Controller extends EventEmitter {
         this.spindleSpeed = null;
         // True for inverse feedrate mode
         this.inverseFeed = false;
+        // Spindle
+        this.spindleSpeedMax = undefined
+        this.spindleSpeedMin = undefined
     }
     /**
      * Initialize and connect to CNC machine.  Should update machine state properties as much as is possible.
@@ -386,7 +392,9 @@ export default abstract class Controller extends EventEmitter {
             coolant: c.coolant,
             spindle: c.spindle,
             spindleDirection: c.spindleDirection,
-            spindleSpeed: c.spindleSpeed,
+            spindleSpeed: c.spindleSpeed || 0,
+            spindleSpeedMax: c.spindleSpeedMax,
+            spindleSpeedMin: c.spindleSpeedMin,            
             line: c.line,
             error: c.error,
             errorData: c.errorData,
