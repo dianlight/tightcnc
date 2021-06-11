@@ -89,7 +89,6 @@ export default class GRBLController extends Controller {
         [key:string]:any
         machineState?:any
     } = {};
-    axisMaxFeeds = [500, 500, 500];
     // Mapping from a parameter key to its value (keys include things like G54, PRB, as well as VER, OPT - values are parsed)
     receivedDeviceParameters: {
         [key:string]: any
@@ -516,6 +515,15 @@ export default class GRBLController extends Controller {
         }
         if (setting === 122) {
             this.timeEstVM.options.acceleration[2] = +value * 3600;
+        }
+        if (setting === 130) {
+            this.axisMaxTravel[0] = value as number;
+        }
+        if (setting === 131) {
+            this.axisMaxTravel[1] = value as number;
+        }
+        if (setting === 132) {
+            this.axisMaxTravel[2] = value as number;
         }
         // fire event
         if (value !== oldVal) {

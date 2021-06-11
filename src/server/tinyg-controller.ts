@@ -66,7 +66,6 @@ export default class TinyGController extends Controller {
     lineIdCounter = 1;
     resetOnConnect = false;
     synced?:boolean = true;
-    axisMaxFeeds = [500, 500, 500, 500, 500, 500]; // initial values, set later during initialization
     _waitingForSync = false;
     _disableSending = false; // flag to disable sending data using normal channels (_sendImmediate still works)
     _disableResponseErrorEvent = false; // flag to disable error events in cases where errors are expected
@@ -113,6 +112,8 @@ export default class TinyGController extends Controller {
         this.homableAxes = (this.config as any).homableAxes || [true, true, true];
         this.usedAxes = (this.config as any).usedAxes || [true, true, true, false, false, false];
         this.axisLabels = ['x', 'y', 'z', 'a', 'b', 'c'];
+        this.axisMaxFeeds = [500, 500, 500, 500, 500, 500]; // initial values, set later during initialization
+
 
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'str' implicitly has an 'any' type.

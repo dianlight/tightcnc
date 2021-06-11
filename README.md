@@ -5,7 +5,7 @@ Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [x] Generate dist with types
  - [ ] Correct macro loading
- - [ ] Remove XError
+ - [x] Remove XError
  - [ ] Code cleanup
   - [ ] Remove yaar and use a Typescript system.
   - [ ] Plugin indipendent UI interfaces

@@ -38,6 +38,8 @@ export interface ControllerStatus {
     ready: boolean,
     axisLabels: string[],
     usedAxes: boolean[],
+    axisMaxFeeds: number[]
+    axisMaxTravel: number[]
     mpos: number[],
     pos: number[],
     mposOffset: number[],
@@ -70,6 +72,8 @@ export default abstract class Controller extends EventEmitter {
     ready = false;
     usedAxes = [true, true, true];
     homableAxes = [true, true, true];
+    axisMaxFeeds = [500, 500, 500];
+    axisMaxTravel:number[] = []
     mpos = [0, 0, 0];
     activeCoordSys?:number = 0;
     coordSysOffsets = [[0, 0, 0]];
@@ -378,6 +382,8 @@ export default abstract class Controller extends EventEmitter {
             ready: c.ready,
             axisLabels: c.axisLabels,
             usedAxes: c.usedAxes,
+            axisMaxFeeds: c.axisMaxFeeds,
+            axisMaxTravel: c.axisMaxTravel,
             mpos: c.mpos,
             pos: c.getPos(),
             mposOffset: c.getCoordOffsets(),
