@@ -1,4 +1,4 @@
-declare module 'xerror' {
+declare module '_xerror' {
     interface RegisterOption {
         [key: string]: unknown,
         // default error message to use with this error code

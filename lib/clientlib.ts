@@ -1,4 +1,3 @@
-import XError from 'xerror';
 import axios from 'axios'
 
 export interface ClientConfig {
@@ -30,7 +29,7 @@ export default class TightCNCClient {
             }
         });
         if (response.data.error) {
-            throw XError.fromObject(response.data.error);
+            throw new Error(JSON.stringify(response.data.error));
         }
         return response.data.result;
     }

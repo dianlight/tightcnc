@@ -1,4 +1,3 @@
-import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
 import { ConsoleUI } from './consoleui';
 import ModeControl from './mode-control';

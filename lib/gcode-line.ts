@@ -1,6 +1,7 @@
-import XError from 'xerror';
+//import XError from 'xerror';
 import objtools from 'objtools';
 import CrispHooks from 'crisphooks';
+import { errLibRegistry } from './errLibRegistry'
 
 /**
  * This class is a parser, modification interface, and generator for gcode.
@@ -8,7 +9,7 @@ import CrispHooks from 'crisphooks';
  * @class GcodeLine
  */
 
-XError.registerErrorCode('gcode_parse_error', { message: 'Error parsing gcode' });
+//XError.registerErrorCode('gcode_parse_error', { message: 'Error parsing gcode' });
 
 const modalGroupsG = [
 	[],
@@ -92,7 +93,7 @@ export class GcodeLine extends CrispHooks {
 			this.origLine = arg.origLine;
 			this.modified = arg.modified;
 		} else {
-			throw new XError(XError.INVALID_ARGUMENT, 'Invalid call to GcodeLine constructor');
+			throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Invalid call to GcodeLine constructor');
 		}
 	}
 
@@ -121,10 +122,10 @@ export class GcodeLine extends CrispHooks {
 			} else if (letter === 'M') {
 				mgroup = modalGroupsMByCode[mgroup];
 			} else {
-				throw new XError(XError.INVALID_ARGUMENT, 'Can only use modal group parameter with G or M codes');
+				throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Can only use modal group parameter with G or M codes');
 			}
 			if (!mgroup) {
-				throw new XError(XError.INVALID_ARGUMENT, 'Could not find modal group for code ' + omgroup);
+				throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Could not find modal group for code ' + omgroup);
 			}
 		}
 		let mgroupMap;
@@ -145,7 +146,7 @@ export class GcodeLine extends CrispHooks {
 				if (multi) {
 					matches?.push(word[1] as number);
 				} else {
-					if (matches) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line: ' + this.toString());
+					if (matches) throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Multiple words with the same letter on gcode line: ' + this.toString());
 					matches = word[1] as unknown as number[];
 				}
 			}
@@ -182,7 +183,7 @@ export class GcodeLine extends CrispHooks {
 		let wordIdx:number|undefined = undefined;
 		for (let i = 0; i < this.words!.length; i++) {
 			if (this.words![i][0] === letter) {
-				if (wordIdx) throw new XError(XError.INVALID_ARGUMENT, 'Multiple words with the same letter on gcode line');
+				if (wordIdx) errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Multiple words with the same letter on gcode line');
 				wordIdx = i;
 			}
 		}
@@ -338,7 +339,7 @@ export class GcodeLine extends CrispHooks {
 				this.words.push([ matches[1].toUpperCase(), (matches[2].indexOf('.') === -1) ? parseInt(matches[2], 10) : parseFloat(matches[2]) ]);
 				lastIndex = wordRegex.lastIndex;
 			} else {
-				throw new XError(XError.GCODE_PARSE_ERROR, 'Error parsing gcode line', { line: line });
+				throw errLibRegistry.newError('PARSE_ERROR','GCODE_PARSER_ERROR').formatMessage('Error parsing gcode line').withMetadata({ line: line });
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 import zstreams from 'zstreams';
 import GcodeLine from './gcode-line';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from '../src/server/errRegistry';
 import { deepCopy } from 'objtools';
 //const GcodeLine = require('./gcode-line');
 //const CrispHooks = require('crisphooks');
@@ -53,7 +54,7 @@ export default class GcodeProcessor extends zstreams.Transform {
         this.id = options.id || this.constructor.name /* Missing? */
         this.preprocessInputGcode = () => {
             // This function is filled in later prior to initialization
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot call preprocessInputGcode outside of initProcessor()');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Cannot call preprocessInputGcode outside of initProcessor()');
         };
     }
 

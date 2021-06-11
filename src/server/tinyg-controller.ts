@@ -1,11 +1,13 @@
 import Controller, { ControllerConfig } from './controller';
 import SerialPort from 'serialport';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from './errRegistry';
 import pasync from 'pasync';
 const GcodeLine = require('../../lib/gcode-line');
 const AbbrJSON = require('./tinyg-abbr-json');
 import CrispHooks from 'crisphooks';
 import SerialportRawSocketBinding  from '../serialport-binding/serialportRawSocketBinding';
+import { BaseRegistryError } from 'new-error';
 /**
  * This is the controller interface class for TinyG.
  *
@@ -122,10 +124,10 @@ export default class TinyGController extends Controller {
             console.log('Debug: ' + str);
     }
     // Resets all the communications-related state variables, and errors out any in-flight requests
-    _commsReset(err?:XError) {
+    _commsReset(err?:BaseRegistryError) {
         this.debug('_commsReset()');
         if (!err)
-            err = new XError(XError.INTERNAL_ERROR, 'Communications reset');
+            err = errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Communications reset');
         // Call the error hook on anything in sendQueue
         for (let entry of this.sendQueue) {
             if (entry.hooks) {
@@ -348,7 +350,7 @@ export default class TinyGController extends Controller {
             this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
             this.sendQueueIdxToSend--; // need to adjust this for the splice
             if (entry.hooks) {
-                entry.hooks.triggerSync('error', new XError(XError.INTERNAL_ERROR, 'Received error code from request to TinyG: ' + responseStatusCode));
+                entry.hooks.triggerSync('error', errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Received error code from request to TinyG: ' + responseStatusCode));
             }
         }
         this._checkSendLoop();
@@ -419,7 +421,7 @@ export default class TinyGController extends Controller {
     _sendBlock(block, immediate = false) {
         //this.debug('_sendBlock() ' + block.str);
         if (!this.serial)
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Cannot send, no serial connection');
         block.responseExpected = !!block.str.trim();
         if (immediate) {
             this._sendBlockImmediate(block);
@@ -436,7 +438,7 @@ export default class TinyGController extends Controller {
     _sendBlockImmediate(block) {
         //this.debug('_sendBlockImmediate() ' + block.str);
         if (!this.serial)
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Cannot send, no serial connection');
         block.responseExpected = !!block.str.trim();
         // Need to insert the block immediately after the most recently sent block
         // Determine the line id based on its position
@@ -718,14 +720,14 @@ export default class TinyGController extends Controller {
             this.held = false;
         }
         else if (str === '%') {
-            this._cancelRunningOps(new XError(XError.CANCELLED, 'Operation cancelled'));
+            this._cancelRunningOps(errRegistry.newError('INTERNAL_ERROR','CANCELLED').formatMessage( 'Operation cancelled'));
             this.held = false;
             // I've found that things sent very shortly after a % can somehow get "lost".  So wait a while before sending anything more.
             this._tempDisableSending();
         }
         else if (str === '\x18') {
             this.debug('Handling Ctrl-X send -> _cancelRunningOps');
-            this._cancelRunningOps(new XError(XError.CANCELLED, 'Machine reset'));
+            this._cancelRunningOps(errRegistry.newError('INTERNAL_ERROR','CANCELLED').formatMessage('Machine reset'));
             this.ready = false; // will be set back to true once SYSTEM READY message received
             this._tempDisableSending();
         }
@@ -791,7 +793,7 @@ export default class TinyGController extends Controller {
                 if (port.toLocaleLowerCase().startsWith('socket:')) SerialPort.Binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
-                        reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
+                        reject(errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Error opening serial port').withMetadata(err));
                     else
                         resolve();
                 });
@@ -817,7 +819,7 @@ export default class TinyGController extends Controller {
             // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             const onSerialError = (err) => {
                 this.debug('Serial error ' + err);
-                err = new XError(XError.COMM_ERROR, 'Serial port communication error', err);
+                err = errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Serial port communication error').withMetadata(err);
                 if (!this._initializing)
                     this.emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
                 this.close(err);
@@ -826,7 +828,7 @@ export default class TinyGController extends Controller {
             const onSerialClose = () => {
                 this.debug('Serial close');
                 // Note that this isn't called during intended closures via this.close(), since this.close() first removes all handlers
-                let err = new XError(XError.COMM_ERROR, 'Serial port closed unexpectedly');
+                let err = errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Serial port closed unexpectedly');
                 if (!this._initializing)
                     this.emit('error', err);
                 this.close(err);
@@ -916,22 +918,22 @@ export default class TinyGController extends Controller {
         doInit()
             .catch((err) => {
             this.debug('initConnection() error ' + err);
-            this.emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
+            this.emit('error', errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Error initializing connection').withMetadata(err));
             this.close(err);
             this._initializing = false;
             this._retryConnect();
         });
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
-    close(err) {
+ 
+    close(err:BaseRegistryError) {
         this.debug('close() ' + err);
         if (err && !this.error) {
             this.error = true;
-            this.errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
+            this.errorData = err;
         }
         this.ready = false;
         this.debug('close() calling _cancelRunningOps()');
-        this._cancelRunningOps(err || new XError(XError.CANCELLED, 'Operations cancelled due to close'));
+        this._cancelRunningOps(err || errRegistry.newError('IO_ERROR','CANCELLED').formatMessage('Operations cancelled due to close'));
         if (this.serial) {
             this.debug('close() removing listeners from serial');
             for (let key in this._serialListeners) {
@@ -1030,7 +1032,7 @@ export default class TinyGController extends Controller {
         // register a listener for status changes, and resolve when these conditions are met
         await new Promise<void>((resolve, reject) => {
             if (this.error)
-                return reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+                return reject(this.errorData || errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Error waiting for sync'));
             // @ts-expect-error ts-migrate(7034) FIXME: Variable 'removeListeners' implicitly has type 'an... Remove this comment to see the full error message
             let removeListeners;
             this._waitingForSync = true;
@@ -1039,7 +1041,7 @@ export default class TinyGController extends Controller {
                     this._waitingForSync = false;
                     // @ts-expect-error ts-migrate(7005) FIXME: Variable 'removeListeners' implicitly has an 'any'... Remove this comment to see the full error message
                     removeListeners();
-                    reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+                    reject(this.errorData || errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Error waiting for sync'));
                 }
                 else if (this.synced) {
                     this._waitingForSync = false;
@@ -1070,7 +1072,7 @@ export default class TinyGController extends Controller {
         this.emit('received', line);
         this.receivedLineCounter++;
         if (line[0] != '{')
-            throw new XError(XError.PARSE_ERROR, 'Error parsing received serial line', { data: line });
+            throw errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('Error parsing received serial line').withMetadata({ data: line });
         let data = AbbrJSON.parse(line);
         // Check if the line contains a message that should be reported to the message log
         let message = null;
@@ -1085,7 +1087,7 @@ export default class TinyGController extends Controller {
         // Check if this is a SYSTEM READY response indicating a reset
         if ('r' in data && data.r.msg === 'SYSTEM READY') {
             this.debug('Got SYSTEM READY message');
-            let err = new XError(XError.CANCELLED, 'Machine reset');
+            let err = errRegistry.newError('MACHINE_ERROR','CANCELLED').formatMessage('Machine reset');
             this.close(err);
             if (!this._initializing) {
                 this.debug('calling _retryConnect() after receive SYSTEM READY');
@@ -1098,9 +1100,9 @@ export default class TinyGController extends Controller {
         if ('er' in data) {
             if (!this._disableResponseErrorEvent) {
                 this.error = true;
-                this.errorData = new XError(XError.MACHINE_ERROR, data.er.msg || JSON.stringify(data.er), data.er);
+                this.errorData = errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage(data.er.msg || JSON.stringify(data.er)).withMetadata(data.er);
                 this.ready = false;
-                let err = new XError(XError.MACHINE_ERROR, data.er.msg || ('Code ' + data.er.st) || 'Machine error report', data.er);
+                let err = errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage(data.er.msg || ('Code ' + data.er.st) || 'Machine error report').withMetadata(data.er);
                 this._cancelRunningOps(err);
                 if (!this._initializing)
                     this.emit('error', err);
@@ -1244,7 +1246,7 @@ export default class TinyGController extends Controller {
                     this.moving = false;
                     this.error = true;
                     if (!this.errorData)
-                        this.errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
+                        this.errorData = errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Alarmed');
                     break;
                 case 3: // stop
                 case 8: // cycle
@@ -1287,7 +1289,7 @@ export default class TinyGController extends Controller {
                     this.error = false;
                     break;
                 default:
-                    throw new XError(XError.INTERNAL_ERROR, 'Unknown machine state: ' + sr.stat);
+                    throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Unknown machine state: ' + sr.stat);
             }
         }
         if (statusUpdated && emitEvent) {
@@ -1615,13 +1617,13 @@ export default class TinyGController extends Controller {
             for (let axisNum = 0; axisNum < pos.length; axisNum++) {
                 if (typeof pos[axisNum] === 'number' && pos[axisNum] !== curPos[axisNum]) {
                     if (selectedAxisNum !== null) {
-                        throw new XError(XError.INVALID_ARGUMENT, 'Can only probe on a single axis at once');
+                        throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Can only probe on a single axis at once');
                     }
                     selectedAxisNum = axisNum;
                 }
             }
             if (selectedAxisNum === null)
-                throw new XError(XError.INVALID_ARGUMENT, 'Cannot probe to same location');
+                throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Cannot probe to same location');
             // Store the currently active coordinate system to work around tinyg bug
             activeCoordSys = this.activeCoordSys;
             // Test if the current version of TinyG uses machine coordinates for probing or local coordinates
@@ -1664,7 +1666,7 @@ export default class TinyGController extends Controller {
                 // Depending on whether or not the probe moved during that time, we now know if this tinyg version expects machine or offset coordinates
                 let nowMCoord = mpoResult.r['mpo' + this.axisLabels[selectedAxisNum].toLowerCase()];
                 if (typeof nowMCoord !== 'number')
-                    throw new XError(XError.INTERNAL_ERROR, 'Unexpected response from TinyG');
+                    throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Unexpected response from TinyG');
                 let probeMoved = nowMCoord !== startingMCoord;
                 if (probeMoved) {
                     (this.config as TinyGControllerConfig).probeUsesMachineCoords = !probeTestToSameMachineCoords;
@@ -1702,7 +1704,7 @@ export default class TinyGController extends Controller {
             }
             // Handle probe results
             if (!probeTripped) {
-                throw new XError(XError.PROBE_NOT_TRIPPED, 'Probe was not tripped during probing');
+                throw errRegistry.newError('MACHINE_ERROR','PROBE_NOT_TRIPPED').formatMessage('Probe was not tripped during probing');
             }
             if (useMachineCoords) {
                 // Convert probe report position from machine coords back to offset coords

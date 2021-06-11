@@ -2,7 +2,7 @@ import Operation from './operation';
 import  fs from 'fs';
 import  path from 'path';
 //import commonSchema from 'common-schema';
-import XError from 'xerror';
+//import XError from 'xerror';
 import TightCNCServer from './tightcnc-server';
 class OpListFiles extends Operation {
     /*
@@ -98,7 +98,7 @@ class OpUploadFile extends Operation {
         await new Promise<void>((resolve, reject) => {
             fs.writeFile(fullFilename, params.data, (err) => {
                 if (err)
-                    reject(new XError(err));
+                    reject(err);
                 else
                     resolve();
             });

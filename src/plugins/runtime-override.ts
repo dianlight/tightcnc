@@ -1,4 +1,5 @@
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from '../server/errRegistry';
 import GcodeProcessor from '../../lib/gcode-processor';
 import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
@@ -95,7 +96,7 @@ class SetFeedMultiplierOperation extends Operation {
 function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
     let currentJob = tightcnc.jobManager.currentJob;
     if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
-        throw new XError(XError.INTERNAL_ERROR, 'No currently running job');
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('No currently running job');
     }
     let gcodeProcessors = currentJob.gcodeProcessors || {};
     for (let key in gcodeProcessors) {
@@ -104,7 +105,7 @@ function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
         }
     }
     if (throwOnMissing) {
-        throw new XError(XError.INTERNAL_ERROR, 'No ' + name + ' gcode processor found');
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('No ' + name + ' gcode processor found');
     }
     else {
         return null;

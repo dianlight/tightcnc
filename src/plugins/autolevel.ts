@@ -1,7 +1,8 @@
 import  cross from 'cross';
 import  Operation from '../server/operation';
 import  commonSchema from 'common-schema';
-import  XError from 'xerror';
+//import  XError from 'xerror';
+import { errRegistry } from '../server/errRegistry';
 import  objtools from'objtools';
 import { kdTree } from 'kd-tree-javascript';
 import fs from 'fs';
@@ -157,7 +158,7 @@ let surfaceProbeResults = null;
 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
 function startProbeSurface(tightcnc, options) {
     if (surfaceProbeStatus.state === 'running')
-        throw new XError(XError.INTERNAL_ERROR, 'Surface probe already running');
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Surface probe already running');
     surfaceProbeStatus = { state: 'running' };
     // Calculate number of probe points along X and Y, and actual probe spacing
     let lowerBound = options.bounds[0];
@@ -165,7 +166,7 @@ function startProbeSurface(tightcnc, options) {
     let probeAreaSizeX = upperBound[0] - lowerBound[0];
     let probeAreaSizeY = upperBound[1] - lowerBound[1];
     if (probeAreaSizeX <= 0 || probeAreaSizeY <= 0)
-        throw new XError(XError.INVALID_ARGUMENT, 'Invalid bounds');
+        throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Invalid bounds');
     let probePointsX = Math.ceil(probeAreaSizeX / options.probeSpacing) + 1;
     let probePointsY = Math.ceil(probeAreaSizeY / options.probeSpacing) + 1;
     if (probePointsX < 2)
@@ -272,7 +273,7 @@ function startProbeSurface(tightcnc, options) {
                 // @ts-expect-error ts-migrate(7005) FIXME: Variable 'surfaceProbeResults' implicitly has an '... Remove this comment to see the full error message
                 fs.writeFile(options.surfaceMapFilename, JSON.stringify(surfaceProbeResults, null, 2), (err) => {
                     if (err)
-                        reject(new XError(XError.INTERNAL_ERROR, 'Error saving probe result file', err));
+                        reject(errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Error saving probe result file').withMetadata(err));
                     else
                         // @ts-expect-error ts-migrate(7005) FIXME: Variable 'surfaceProbeResults' implicitly has an '... Remove this comment to see the full error message
                         resolve(surfaceProbeResults);
@@ -310,14 +311,14 @@ class OpProbeSurface extends Operation {
         if (params.bounds)
             return params.bounds;
         if (!params.gcodeFilename)
-            throw new XError(XError.BAD_REQUEST, 'Must supply either bounds or gcodeFilename');
+            throw errRegistry.newError('INTERNAL_ERROR','BAD_REQUEST').formatMessage('Must supply either bounds or gcodeFilename');
         let dryRunResults = await this.tightcnc!.jobManager?.dryRunJob({ filename: params.gcodeFilename });
         if (dryRunResults) {
             let bounds = objtools.getPath(dryRunResults, 'gcodeProcessors.final-job-vm.bounds');
             if (!bounds)
-                throw new XError(XError.INTERNAL_ERROR, 'Could not determine bounds from gcode file');
+                throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Could not determine bounds from gcode file');
             return bounds;
-        } else throw new XError(XError.INTERNAL_ERROR, 'Could not determine bounds from gcode file - no dryRunResults');
+        } else throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Could not determine bounds from gcode file - no dryRunResults');
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
@@ -427,7 +428,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
         return new Promise<void>((resolve, reject) => {
             fs.readFile(this.surfaceMapFilename, (err, data) => {
                 if (err)
-                    return reject(new XError('Error loading surface map', err));
+                    return reject(errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Error loading surface map').withMetadata(err));
                 this.surfaceMapData = JSON.parse(data.toString('utf8'));
                 this.surfaceMap = new SurfaceLevelMap(this.surfaceMapData!.points);
                 resolve();
@@ -463,7 +464,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
             return gline; // incremental mode not supported
         // Make sure the motion mode is one of the supported motion modes
         if (motionCode !== 'G0' && motionCode !== 'G1' && motionCode !== 'G2' && motionCode !== 'G3')
-            throw new XError(XError.INVALID_ARGUMENT, 'Motion code ' + motionCode + ' not supported for autolevel');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Motion code ' + motionCode + ' not supported for autolevel');
         // Get the Z value for the X and Y ending position
         let toXY = [endVMState.pos[0], endVMState.pos[1]];
         let zOffset = this.surfaceMap?.predictZ(toXY);

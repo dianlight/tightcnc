@@ -1,8 +1,9 @@
 import  Operation from './operation';
 import objtools from 'objtools';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from './errRegistry';
 import TightCNCServer, { StatusObject } from './tightcnc-server';
-import GcodeLine from '../../lib/gcode-line';
+
 class OpGetStatus extends Operation {
     async run(params: {
         fields: string[],
@@ -319,7 +320,7 @@ class OpGetLog extends Operation {
             logger = this.tightcnc.messageLog;
         }
         else {
-            throw new XError(XError.INVALID_ARGUMENT, 'Bad log type');
+            throw errRegistry.newError('INTERNAL_SERVER_ERROR','INVALID_ARGUMENT').formatMessage('Bad log type');
         }
         return logger?.section(params.start, params.end, params.limit);
     }
@@ -347,7 +348,7 @@ class OpProvideInput extends Operation {
             this.tightcnc.provideInput(params.value);
         }
         else {
-            throw new XError(XError.BAD_REQUEST, 'Not waiting on input');
+            throw errRegistry.newError('INTERNAL_SERVER_ERROR','BAD_REQUEST').formatMessage('Not waiting on input');
         }
     }
 }
@@ -369,7 +370,7 @@ class OpCancelInput extends Operation {
             this.tightcnc.cancelInput();
         }
         else {
-            throw new XError(XError.BAD_REQUEST, 'Not waiting on input');
+            throw errRegistry.newError('INTERNAL_SERVER_ERROR','BAD_REQUEST').formatMessage('Not waiting on input')
         }
     }
 }

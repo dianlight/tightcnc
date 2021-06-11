@@ -1,5 +1,6 @@
 import objtools from 'objtools';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { ERRORCODES, errRegistry } from './errRegistry';
 import zstreams from 'zstreams';
 import GcodeProcessor, {callLineHooks} from '../../lib/gcode-processor';
 //import fs from 'fs';
@@ -7,6 +8,7 @@ import GcodeProcessor, {callLineHooks} from '../../lib/gcode-processor';
 import JobState from './job-state';
 //import { TightCNCServer } from '..'; // Avoid Circular dependency issue
 import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
+import { BaseRegistryError } from 'new-error';
 
 export interface JobStatus {
     state: string,
@@ -144,10 +146,10 @@ export default class JobManager {
         }
         // Check to ensure current job isn't running and that the controller is ready
         if (this.currentJob && this.currentJob.state !== 'complete' && this.currentJob.state !== 'cancelled' && this.currentJob.state !== 'error') {
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot start job with another job running.');
+            throw errRegistry.newError('INTERNAL_SERVER_ERROR','GENERIC').formatMessage('Cannot start job with another job running.');
         }
         if (!this.tightcnc.controller!.ready) {
-            throw new XError(XError.INTERNAL_ERROR, 'Controller not ready.');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Controller not ready.');
         }
         // Create the current job object
         this.currentJob = new JobState({
@@ -185,8 +187,8 @@ export default class JobManager {
             job.state = 'complete';
             job.emitJobComplete();
         })
-            .catch((err) => {
-            if (err.code === XError.CANCELLED) {
+            .catch((err: BaseRegistryError) => {
+            if (err.getSubCode() === ERRORCODES.CANCELLED.subCode) {
                 job.state = 'cancelled';
             }
             else {

@@ -3582,6 +3582,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"es6-error@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "es6-error@npm:4.1.1"
+  checksum: d7343d3f47834d71912278b5a7476028b7ef3db4ee5c8b7184d7204d2c3a48dd4ce68d197a14116f0d16c85f85d3d8ed1d8c137cf5bc9f33f672646755289688
+  languageName: node
+  linkType: hard
+
 "es6-object-assign@npm:^1.1.0":
   version: 1.1.0
   resolution: "es6-object-assign@npm:1.1.0"
@@ -5904,6 +5911,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"new-error@npm:^2.1.10":
+  version: 2.1.10
+  resolution: "new-error@npm:2.1.10"
+  dependencies:
+    es6-error: ^4.1.1
+    sprintf-js: ^1.1.2
+  checksum: 8245a94f2073b0a0ab4f66b2cc224f916bc3c4c0f584ccb2e422f419c5ced0a8d610dbaefafdb9761981412003ee854ef2081fe9fa5a7703e14e23ff46620040
+  languageName: node
+  linkType: hard
+
 "node-abi@npm:^2.21.0":
   version: 2.30.0
   resolution: "node-abi@npm:2.30.0"
@@ -7380,6 +7397,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"sprintf-js@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "sprintf-js@npm:1.1.2"
+  checksum: 50d2008328a3cafac658a40de7fb7d3d899b8e12906b3784113a97199618531bc4237ef2779cc5a9cd6df06b58036fedf4578648a5bbfd01825ecb56546e3982
+  languageName: node
+  linkType: hard
+
 "sprintf-js@npm:~1.0.2":
   version: 1.0.3
   resolution: "sprintf-js@npm:1.0.3"
@@ -7802,6 +7826,7 @@ __metadata:
     markdown-toc: ^1.2.0
     mkdirp: ^1.0.4
     moment: ^2.29.1
+    new-error: ^2.1.10
     node-polyfill-webpack-plugin: ^1.1.2
     objtools: ^3.0.0
     pasync: ^2.0.2
@@ -7819,7 +7844,6 @@ __metadata:
     webpack-cli: ^4.7.2
     webpack-manifest-plugin: ^3.1.1
     webpack-node-externals: ^3.0.0
-    xerror: ^2.0.0
     xhr2: ^0.2.1
     yargs: ^17.0.1
     zstreams: ^5.0.0

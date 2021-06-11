@@ -1,6 +1,7 @@
 import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from '../server/errRegistry';
 import objtools from 'objtools';
 import fs from 'fs';
 import path from 'path';
@@ -265,7 +266,7 @@ export default class ModeNewJob extends ModeControl {
             (obj as any).macroParams = this.jobMacroParams;
         }
         if (!(obj as any).filename && !(obj as any).macro)
-            throw new XError(XError.INVALID_ARGUMENT, 'No filename specified');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('No filename specified');
         for (let key in (this.jobOptionInstances || {})) {
             this.jobOptionInstances![key].addToJobOptions(obj);
         }

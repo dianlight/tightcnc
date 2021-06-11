@@ -1,6 +1,7 @@
 import  Controller, { ControllerConfig, ControllerStatus } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
-import  XError from 'xerror';
+//import  XError from 'xerror';
+import { ERRORCODES, errRegistry } from './errRegistry';
 import  pasync from 'pasync';
 import GcodeLine from '../../lib/gcode-line';
 import CrispHooks from 'crisphooks';
@@ -8,6 +9,7 @@ import objtools from 'objtools';
 import TightCNCServer from './tightcnc-server';
 import SerialportRawSocketBinding from '../serialport-binding/serialportRawSocketBinding';
 import GrblsimBinding from '../serialport-binding/grblsimBinding';
+import { BaseRegistryError, ErrorRegistry } from 'new-error';
 const GcodeVM = require('../../lib/gcode-vm');
 
 export interface GrblControllerConfig extends ControllerConfig {
@@ -176,10 +178,10 @@ export default class GRBLController extends Controller {
         else if (enableDebug)
             console.log('Debug: ' + str);
     }
-    _commsReset(err?:XError) {
+    _commsReset(err?:BaseRegistryError) {
         this.debug('_commsReset()');
         if (!err)
-            err = new XError(XError.INTERNAL_ERROR, 'Communications reset');
+            err = errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Communications reset');
         // Call the error hook on anything in sendQueue
         for (let entry of this.sendQueue) {
             if (entry.hooks) {
@@ -302,7 +304,7 @@ export default class GRBLController extends Controller {
             held?: boolean,
             moving?: boolean
             error?: boolean,
-            errorData?: XError
+            errorData?: BaseRegistryError
             programRunning?: boolean
             line?: number
             feed?: number
@@ -355,7 +357,7 @@ export default class GRBLController extends Controller {
                                 obj.errorData = this._msgToError(this.lastMessage);
                             }
                             if (!obj.errorData)
-                                obj.errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
+                                obj.errorData = errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Alarmed');
                         }
                         obj.programRunning = false;
                         break;
@@ -365,7 +367,7 @@ export default class GRBLController extends Controller {
                         obj.moving = false;
                         obj.error = true;
                         // TODO: Handle substate with different messages here
-                        obj.errorData = new XError(XError.SAFETY_INTERLOCK, 'Door open', { doorCode: substate });
+                        obj.errorData = errRegistry.newError('MACHINE_ERROR','SAFETY_INTERLOCK').formatMessage('Door open').withMetadata({ doorCode: substate });
                         obj.programRunning = false;
                         break;
                     case 'check':
@@ -529,44 +531,44 @@ export default class GRBLController extends Controller {
             alarm = alarm.toLowerCase().trim();
         switch (typeof alarm === 'string' ? alarm.toLowerCase() : alarm) {
             case 1:
-                return new XError(XError.LIMIT_HIT, 'Hard limit triggered', { limitType: 'hard', grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','LIMIT_HIT').formatMessage('Hard limit triggered').withMetadata({ limitType: 'hard', grblAlarm: alarm });
             case 2:
-                return new XError(XError.LIMIT_HIT, 'Soft limit triggered', { limitType: 'soft', grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','LIMIT_HIT').formatMessage('Soft limit triggered').withMetadata({ limitType: 'soft', grblAlarm: alarm });
             case 'hard/soft limit':
-                return new XError(XError.LIMIT_HIT, 'Limit hit', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','LIMIT_HIT').formatMessage('Limit hit').withMetadata({ grblAlarm: alarm });
             case 3:
             case 'abort during cycle':
-                return new XError(XError.MACHINE_ERROR, 'Position unknown after reset; home machine or clear error', { grblAlarm: alarm, subcode: 'position_unknown' });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Position unknown after reset; home machine or clear error').withMetadata({ grblAlarm: alarm, subcode: 'position_unknown' });
             case 4:
-                return new XError(XError.PROBE_INITIAL_STATE, 'Probe not in expected initial state', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','PROBE_INITIAL_STATE').formatMessage('Probe not in expected initial state').withMetadata({ grblAlarm: alarm });
             case 5:
             case 'probe fail':
-                return new XError(XError.PROBE_NOT_TRIPPED, 'Probe was not tripped', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','PROBE_NOT_TRIPPED').formatMessage('Probe was not tripped').withMetadata({ grblAlarm: alarm });
             case 6:
-                return new XError(XError.MACHINE_ERROR, 'Reset during homing cycle', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Reset during homing cycle').withMetadata({ grblAlarm: alarm });
             case 7:
-                return new XError(XError.MACHINE_ERROR, 'Door opened during homing', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Door opened during homing').withMetadata({ grblAlarm: alarm });
             case 8:
-                return new XError(XError.MACHINE_ERROR, 'Homing did not clear switch', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Homing did not clear switch').withMetadata({ grblAlarm: alarm });
             case 9:
-                return new XError(XError.MACHINE_ERROR, 'Homing switch not found', { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Homing switch not found').withMetadata({ grblAlarm: alarm });
             default:
-                return new XError(XError.MACHINE_ERROR, 'GRBL Alarm: ' + alarm, { grblAlarm: alarm });
+                return errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('GRBL Alarm: ' + alarm).withMetadata({ grblAlarm: alarm });
         }
     }
     // Converts the grbl message to an XError
     // Returns null if the message does not indicate an error
     // Note that just receiving a message that can be interpreted as an error doesn't mean the machine is alarmed; that should be checked separately
-    _msgToError(str:string):XError|undefined {
+    _msgToError(str:string):BaseRegistryError|undefined {
         switch (str.trim()) {
             case "'$H'|'$X' to unlock":
-                return new XError(XError.MACHINE_ERROR, 'Position unknown; home machine or clear error', { subcode: 'position_unknown', grblMsg: str });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Position unknown; home machine or clear error').withMetadata( { subcode: 'position_unknown', grblMsg: str });
             case 'Reset to continue':
-                return new XError(XError.MACHINE_ERROR, 'Critical error; reset required', { grblMsg: str });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Critical error; reset required').withMetadata({ grblMsg: str });
             case 'Check Door':
-                return new XError(XError.SAFETY_INTERLOCK, 'Door open', { grblMsg: str });
+                return errRegistry.newError('MACHINE_ERROR','SAFETY_INTERLOCK').formatMessage('Door open').withMetadata({ grblMsg: str });
             case 'Check Limits':
-                return new XError(XError.LIMIT_HIT, 'Limit hit', { grblMsg: str });
+                return errRegistry.newError('MACHINE_ERROR','LIMIT_HIT').formatMessage('Limit hit').withMetadata({ grblMsg: str });
             case 'Caution: Unlocked':
             case 'Enabled':
             case 'Disabled':
@@ -576,7 +578,7 @@ export default class GRBLController extends Controller {
             case 'Sleeping':
                 return undefined;
             default:
-                return new XError(XError.MACHINE_ERROR, 'GRBL: ' + str, { grblMsg: str });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('GRBL: ' + str).withMetadata({ grblMsg: str });
         }
     }
     // Converts an error code from an "error:x" message to an XError
@@ -586,114 +588,114 @@ export default class GRBLController extends Controller {
         switch (ecode) {
             case 1:
             case 'Expected command letter':
-                return new XError(XError.PARSE_ERROR, 'G-code words consist of a letter and a value. Letter was not found.', { grblErrorCode: 1 });
+                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('G-code words consist of a letter and a value. Letter was not found.').withMetadata({ grblErrorCode: 1 });
             case 2:
             case 'Bad number format':
-                return new XError(XError.PARSE_ERROR, 'Missing the expected G-code word value or numeric value format is not valid.', { grblErrorCode: 2 });
+                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('Missing the expected G-code word value or numeric value format is not valid.').withMetadata({ grblErrorCode: 2 });
             case 3:
             case 'Invalid statement':
-                return new XError(XError.MACHINE_ERROR, 'Grbl \'$\' system command was not recognized or supported.', { grblErrorCode: 3 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Grbl \'$\' system command was not recognized or supported.').withMetadata({ grblErrorCode: 3 });
             case 4:
             case 'Value < 0':
-                return new XError(XError.MACHINE_ERROR, 'Negative value received for an expected positive value.', { grblErrorCode: 4 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Negative value received for an expected positive value.').withMetadata({ grblErrorCode: 4 });
             case 5:
             case 'Setting disabled':
-                return new XError(XError.MACHINE_ERROR, 'Homing cycle failure. Homing is not enabled via settings.', { grblErrorCode: 5 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Homing cycle failure. Homing is not enabled via settings.').withMetadata({ grblErrorCode: 5 });
             case 6:
             case 'Value < 3 usec':
-                return new XError(XError.MACHINE_ERROR, 'Minimum step pulse time must be greater than 3usec.', { grblErrorCode: 6 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Minimum step pulse time must be greater than 3usec.').withMetadata({ grblErrorCode: 6 });
             case 7:
             case 'EEPROM read fail. Using defaults':
-                return new XError(XError.MACHINE_ERROR, 'An EEPROM read failed. Auto-restoring affected EEPROM to default values.', { grblErrorCode: 7 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('An EEPROM read failed. Auto-restoring affected EEPROM to default values.').withMetadata({ grblErrorCode: 7 });
             case 8:
             case 'Not idle':
-                return new XError(XError.MACHINE_ERROR, 'Grbl \'$\' command cannot be used unless Grbl is IDLE. Ensures smooth operation during a job.', { grblErrorCode: 8 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Grbl \'$\' command cannot be used unless Grbl is IDLE. Ensures smooth operation during a job.').withMetadata({ grblErrorCode: 8 });
             case 9:
             case 'G-code lock':
-                return new XError(XError.MACHINE_ERROR, 'G-code commands are locked out during alarm or jog state.', { grblErrorCode: 9 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G-code commands are locked out during alarm or jog state.').withMetadata({ grblErrorCode: 9 });
             case 10:
             case 'Homing not enabled':
-                return new XError(XError.MACHINE_ERROR, 'Soft limits cannot be enabled without homing also enabled.', { grblErrorCode: 10 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Soft limits cannot be enabled without homing also enabled.').withMetadata({ grblErrorCode: 10 });
             case 11:
             case 'Line overflow':
-                return new XError(XError.MACHINE_ERROR, 'Max characters per line exceeded. Received command line was not executed.', { grblErrorCode: 11 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Max characters per line exceeded. Received command line was not executed.').withMetadata({ grblErrorCode: 11 });
             case 12:
             case 'Step rate > 30kHz':
-                return new XError(XError.MACHINE_ERROR, 'Grbl \'$\' setting value cause the step rate to exceed the maximum supported.', { grblErrorCode: 12 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Grbl \'$\' setting value cause the step rate to exceed the maximum supported.').withMetadata({ grblErrorCode: 12 });
             case 13:
             case 'Check Door':
-                return new XError(XError.MACHINE_ERROR, 'Safety door detected as opened and door state initiated.', { grblErrorCode: 13 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Safety door detected as opened and door state initiated.').withMetadata({ grblErrorCode: 13 });
             case 14:
             case 'Line length exceeded':
-                return new XError(XError.MACHINE_ERROR, 'Build info or startup line exceeded EEPROM line length limit. Line not stored.', { grblErrorCode: 14 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Build info or startup line exceeded EEPROM line length limit. Line not stored.').withMetadata({ grblErrorCode: 14 });
             case 15:
             case 'Travel exceeded':
-                return new XError(XError.MACHINE_ERROR, 'Jog target exceeds machine travel. Jog command has been ignored.', { grblErrorCode: 15 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Jog target exceeds machine travel. Jog command has been ignored.').withMetadata({ grblErrorCode: 15 });
             case 16:
             case 'Invalid jog command':
-                return new XError(XError.MACHINE_ERROR, 'Jog command has no \'=\' or contains prohibited g-code.', { grblErrorCode: 16 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Jog command has no \'=\' or contains prohibited g-code.').withMetadata({ grblErrorCode: 16 });
             case 17:
             case 'Setting disabled':
-                return new XError(XError.MACHINE_ERROR, 'Laser mode requires PWM output.', { grblErrorCode: 17 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Laser mode requires PWM output.').withMetadata({ grblErrorCode: 17 });
             case 20:
             case 'Unsupported command':
-                return new XError(XError.PARSE_ERROR, 'Unsupported or invalid g-code command found in block.', { grblErrorCode: 20 });
+                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('Unsupported or invalid g-code command found in block.').withMetadata({ grblErrorCode: 20 });
             case 21:
             case 'Modal group violation':
-                return new XError(XError.PARSE_ERROR, 'More than one g-code command from same modal group found in block.', { grblErrorCode: 21 });
+                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('More than one g-code command from same modal group found in block.').withMetadata({ grblErrorCode: 21 });
             case 22:
             case 'Undefined feed rate':
-                return new XError(XError.MACHINE_ERROR, 'Feed rate has not yet been set or is undefined.', { grblErrorCode: 22 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Feed rate has not yet been set or is undefined.').withMetadata({ grblErrorCode: 22 });
             case 23:
             case 'Invalid gcode ID:23':
-                return new XError(XError.MACHINE_ERROR, 'G-code command in block requires an integer value.', { grblErrorCode: 23 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G-code command in block requires an integer value.').withMetadata({ grblErrorCode: 23 });
             case 24:
             case 'Invalid gcode ID:24':
-                return new XError(XError.PARSE_ERROR, 'More than one g-code command that requires axis words found in block.', { grblErrorCode: 24 });
+                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('More than one g-code command that requires axis words found in block.').withMetadata({ grblErrorCode: 24 });
             case 25:
             case 'Invalid gcode ID:25':
-                return new XError(XError.MACHINE_ERROR, 'Repeated g-code word found in block.', { grblErrorCode: 25 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Repeated g-code word found in block.').withMetadata({ grblErrorCode: 25 });
             case 26:
             case 'Invalid gcode ID:26':
-                return new XError(XError.MACHINE_ERROR, 'No axis words found in block for g-code command or current modal state which requires them.', { grblErrorCode: 26 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('No axis words found in block for g-code command or current modal state which requires them.').withMetadata({ grblErrorCode: 26 });
             case 27:
             case 'Invalid gcode ID:27':
-                return new XError(XError.MACHINE_ERROR, 'Line number value is invalid.', { grblErrorCode: 27 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Line number value is invalid.').withMetadata({ grblErrorCode: 27 });
             case 28:
             case 'Invalid gcode ID:28':
-                return new XError(XError.MACHINE_ERROR, 'G-code command is missing a required value word.', { grblErrorCode: 28 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G-code command is missing a required value word.').withMetadata({ grblErrorCode: 28 });
             case 29:
             case 'Invalid gcode ID:29':
-                return new XError(XError.MACHINE_ERROR, 'G59.x work coordinate systems are not supported.', { grblErrorCode: 29 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G59.x work coordinate systems are not supported.').withMetadata({ grblErrorCode: 29 });
             case 30:
             case 'Invalid gcode ID:30':
-                return new XError(XError.MACHINE_ERROR, 'G53 only allowed with G0 and G1 motion modes.', { grblErrorCode: 30 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G53 only allowed with G0 and G1 motion modes.').withMetadata({ grblErrorCode: 30 });
             case 31:
             case 'Invalid gcode ID:31':
-                return new XError(XError.MACHINE_ERROR, 'Axis words found in block when no command or current modal state uses them.', { grblErrorCode: 31 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Axis words found in block when no command or current modal state uses them.').withMetadata({ grblErrorCode: 31 });
             case 32:
             case 'Invalid gcode ID:32':
-                return new XError(XError.MACHINE_ERROR, 'G2 and G3 arcs require at least one in-plane axis word.', { grblErrorCode: 32 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G2 and G3 arcs require at least one in-plane axis word.').withMetadata({ grblErrorCode: 32 });
             case 33:
             case 'Invalid gcode ID:33':
-                return new XError(XError.MACHINE_ERROR, 'Motion command target is invalid.', { grblErrorCode: 33 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Motion command target is invalid.').withMetadata({ grblErrorCode: 33 });
             case 34:
             case 'Invalid gcode ID:34':
-                return new XError(XError.MACHINE_ERROR, 'Arc radius value is invalid.', { grblErrorCode: 34 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Arc radius value is invalid.').withMetadata({ grblErrorCode: 34 });
             case 35:
             case 'Invalid gcode ID:35':
-                return new XError(XError.MACHINE_ERROR, 'G2 and G3 arcs require at least one in-plane offset word.', { grblErrorCode: 35 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G2 and G3 arcs require at least one in-plane offset word.').withMetadata({ grblErrorCode: 35 });
             case 36:
             case 'Invalid gcode ID:36':
-                return new XError(XError.MACHINE_ERROR, 'Unused value words found in block.', { grblErrorCode: 36 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Unused value words found in block.').withMetadata({ grblErrorCode: 36 });
             case 37:
             case 'Invalid gcode ID:37':
-                return new XError(XError.MACHINE_ERROR, 'G43.1 dynamic tool length offset is not assigned to configured tool length axis.', { grblErrorCode: 37 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G43.1 dynamic tool length offset is not assigned to configured tool length axis.').withMetadata({ grblErrorCode: 37 });
             case 38:
             case 'Invalid gcode ID:38':
-                return new XError(XError.MACHINE_ERROR, 'Tool number greater than max supported value.', { grblErrorCode: 38 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Tool number greater than max supported value.').withMetadata({ grblErrorCode: 38 });
             default:
-                return new XError(XError.MACHINE_ERROR, 'GRBL error: ' + ecode, { grblErrorCode: ecode });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('GRBL error: ' + ecode).withMetadata({ grblErrorCode: ecode });
         }
     }
 
@@ -737,7 +739,7 @@ export default class GRBLController extends Controller {
             }
             else if (this._resetting) {
                 // Ready again after reset
-                this._cancelRunningOps(new XError(XError.MACHINE_ERROR, 'Machine reset'));
+                this._cancelRunningOps(errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Machine reset'));
                 this._commsReset();
                 this._disableSending = false;
                 this._resetting = false;
@@ -761,7 +763,7 @@ export default class GRBLController extends Controller {
             else {
                 // Got an unexpected welcome message indicating that the device was reset unexpectedly
                 this.debug('Machine reset unexpectedly');
-                let err = new XError(XError.CANCELLED, 'Machine reset');
+                let err = errRegistry.newError('MACHINE_ERROR','CANCELLED').formatMessage('Machine reset');
                 this.close(err);
                 if (!this._initializing) {
                     this.debug('calling _retryConnect() after receive welcome message');
@@ -787,7 +789,7 @@ export default class GRBLController extends Controller {
             let err = this._alarmCodeToError(matches[1]);
             this.errorData = err;
             // Don't cancel ops or emit error on routine probe alarms
-            if (err.code !== XError.PROBE_NOT_TRIPPED) {
+            if (err.getSubCode() !== ERRORCODES.PROBE_NOT_TRIPPED.subCode) {
                 this._cancelRunningOps(err);
                 if (!this._initializing)
                     this.emit('error', err);
@@ -1005,7 +1007,7 @@ export default class GRBLController extends Controller {
             return;
         const ret = this.serial.write(strOrBuf);
     }
-    _cancelRunningOps(err:XError) {
+    _cancelRunningOps(err:BaseRegistryError) {
         this.debug('_cancelRunningOps()');
         this._commsReset(err);
         this.debug('_cancelRunningOps() emitting cancelRunningOps');
@@ -1049,7 +1051,7 @@ export default class GRBLController extends Controller {
                 else if(port.toLocaleLowerCase().startsWith('grblsim:')) SerialPort.Binding = GrblsimBinding as unknown as SerialPort.BaseBinding
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
-                        reject(new XError(XError.COMM_ERROR, 'Error opening serial port', err));
+                        reject(errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Error opening serial port').withMetadata(err));
                     else
                         resolve();
                 });
@@ -1063,9 +1065,9 @@ export default class GRBLController extends Controller {
             this.debug('initConnection calling _commsReset()');
             this._commsReset();
             // Set up serial port communications handlers
-            const onSerialError = (err:XError) => {
+            const onSerialError = (err:BaseRegistryError) => {
                 this.debug('Serial error ' + err);
-                err = new XError(XError.COMM_ERROR, 'Serial port communication error', err);
+                err = errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Serial port communication error').withMetadata(err);
                 if (!this._initializing)
                     this.emit('error', err); // don't emit during initialization 'cause that's handled separately (by rejecting the waiters during close())
                 this.close(err);
@@ -1074,7 +1076,7 @@ export default class GRBLController extends Controller {
             const onSerialClose = () => {
                 this.debug('Serial close');
                 // Note that this isn't called during intended closures via this.close(), since this.close() first removes all handlers
-                let err = new XError(XError.COMM_ERROR, 'Serial port closed unexpectedly');
+                let err = errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Serial port closed unexpectedly');
                 if (!this._initializing)
                     this.emit('error', err);
                 this.close(err);
@@ -1131,7 +1133,7 @@ export default class GRBLController extends Controller {
             }
             this._welcomeMessageWaiter = pasync.waiter();
             // Wait for the welcome message to be received; if not received in 5 seconds, send a soft reset
-            const welcomeWaitCancelRunningOpsHandler = (err:Error|XError) => {
+            const welcomeWaitCancelRunningOpsHandler = (err:Error|BaseRegistryError) => {
                 if (this._welcomeMessageWaiter) {
                     this._welcomeMessageWaiter.reject(err);
                 }
@@ -1167,7 +1169,7 @@ export default class GRBLController extends Controller {
             .catch((err) => {
             this.debug('initConnection() error ' + err);
             console.log(err);
-            this.emit('error', new XError(XError.COMM_ERROR, 'Error initializing connection', err));
+            this.emit('error', errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Error initializing connection').withMetadata(err));
             this.close(err);
             this._initializing = false;
             this._retryConnect();
@@ -1304,7 +1306,7 @@ export default class GRBLController extends Controller {
     }, immediate = false) {
         //this.debug('_sendBlock() ' + block.str);
         if (!this.serial)
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Cannot send, no serial connection');
         block.responseExpected = true; // note: real-time commands are picked off earlier and not handled here
         if (immediate) {
             this._sendBlockImmediate(block);
@@ -1328,7 +1330,7 @@ export default class GRBLController extends Controller {
     }) {
         //this.debug('_sendBlockImmediate() ' + block.str);
         if (!this.serial)
-            throw new XError(XError.INTERNAL_ERROR, 'Cannot send, no serial connection');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Cannot send, no serial connection');
         block.responseExpected = true;
         // Insert the block where it needs to go in the send queue (as the next to send)
         this.sendQueue.splice(this.sendQueueIdxToSend, 0, block);
@@ -1399,7 +1401,7 @@ export default class GRBLController extends Controller {
         if (!this.sendQueue.length)
             this.emit('_sendQueueDrain');
     }
-    _commsHandleAckResponseReceived(error?:XError) {
+    _commsHandleAckResponseReceived(error?:BaseRegistryError) {
         //this.debug('_commsHandleAckResponseReceived');
         if (this.sendQueueIdxToReceive >= this.sendQueueIdxToSend) {
             // Got a response we weren't expecting; ignore it
@@ -1407,7 +1409,7 @@ export default class GRBLController extends Controller {
         }
         let entry = this.sendQueue[this.sendQueueIdxToReceive];
         if (entry.charCount === undefined)
-            throw new XError(XError.INTERNAL_ERROR, 'GRBL communications desync');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('GRBL communications desync');
         this.unackedCharCount -= entry.charCount;
         if (error === undefined) {
             if (entry.hooks)
@@ -1477,9 +1479,10 @@ export default class GRBLController extends Controller {
             // Got an error on the request.  Splice it out of sendQueue, and call the error hook on the gcode line
             this.sendQueue.splice(this.sendQueueIdxToReceive, 1);
             this.sendQueueIdxToSend--; // need to adjust this for the splice
-            if (!error.data)
-                error.data = {};
-            (error.data as any).request = entry.str;
+           // if (!error.getMetadata().data)
+           //     error.data = {};
+           // (error.data as any).request = entry.str;
+            error.withMetadata({request:entry.str})
             if (entry.hooks) {
                 entry.hooks.triggerSync('error', error);
             }
@@ -1796,16 +1799,17 @@ export default class GRBLController extends Controller {
         }
         this._handleStatusUpdate(statusUpdates);
     }
-    close(err?:XError) {
+    close(err?:BaseRegistryError) {
         this.debug('close() ' + err);
         this._stopStatusUpdateLoops();
         if (err && !this.error) {
             this.error = true;
-            this.errorData = XError.isXError(err) ? err : new XError(XError.MACHINE_ERROR, '' + err);
+//            this.errorData = XError.isXError(err) ? err : errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage(err);
+            this.errorData = err
         }
         this.ready = false;
         this.debug('close() calling _cancelRunningOps()');
-        this._cancelRunningOps(err || new XError(XError.CANCELLED, 'Operations cancelled due to close'));
+        this._cancelRunningOps(err || errRegistry.newError('MACHINE_ERROR','CANCELLED').formatMessage('Operations cancelled due to close'));
         if (this.serial) {
             this.debug('close() removing listeners from serial');
             for (let key in this._serialListeners) {
@@ -1896,14 +1900,14 @@ export default class GRBLController extends Controller {
         // Check if these conditions hold immediately.  If not, send out a status report request, and
         // wait until the conditions become true.
         if (this.error)
-            return Promise.reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+            return Promise.reject(this.errorData || errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Error waiting for sync'));
         this.send('G4 P0.01'); // grbl won't ack this until its planner buffer is empty
         //if (this._isSynced()) return Promise.resolve();	
         //this.send('?');
         return new Promise<void>((resolve, reject) => {
             const checkSyncHandler = () => {
                 if (this.error) {
-                    reject(this.errorData || new XError(XError.MACHINE_ERROR, 'Error waiting for sync'));
+                    reject(this.errorData || errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Error waiting for sync'));
                     removeListeners();
                 }
                 else if (this._isSynced()) {
@@ -1989,7 +1993,7 @@ export default class GRBLController extends Controller {
             }
             // If alarmed due to a loss of position, assume the alarm is erroneous (since we did a feed hold before
             // the reset) and clear it.
-            if (this.error && this.errorData && this.errorData.code === XError.MACHINE_ERROR && this.errorData.data && (this.errorData as any).data.subcode === 'position_unknown') {
+            if (this.error && this.errorData && this.errorData.getSubCode() === ERRORCODES.MACHINE_ERROR.subCode && this.errorData.getMetadata().data && this.errorData.getMetadata().data.subcode === 'position_unknown') {
                 this._ignoreUnlockedMessage = true;
                 try {
                     await this.request('$X');
@@ -2015,7 +2019,7 @@ export default class GRBLController extends Controller {
     override clearError() {
         if (!this.serial)
             return;
-        if (this.errorData && this.errorData.code === XError.SAFETY_INTERLOCK) {
+        if (this.errorData && this.errorData.getSubCode() === ERRORCODES.SAFETY_INTERLOCK.subCode) {
             this.sendExtendedAsciiCommand(0x84);
         }
         else {
@@ -2025,7 +2029,7 @@ export default class GRBLController extends Controller {
     
     override async home(axes?: boolean[]): Promise<void> {
         if (!this.homableAxes || !this.homableAxes.some((v) => v)) {
-            throw new XError(XError.INVALID_ARGUMENT, 'No axes configured to be homed');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('No axes configured to be homed');
         }
         if (this.grblBuildOptions.homingSingleAxis && axes) {
             for (let index = this.axisLabels.length-1; index >= 0 ; index--) {
@@ -2092,7 +2096,7 @@ export default class GRBLController extends Controller {
             }
         }
         if ((gcode as any).words.length < 3)
-            throw new XError(XError.INVALID_ARGUMENT, 'Cannot probe toward current position');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Cannot probe toward current position');
         this.send(gcode);
         // Wait for a probe report, or an ack.  If an ack is received before a probe report, send out a param request and wait for the probe report to be returned with that.
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
@@ -2122,7 +2126,7 @@ export default class GRBLController extends Controller {
                 this._ignoreUnlockedMessage = false;
             }
             this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
-            throw new XError(XError.PROBE_NOT_TRIPPED, 'Probe was not tripped during probing');
+            throw errRegistry.newError('MACHINE_ERROR','PROBE_NOT_TRIPPED').formatMessage('Probe was not tripped during probing');
         }
         // If the probe was successful, move back to the position the probe tripped
         await this.move(tripPos);

@@ -1,5 +1,6 @@
 
-import  XError from 'xerror';
+//import  XError from 'xerror';
+import { errRegistry } from './errRegistry';
 import TightCNCServer from './tightcnc-server';
 /**
  * Base class for an operation that can be performed.  Operations pretty much map
@@ -36,7 +37,7 @@ export default abstract class Operation {
     
     checkReady() {
         if (!this.tightcnc.controller || !this.tightcnc.controller.ready) {
-            throw new XError(XError.BAD_REQUEST, 'Controller not ready');
+            throw errRegistry.newError('INTERNAL_ERROR','BAD_REQUEST').formatMessage('Controller not ready');
         }
     }
 }

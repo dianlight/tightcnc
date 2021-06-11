@@ -1,5 +1,6 @@
-import XError from 'xerror';
+//import XError from 'xerror';
 //const GcodeLine = require('../../lib/gcode-line');
+import { errRegistry } from './errRegistry';
 import pasync from 'pasync';
 const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
 import fs from 'fs';
@@ -10,6 +11,7 @@ import { createSchema } from 'common-schema';
 import { TightCNCServer } from '..'; // Avoid Circular dependency issue
 import GcodeLine from '../../lib/gcode-line';
 import GcodeProcessor from '../../lib/gcode-processor';
+import { BaseRegistryError } from 'new-error';
 
 interface MacroData {
         name: string;
@@ -60,7 +62,7 @@ export default class Macros {
 
     getMacroParams(name: string):any {
         if (!this.macroCache[name])
-            throw new XError(XError.NOT_FOUND, 'Macro ' + name + ' not found');
+            throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('Macro ' + name + ' not found');
         let metadata = this.macroCache[name].metadata;
         if (!metadata)
             return null;
@@ -219,7 +221,7 @@ export default class Macros {
         let gotMacroMetadata = null;
         try {
             await fn(this.tightcnc, macroMeta);
-            throw new XError(XError.INTERNAL_ERROR, 'Expected call to macroMeta() in macro');
+            throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Expected call to macroMeta() in macro');
         }
         catch (err) {
             if (err && err.isMacroMetadata) {
@@ -227,7 +229,7 @@ export default class Macros {
                // TODO: what is? --> any.metadata;
             }
             else {
-                throw new XError(XError.INTERNAL_ERROR, 'Error getting macro metadata', err);
+                throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Error getting macro metadata').withMetadata(err);
             }
         }
         if (!gotMacroMetadata)
@@ -326,7 +328,7 @@ export default class Macros {
             gcodeProcessor: options.gcodeProcessor,
             controller: this.tightcnc.controller,
             axisLabels: this.tightcnc.controller?.axisLabels,
-            XError: XError,
+            XError: BaseRegistryError,
             GcodeLine: GcodeLine,
             macroMeta: () => { } // this function is a no-op in normal operation
         };
@@ -371,7 +373,7 @@ export default class Macros {
             fs.readFile(filename, { encoding: 'utf8' }, (err, data) => {
                 if (err) {
                     if (err && err.code === 'ENOENT') {
-                        reject(new XError(XError.NOT_FOUND, 'File not found'));
+                        reject(errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('File not found'));
                     }
                     else {
                         reject(err);
@@ -428,11 +430,11 @@ export default class Macros {
         else if (typeof macro === 'string') {
             // A filename to a javascript file
             if (macro.indexOf('..') !== -1 || path.isAbsolute(macro))
-                throw new XError(XError.INVALID_ARGUMENT, '.. is not allowed in macro names');
+                throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('.. is not allowed in macro names');
             // Get the macro metadata
             await this._updateMacroCacheOne(macro);
             if (!this.macroCache[macro])
-                throw new XError(XError.NOT_FOUND, 'Macro ' + macro + ' not found');
+                throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('Macro ' + macro + ' not found');
             // Normalize the params
             let paramsSchema = this.getMacroParams(macro);
             if (paramsSchema) {
@@ -441,7 +443,7 @@ export default class Macros {
             // Load the macro code
             let code = await this._readFile(this.macroCache[macro].absPath);
             if (!code)
-                throw new XError(XError.NOT_FOUND, 'Macro ' + macro + ' not found');
+                throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('Macro ' + macro + ' not found');
             // Run the macro
             return await this.runJS(code, params, options);
         }
@@ -454,7 +456,7 @@ export default class Macros {
             return await this.runJS(code, params, options);
         }
         else {
-            throw new XError(XError.INVALID_ARGUMENT, 'Unknown macro type');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Unknown macro type');
         }
     }
     generatorMacroStream(macro:string, params:any):MacroGcodeSourceStream {
@@ -486,7 +488,7 @@ class MacroGcodeSourceStream extends zstreams.Readable {
                 }
             },
             sync: async () => {
-                throw new XError(XError.UNSUPPORTED_OPERATION, 'sync() not supported in generator macros');
+                throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('sync() not supported in generator macros');
             }
         })
             .then(() => {
@@ -494,7 +496,7 @@ class MacroGcodeSourceStream extends zstreams.Readable {
         })
             .catch((err:any) => {
             if (!gotChainError) {
-                this.emit('error', new XError(XError.INTERNAL_ERROR, 'Error running generator macro', err));
+                this.emit('error', errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Error running generator macro').withMetadata(err));
             }
         });
     }

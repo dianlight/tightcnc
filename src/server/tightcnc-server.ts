@@ -1,5 +1,6 @@
 import { registerOperations } from './file-operations';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from './errRegistry';
 import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
@@ -23,6 +24,7 @@ import Controller, { ControllerStatus } from './controller';
 import JobState from './job-state';
 import GcodeLine from '../../lib/gcode-line';
 import { exit } from 'process';
+import { BaseRegistryError } from 'new-error';
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -200,7 +202,7 @@ export default class TightCNCServer extends EventEmitter {
             config = littleconf.getConfig();
         }
         if (config!.enableServer === false) {
-            throw new XError(XError.INVALID_ARGUMENT, 'enableServer config flag now found.  Ensure configuration is correct - check the documentation.');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('enableServer config flag now found.  Ensure configuration is correct - check the documentation.');
         }
         this.baseDir = this.config!.baseDir;
         // Register builtin modules
@@ -338,14 +340,14 @@ export default class TightCNCServer extends EventEmitter {
     }
     getFilename(name?:string, place?:string, allowAbsolute = false, createParentsIfMissing = false, createAsDirIfMissing = false) {
         if (name && path.isAbsolute(name) && !allowAbsolute)
-            throw new XError(XError.INVALID_ARGUMENT, 'Absolute paths not allowed');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Absolute paths not allowed');
         if (name && name.split(path.sep).indexOf('..') !== -1 && !allowAbsolute)
-            throw new XError(XError.INVALID_ARGUMENT, 'May not ascend directories');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('May not ascend directories');
         let base = this.baseDir;
         if (place) {
             let placePath = this.config!.paths[place];
             if (!placePath)
-                throw new XError(XError.INVALID_ARGUMENT, 'No such place ' + place);
+                throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('No such place ' + place);
             base = path.resolve(base, placePath);
         }
         if (name) {
@@ -373,7 +375,7 @@ export default class TightCNCServer extends EventEmitter {
     }
     async runOperation(opname:string, params:any) {
         if (!(opname in this.operations)) {
-            throw new XError(XError.NOT_FOUND, 'No such operation: ' + opname);
+            throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('No such operation: ' + opname);
         }
         try {
             return await this.operations[opname].run(params);
@@ -488,7 +490,7 @@ export default class TightCNCServer extends EventEmitter {
             else {
                 let cls = this.gcodeProcessors[gcpspec.name];
                 if (!cls)
-                    throw new XError(XError.NOT_FOUND, 'Gcode processor not found: ' + gcpspec.name);
+                    throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('Gcode processor not found: ' + gcpspec.name);
                 let opts = objtools.deepCopy(gcpspec.options || {});
                 opts.tightcnc = this;
                 if (options.job)
@@ -539,14 +541,14 @@ export default class TightCNCServer extends EventEmitter {
 
     provideInput(value:any) {
         if (!this.waitingForInput)
-            throw new XError(XError.INVALID_ARGUMENT, 'Not currently waiting for input');
+            throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Not currently waiting for input');
         let w = this.waitingForInput;
         this.waitingForInput = undefined;
         w.waiter.resolve(value);
     }
-    cancelInput(err?:Error|XError) {
+    cancelInput(err?:BaseRegistryError) {
         if (!err)
-            err = new XError(XError.CANCELLED, 'Requested input cancelled');
+            err = errRegistry.newError('INTERNAL_ERROR','CANCELLED').formatMessage('Requested input cancelled');
         if (!this.waitingForInput)
             return;
         let w = this.waitingForInput;

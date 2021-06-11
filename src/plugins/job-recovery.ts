@@ -12,7 +12,8 @@
  * for these clearance movements, including the ability to use different axes.  The default assumes a typical x, y, z
  * axis configuration with clearance on Z at machine position 0 (ie, G53 G0 Z0).
  */
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from '../server/errRegistry';
 import GcodeProcessor from '../../lib/gcode-processor';
 import GcodeLine from '../../lib/gcode-line';
 const GcodeVM = require('../../lib/gcode-vm');
@@ -29,7 +30,7 @@ const getRecoveryFilename = (tightcnc: any) => {
 function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
     let currentJob = tightcnc.jobManager.currentJob;
     if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
-        throw new XError(XError.INTERNAL_ERROR, 'No currently running job');
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('No currently running job');
     }
     let gcodeProcessors = currentJob.gcodeProcessors || {};
     for (let key in gcodeProcessors) {
@@ -38,7 +39,7 @@ function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
         }
     }
     if (throwOnMissing) {
-        throw new XError(XError.INTERNAL_ERROR, 'No ' + name + ' gcode processor found');
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('No ' + name + ' gcode processor found');
     }
     else {
         return null;
@@ -281,7 +282,7 @@ class JobRecoveryOperation extends Operation {
         let recoveryInfo = await new Promise((resolve, reject) => {
             fs.readFile(getRecoveryFilename((this as any).tightcnc), { encoding: 'utf8' }, (err, str) => {
                 if (err)
-                    return reject(new XError(XError.INTERNAL_ERROR, 'Could not read job recovery file', err));
+                    return reject(errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Could not read job recovery file').withMetadata(err));
                 try {
                     let j = JSON.parse(str);
                     resolve(j);

@@ -1,7 +1,9 @@
 import EventEmitter from 'events';
-import XError from 'xerror';
+//import XError from 'xerror';
+import { errRegistry } from './errRegistry';
 import zstreams from 'zstreams';
 import { GcodeLine } from '../../lib/gcode-line';
+import { BaseRegistryError } from 'new-error';
 
 export interface ControllerConfig {
     port: string
@@ -55,7 +57,7 @@ export interface ControllerStatus {
     spindleSpeed: number;
     line: number,
     error: boolean,
-    errorData?: XError,
+    errorData?: BaseRegistryError,
     programRunning: boolean,
     capabilities: ControllerCapabilities
     spindleSpeedMax?: number,
@@ -84,7 +86,7 @@ export default abstract class Controller extends EventEmitter {
     spindle = false;
     line = 0;
     error = false;
-    errorData?:XError;
+    errorData?:BaseRegistryError;
     programRunning = false;
     spindleDirection = 1;
     spindleSpeed = null;
@@ -428,6 +430,7 @@ export default abstract class Controller extends EventEmitter {
         return ret;
     }
 }
+/*
 // Error code for serial port communication errors
 XError.registerErrorCode('comm_error', { message: 'Error communicating with controller.' });
 // Error code when probe doesn't trip
@@ -444,3 +447,4 @@ XError.registerErrorCode('probe_initial_state', { message: 'Probe initial state 
 // Error when a safety interlock or door is disengaged
 XError.registerErrorCode('safety_interlock', { message: 'Safety interlock disengaged' });
 XError.registerErrorCode('limit_hit', { message: 'Limit switch hit' });
+*/

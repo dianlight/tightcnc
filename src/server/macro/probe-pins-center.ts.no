@@ -1,4 +1,6 @@
-const XError = require('xerror')
+//const XError = require('xerror')
+import { ERRORCODES } from '../errRegistry';
+
     // @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'macroMeta'.
 macroMeta({
     params: {
@@ -45,7 +47,7 @@ async function probeAbs(axisNum, pos, throwOnNotTripped = false) {
         let p = await controller.probe(probeTo, feed);
         return p[axisNum];
     } catch (err) {
-        if (err.code === XError.PROBE_NOT_TRIPPED && !throwOnNotTripped) {
+        if (err.getSubCode() === ERRORCODES.PROBE_NOT_TRIPPED.subCode && !throwOnNotTripped) {
             return null;
         } else {
             throw err;
@@ -63,7 +65,6 @@ async function probeRel(axisNum, offset, throwOnNotTripped = false) {
 
 // @ts-expect-error ts-migrate(2705) FIXME: An async function or method in ES5/ES3 requires th... Remove this comment to see the full error message
 async function moveAbs(axisNum, pos, feed = null) {
-    // @ts-expect-error ts-migrate(2304) FIXME: Cannot find name 'axisLabels'.
     let words = [
         ['G', feed ? 1 : 0],
         [axisLabels[axisNum].toUpperCase(), pos]
