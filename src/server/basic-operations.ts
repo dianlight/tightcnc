@@ -245,12 +245,10 @@ class OpSetOrigin extends Operation {
         };
     }
     */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params:{coordSys?:number,pos?:(number|boolean)[]}) {
         let pos = params.pos;
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'c' implicitly has an 'any' type.
         let posHasBooleans = pos && pos.some((c) => typeof c === 'boolean');
-        if (!pos || posHasBooleans || typeof params.coordSys !== 'number') {
+        if (!pos || posHasBooleans || !params.coordSys) {
             await this.tightcnc.controller?.waitSync();
         }
         if (!pos) {
@@ -262,10 +260,7 @@ class OpSetOrigin extends Operation {
                     pos[axisNum] = this.tightcnc.controller!.mpos[axisNum];
             }
         }
-        let coordSys = params.coordSys;
-        if (typeof params.coordSys !== 'number') {
-            coordSys = this.tightcnc.controller!.activeCoordSys || 0;
-        }
+        let coordSys = params.coordSys || this.tightcnc.controller!.activeCoordSys || 0;
         let gcode = 'G10 L2 P' + (coordSys + 1);
         if(this.tightcnc.controller) for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
             let axis = this.tightcnc.controller?.axisLabels[axisNum].toUpperCase();

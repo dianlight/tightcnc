@@ -105,7 +105,7 @@ export default class GRBLController extends Controller {
     realTimeMovesCounter = [0, 0, 0, 0, 0, 0];
     lastMessage?:string;
     tightcnc?: TightCNCServer;
-    _wpos?: any
+    _wpos?: number[]
     grblReportInches?: any
     _ignoreUnlockedMessage?: boolean
     _ignoreUnlockPromptMessage?: boolean
@@ -278,16 +278,16 @@ export default class GRBLController extends Controller {
         }
         // Parsed mapping is now in statusReport
         // Separate the machine state into major and minor components
-        if ((statusReport as any).machineState) {
+        if (statusReport.machineState) {
             let state = (statusReport as any).machineState;
             if (state.indexOf(':') !== -1) {
                 let stateParts = state.split(':');
-                (statusReport as any).machineStateMajor = stateParts[0];
-                (statusReport as any).machineStateMinor = parseInt(stateParts[1]);
+                statusReport.machineStateMajor = stateParts[0];
+                statusReport.machineStateMinor = parseInt(stateParts[1]);
             }
             else {
-                (statusReport as any).machineStateMajor = (statusReport as any).machineState;
-                (statusReport as any).machineStateMinor = null;
+                statusReport.machineStateMajor = (statusReport as any).machineState;
+                statusReport.machineStateMinor = null;
             }
         }
         // Update this.currentStatusReport
@@ -295,79 +295,94 @@ export default class GRBLController extends Controller {
             this.currentStatusReport[key] = statusReport[key];
         }
         // Update the class properties
-        let obj = {};
+        let obj: {
+            mpos?: number[],
+            _wpos?: number[],
+            ready?: boolean,
+            held?: boolean,
+            moving?: boolean
+            error?: boolean,
+            errorData?: XError
+            programRunning?: boolean
+            line?: number
+            feed?: number
+            spindleSpeed?: number
+            spindle?:boolean
+            spindleDirection?: -1 | 1
+            coolant?: false|1|2|3
+        } = {};
         // Handle each key
         for (let key in statusReport) {
             // Handle each possible key we care about
             if (key === 'machineState') {
                 // States: Idle, Run, Hold, Jog (1.1 only), Alarm, Door, Check, Home, Sleep (1.1 only)
-                let state = (statusReport as any).machineStateMajor;
-                let substate = (statusReport as any).machineStateMinor;
+                let state = statusReport.machineStateMajor;
+                let substate = statusReport.machineStateMinor;
                 switch (state.toLowerCase()) {
                     case 'idle':
-                        (obj as any).ready = true;
-                        (obj as any).held = false;
-                        (obj as any).moving = false;
-                        (obj as any).error = false;
-                        (obj as any).errorData = null;
-                        (obj as any).programRunning = false;
+                        obj.ready = true;
+                        obj.held = false;
+                        obj.moving = false;
+                        obj.error = false;
+                        obj.errorData = undefined;
+                        obj.programRunning = false;
                         break;
                     case 'run':
-                        (obj as any).ready = true;
-                        (obj as any).held = false;
-                        (obj as any).moving = true;
-                        (obj as any).error = false;
-                        (obj as any).errorData = null;
-                        (obj as any).programRunning = true;
+                        obj.ready = true;
+                        obj.held = false;
+                        obj.moving = true;
+                        obj.error = false;
+                        obj.errorData = undefined;
+                        obj.programRunning = true;
                         break;
                     case 'hold':
-                        (obj as any).ready = true;
-                        (obj as any).held = true;
-                        (obj as any).moving = false;
-                        (obj as any).error = false;
-                        (obj as any).errorData = null;
-                        (obj as any).programRunning = true;
+                        obj.ready = true;
+                        obj.held = true;
+                        obj.moving = false;
+                        obj.error = false;
+                        obj.errorData = undefined;
+                        obj.programRunning = true;
                         break;
                     case 'alarm':
-                        (obj as any).ready = false;
-                        (obj as any).held = false;
-                        (obj as any).moving = false;
-                        (obj as any).error = true;
-                        if (!this.errorData && !(obj as any).errorData) {
+                        obj.ready = false;
+                        obj.held = false;
+                        obj.moving = false;
+                        obj.error = true;
+                        if (!this.errorData && !obj.errorData) {
                             // got status of alarm without a previous ALARM message indicating the type of alarm (which happens in some cases)
                             if (this.lastMessage) {
                                 // infer the alarm state from the most recent message received
-                                (obj as any).errorData = this._msgToError(this.lastMessage);
+                                obj.errorData = this._msgToError(this.lastMessage);
                             }
-                            if (!(obj as any).errorData)
-                                (obj as any).errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
+                            if (!obj.errorData)
+                                obj.errorData = new XError(XError.MACHINE_ERROR, 'Alarmed');
                         }
-                        (obj as any).programRunning = false;
+                        obj.programRunning = false;
                         break;
                     case 'door':
-                        (obj as any).ready = false;
-                        (obj as any).held = false;
-                        (obj as any).moving = false;
-                        (obj as any).error = true;
+                        obj.ready = false;
+                        obj.held = false;
+                        obj.moving = false;
+                        obj.error = true;
                         // TODO: Handle substate with different messages here
-                        (obj as any).errorData = new XError(XError.SAFETY_INTERLOCK, 'Door open', { doorCode: substate });
-                        (obj as any).programRunning = false;
+                        obj.errorData = new XError(XError.SAFETY_INTERLOCK, 'Door open', { doorCode: substate });
+                        obj.programRunning = false;
                         break;
                     case 'check':
-                        (obj as any).ready = true;
-                        (obj as any).held = false;
-                        (obj as any).moving = false;
-                        (obj as any).error = false;
-                        (obj as any).errorData = null;
-                        (obj as any).programRunning = true;
+                        obj.ready = true;
+                        obj.held = false;
+                        obj.moving = false;
+                        obj.error = false;
+                        obj.errorData = undefined;
+                        obj.programRunning = true;
                         break;
                     case 'home':
                     case 'jog':
-                        (obj as any).ready = true;
-                        (obj as any).held = false;
-                        (obj as any).moving = true;
-                        (obj as any).error = false;
-                        (obj as any).errorData = null;
+                        obj.ready = true;
+                        obj.held = false;
+                        obj.moving = true;
+                        obj.error = false;
+                        obj.errorData = undefined;
                         break;
                     case 'sleep':
                         break;
@@ -380,14 +395,14 @@ export default class GRBLController extends Controller {
                 // Not currently used.  At some point in the future, if this field is present, it can be used to additionally inform when executing and executed are called, and for waitSync
             }
             else if (key === 'Ln') {
-                (obj as any).line = (statusReport as any).Ln;
+                obj.line = (statusReport as any).Ln;
             }
             else if (key === 'F') {
-                (obj as any).feed = (statusReport as any).F;
+                obj.feed = (statusReport as any).F;
             }
             else if (key === 'FS') {
-                (obj as any).feed = (statusReport as any).FS[0];
-                (obj as any).spindleSpeed = (statusReport as any).FS[1];
+                obj.feed = (statusReport as any).FS[0];
+                obj.spindleSpeed = (statusReport as any).FS[1];
             }
             else if (key === 'Pn') {
                 // pin state; currently not used
@@ -398,29 +413,29 @@ export default class GRBLController extends Controller {
             else if (key === 'A') {
                 let a = (statusReport as any).A;
                 if (a.indexOf('S') !== -1) {
-                    (obj as any).spindle = true;
-                    (obj as any).spindleDirection = 1;
+                    obj.spindle = true;
+                    obj.spindleDirection = 1;
                 }
                 else if (a.indexOf('C') !== -1) {
-                    (obj as any).spindle = true;
-                    (obj as any).spindleDirection = -1;
+                    obj.spindle = true;
+                    obj.spindleDirection = -1;
                 }
                 else {
-                    (obj as any).spindle = false;
+                    obj.spindle = false;
                 }
                 if (a.indexOf('F') !== -1) {
                     if (a.indexOf('M') !== -1) {
-                        (obj as any).coolant = 3;
+                        obj.coolant = 3;
                     }
                     else {
-                        (obj as any).coolant = 2;
+                        obj.coolant = 2;
                     }
                 }
                 else if (a.indexOf('M') !== -1) {
-                    (obj as any).coolant = 1;
+                    obj.coolant = 1;
                 }
                 else {
-                    (obj as any).coolant = false;
+                    obj.coolant = false;
                 }
             }
             else if (key === 'Buf') { // 0.9
@@ -435,25 +450,27 @@ export default class GRBLController extends Controller {
         }
         // Figure out how to update current position with given information
         if ('MPos' in statusReport) {
-            (obj as any).mpos = (statusReport as any).MPos;
+            obj.mpos = (statusReport as any).MPos;
             if ('WCO' in statusReport) {
                 // calculate this._wpos from given coordinate offset
-                (obj as any)._wpos = [];
-                for (let i = 0; i < (statusReport as any).MPos.length; i++)
-                    (obj as any)._wpos.push((statusReport as any).MPos[i] - (statusReport as any).WCO[i]);
+                obj._wpos = [];
+                for (let i = 0; i < (statusReport as any).MPos.length; i++) {
+                    obj._wpos.push((statusReport as any).MPos[i] - (statusReport as any).WCO[i]);
+                    // FIXME: ? Settare l'ffest appena letto!
+                }
             }
             else if (!('WPos' in statusReport)) {
                 // no work position present, so clear this._wpos so position is calculated from mpos
-                (obj as any)._wpos = null;
+                obj._wpos = undefined;
             }
         }
         if ('WPos' in statusReport) {
-            (obj as any)._wpos = (statusReport as any).WPos;
+            obj._wpos = (statusReport as any).WPos;
             if ('WCO' in statusReport && !('MPos' in statusReport)) {
                 // calculate this.mpos from the known data
-                (obj as any).mpos = [];
+                obj.mpos = [];
                 for (let i = 0; i < (statusReport as any).WPos.length; i++)
-                    (obj as any).mpos.push((statusReport as any).WPos[i] + (statusReport as any).WCO[i]);
+                    obj.mpos.push((statusReport as any).WPos[i] + (statusReport as any).WCO[i]);
             }
         }
         this._lastRecvSrOrAck = 'sr';
@@ -540,7 +557,7 @@ export default class GRBLController extends Controller {
     // Converts the grbl message to an XError
     // Returns null if the message does not indicate an error
     // Note that just receiving a message that can be interpreted as an error doesn't mean the machine is alarmed; that should be checked separately
-    _msgToError(str:string) {
+    _msgToError(str:string):XError|undefined {
         switch (str.trim()) {
             case "'$H'|'$X' to unlock":
                 return new XError(XError.MACHINE_ERROR, 'Position unknown; home machine or clear error', { subcode: 'position_unknown', grblMsg: str });
@@ -557,7 +574,7 @@ export default class GRBLController extends Controller {
             case 'Restoring defaults':
             case 'Restoring spindle':
             case 'Sleeping':
-                return null;
+                return undefined;
             default:
                 return new XError(XError.MACHINE_ERROR, 'GRBL: ' + str, { grblMsg: str });
         }
@@ -1666,7 +1683,7 @@ export default class GRBLController extends Controller {
     }
 
     _updateStateFromGcode(gline:GcodeLine) {
-        //this.debug('_updateStateFromGcode: ' + gline.toString());
+        this.debug('_updateStateFromGcode: ' + gline.toString());
         // Do not update state components that we have definite values for from status reports based on if we've ever received such a key in this.currentStatusReport
         let statusUpdates: {
             [key:string]:any
@@ -1699,22 +1716,24 @@ export default class GRBLController extends Controller {
             statusUpdates['coordSysOffsets.' + csys] = [];
             for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
                 let axis = this.axisLabels[axisNum].toUpperCase();
-                let val = 0;
+                let val = this.coordSysOffsets[csys][axisNum];
                 if (gline.has(axis))
                     val = gline.get(axis) as number;
                 statusUpdates['coordSysOffsets.' + csys][axisNum] = val;
             }
+            this.debug(`Update L2 coordSysOffsets ${statusUpdates['coordSysOffsets.' + csys]}`)
         }
-        if (gline.has('G10') && gline.has('L20') && gline.has('P')) {
+        if (gline.has('G10') && (gline.has('L20')) && gline.has('P')) {
             let csys = gline.get('P') as number - 1;
             statusUpdates['coordSysOffsets.' + csys] = [];
             for (let axisNum = 0; axisNum < this.axisLabels.length; axisNum++) {
                 let axis = this.axisLabels[axisNum].toUpperCase();
-                let val = 0;
+                let val = this.coordSysOffsets[csys][axisNum];
                 if (gline.has(axis))
                     val = gline.get(axis) as number;
                 statusUpdates['coordSysOffsets.' + csys][axisNum] = this.mpos[axisNum] - val;
             }
+            this.debug(`Update L20 coordSysOffsets ${statusUpdates['coordSysOffsets.' + csys]}`)
         }
         if (gline.has('G20') || gline.has('G21')) {
             (statusUpdates as any).units = gline.has('G20') ? 'in' : 'mm';
