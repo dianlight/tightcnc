@@ -38,14 +38,14 @@ export default class LoggerMem {
         this.lines = [];
         this.nextNum = 1;
     }
-    section(start?:number, end?:number, limit?:number) {
-        if (start === null || start === undefined)
+    section(start?:number, end?:number, limit?:number): [number, string][] {
+        if (start === undefined)
             start = 0;
         if (start < 0)
             start = this.nextNum + start;
         if (start > this.nextNum) {
             // Assume that server has restarted and client hasn't caught up.  Return the desired number of lines, up to the end of our buffer.
-            if (end === null || end === undefined) {
+            if (end === undefined) {
                 if (!limit)
                     return this.lines;
                 else
@@ -69,7 +69,7 @@ export default class LoggerMem {
         let linesStartNum = this.lines[0][0];
         if (start < linesStartNum)
             start = linesStartNum;
-        if (end === null || end === undefined)
+        if (end === undefined)
             end = this.nextNum;
         if (end < 0)
             end = this.nextNum + end;

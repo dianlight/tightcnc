@@ -7,7 +7,7 @@ Planned task upgrade:
  - [ ] Correct macro loading
  - [x] Remove XError
  - [ ] Code cleanup
-  - [ ] Remove yaar and use a Typescript system.
+  - [x] Remove yaar and use a Typescript system.
   - [ ] Plugin indipendent UI interfaces
     - [ ] Remove clientui codebase
   - [ ] Correct all ts-migrate FIXME:
@@ -25,7 +25,7 @@ Planned task upgrade:
   - [ ] User Port as url to manage transparent binging. ( serial: socket: grblsim: )
 - [x] ~~Support start without config~~ (Removed controllers from default conf!)
 - [ ] Support for new API
-  - [x] ~~Reload Config~~ Use restart
+  - [ ] Reload Config
   - [x] ~~Is Alive~~ **Not needed!**
   - [x] Get available serials ports
     - [ ] Based on controller to use custom bundings.

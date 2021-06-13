@@ -310,8 +310,7 @@ class OpGetLog extends Operation {
         };
     }
     */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    override async run(params) {
+    override async run(params:{logType:'comms'|'message',start:number,end:number,limit:number}) {
         let logger;
         if (params.logType === 'comms') {
             logger = this.tightcnc.loggerMem;

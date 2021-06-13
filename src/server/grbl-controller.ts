@@ -171,7 +171,7 @@ export default class GRBLController extends Controller {
     }
 
     debug(str: string) {
-        const enableDebug = true; // FIXME: Remmove debug linr
+        const enableDebug = false; // FIXME: Remmove debug linr
         if (this.tightcnc)
             this.tightcnc.debug('GRBL: ' + str);
         else if (enableDebug)

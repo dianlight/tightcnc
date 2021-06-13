@@ -1541,7 +1541,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/cors@npm:^2":
+"@types/cors@npm:^2.8.10":
   version: 2.8.10
   resolution: "@types/cors@npm:2.8.10"
   checksum: c3f3d6feee59ff75127fec3030d55c3d5f1adfc07953facdae67c47dcd54c83c46a5e92f08afa53542ec978da38a388697d30731019798cb157c9e96c64ef6c3
@@ -7804,7 +7804,7 @@ __metadata:
     "@serialport/binding-abstract": ^9.0.7
     "@serialport/stream": ^9.0.7
     "@types/blessed": ^0.1.17
-    "@types/cors": ^2
+    "@types/cors": ^2.8.10
     "@types/express": ^4.17.12
     "@types/kd-tree-javascript": ^1.0.0
     "@types/mkdirp": ^1.0.1
