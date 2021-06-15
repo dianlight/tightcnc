@@ -25,7 +25,7 @@ Planned task upgrade:
   - [ ] User Port as url to manage transparent binging. ( serial: socket: grblsim: )
 - [x] ~~Support start without config~~ (Removed controllers from default conf!)
 - [ ] Support for new API
-  - [ ] Reload Config
+  - [ ] Reload Config without restart ( need for web version and to allow tmp file consistency )
   - [x] ~~Is Alive~~ **Not needed!**
   - [x] Get available serials ports
     - [ ] Based on controller to use custom bundings.

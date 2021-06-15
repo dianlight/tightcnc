@@ -1,13 +1,21 @@
 import  Operation from './operation';
 import  TightCNCServer from './tightcnc-server';
 import  SerialPort, { PortInfo } from 'serialport';
+import { resolve } from 'path/posix';
 
 
 
 class OpGetAvailableSerials extends Operation {
     async run(): Promise<PortInfo[]> {
+        // console.log("Cerco le serial!!!")
+
         // FIXME: Need to use configured controlle to check custom bindings
-        return SerialPort.list()
+        return new Promise<PortInfo[]>((resolve, reject) => {
+            SerialPort.list().then(portInfos => {
+                // console.log('Serial PortInfo', portInfos)
+                resolve(portInfos)
+            })
+        })
     }
 
     getParamSchema() { return {} }

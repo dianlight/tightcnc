@@ -1055,8 +1055,12 @@ export default class GRBLController extends Controller {
             // Try to open the serial port
             this.debug('Opening serial port');
             await new Promise<void>((resolve, reject) => {
-                if (port.toLocaleLowerCase().startsWith('socket:')) SerialPort.Binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
-                else if(port.toLocaleLowerCase().startsWith('grblsim:')) SerialPort.Binding = GrblsimBinding as unknown as SerialPort.BaseBinding
+                if (port.toLocaleLowerCase().startsWith('socket:')) {
+                    serialOptions.binding = SerialportRawSocketBinding as unknown as SerialPort.BaseBinding;
+                }
+                else if (port.toLocaleLowerCase().startsWith('grblsim:')) {
+                    serialOptions.binding = GrblsimBinding as unknown as SerialPort.BaseBinding
+                }
                 this.serial = new SerialPort(port, serialOptions, (err) => {
                     if (err)
                         reject(errRegistry.newError('IO_ERROR','COMM_ERROR').formatMessage('Error opening serial port').withMetadata(err));
