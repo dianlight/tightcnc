@@ -1,5 +1,4 @@
 import { registerOperations } from './file-operations';
-//import XError from 'xerror';
 import { errRegistry } from './errRegistry';
 import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
@@ -23,8 +22,8 @@ import systemoperation from './system-operations'
 import Controller, { ControllerStatus } from './controller';
 import JobState from './job-state';
 import GcodeLine from '../../lib/gcode-line';
-import { exit } from 'process';
 import { BaseRegistryError } from 'new-error';
+import {addExitCallback} from 'catch-exit';
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -295,15 +294,12 @@ export default class TightCNCServer extends EventEmitter {
             await this.operations[opname].init();
         }
         // Setup Exit Hooks
-    
-        process.on('SIGINT',  (code) => {
-            console.debug('SIGINT received...');
-            this.controller?.disconnect().then( ()=> process.exit(0))
-          });
-        
-        process.on('SIGTERM', (code) => {
-            console.debug('SIGTERM received...');
-            this.controller?.disconnect().then( ()=> process.exit(0))
+
+        addExitCallback(signal => {
+            console.log('Controller shutdown for Signal ',signal)
+            if (signal !== 'exit') {
+                this.controller?.disconnect()
+            }
         });
         
     }
@@ -314,10 +310,9 @@ export default class TightCNCServer extends EventEmitter {
     async shutdown(): Promise<void>{
         return new Promise((resolve) => {
             if (this.controller) {
-                this.controller.disconnect().then( ()=> exit(0))
-                
+                this.controller.disconnect().then( ()=> process.exit(0))
             } else {
-                exit(0)
+                process.exit(0)
             }
         })
     }
@@ -338,6 +333,7 @@ export default class TightCNCServer extends EventEmitter {
             this.loggerDisk.log('other', 'Debug: ' + str);
         }
     }
+
     getFilename(name?:string, place?:string, allowAbsolute = false, createParentsIfMissing = false, createAsDirIfMissing = false) {
         if (name && path.isAbsolute(name) && !allowAbsolute)
             throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Absolute paths not allowed');
@@ -364,6 +360,27 @@ export default class TightCNCServer extends EventEmitter {
         }
         return absPath;
     }
+
+    getDirectory(place?:string, createParentsIfMissing = false, createAsDirIfMissing = false) {
+        let base = this.baseDir;
+        if (place) {
+            let placePath = this.config!.paths[place];
+            if (!placePath)
+                throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('No such place ' + place);
+            base = path.resolve(base, placePath);
+        }
+        let absPath = base;
+        if (createParentsIfMissing) {
+            mkdirp.sync(path.dirname(absPath));
+        }
+        if (createAsDirIfMissing) {
+            if (!fs.existsSync(absPath)) {
+                fs.mkdirSync(absPath);
+            }
+        }
+        return absPath;
+    }
+
     registerController(name:string, cls:any) {
         this.controllerClasses[name] = cls;
     }

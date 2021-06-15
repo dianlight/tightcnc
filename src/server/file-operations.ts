@@ -1,9 +1,10 @@
 import Operation from './operation';
 import  fs from 'fs';
 import  path from 'path';
-//import commonSchema from 'common-schema';
-//import XError from 'xerror';
 import TightCNCServer from './tightcnc-server';
+import {addExitCallback} from 'catch-exit';
+import { filemanager } from 'blessed';
+
 class OpListFiles extends Operation {
     /*
     override getParamSchema() {
@@ -92,19 +93,30 @@ class OpUploadFile extends Operation {
         };
     }
     */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    async run(params: {
+        filename: string,
+        data: string
+        makeTmp?:boolean
+    }) {
         let fullFilename = this.tightcnc.getFilename(params.filename, 'data', false, true);
         await new Promise<void>((resolve, reject) => {
             fs.writeFile(fullFilename, params.data, (err) => {
                 if (err)
                     reject(err);
-                else
+                else {
+                    if (params.makeTmp) {
+                        addExitCallback(signal => {
+                            console.debug("Removing tmp file", fullFilename)
+                            fs.unlinkSync(fullFilename)
+                        } )
+                    }
                     resolve();
+                }
             });
         });
     }
 }
+
 export function registerOperations(tightcnc: TightCNCServer) {
     tightcnc.registerOperation('listFiles', OpListFiles);
     tightcnc.registerOperation('uploadFile', OpUploadFile);

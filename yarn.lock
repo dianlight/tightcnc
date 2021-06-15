@@ -2754,6 +2754,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"catch-exit@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "catch-exit@npm:1.1.0"
+  dependencies:
+    human-signals: 2.1.0
+  checksum: b63f7f8645aacf9800dcfb2bb405c07c969a5b99ed57e59a31d5e32052cb7b2f0d2a779a6d04e4b362b4417d9d84b9e89c37e92a7b7f6d95d33ad0d858851327
+  languageName: node
+  linkType: hard
+
 "chalk@npm:^2.0.0, chalk@npm:^2.4.2":
   version: 2.4.2
   resolution: "chalk@npm:2.4.2"
@@ -4587,7 +4596,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"human-signals@npm:^2.1.0":
+"human-signals@npm:2.1.0, human-signals@npm:^2.1.0":
   version: 2.1.0
   resolution: "human-signals@npm:2.1.0"
   checksum: 70bfd94d27b8ca94f76f92f56d294694860c15264393a8ffee83f49535a08da02e477064d91e2b511cc642ec5c7922675d2babcca2b6bf6f45e4d037b632759d
@@ -7815,6 +7824,7 @@ __metadata:
     "@types/webpack-manifest-plugin": ^3.0.4
     axios: ^0.21.1
     blessed: ^0.1.81
+    catch-exit: ^1.1.0
     common-schema: ^3.0.0
     cors: ^2.8.5
     crisphooks: ^2.0.1
@@ -7838,7 +7848,7 @@ __metadata:
     ts-loader: ^9.2.3
     ts-migrate: ^0.1.19
     ts-node: ^10.0.0
-    tslib: ^2.2.0
+    tslib: ^2.3.0
     typescript: ^4.3.2
     webpack: ^5.38.1
     webpack-cli: ^4.7.2
@@ -8026,10 +8036,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.0.1, tslib@npm:^2.2.0":
+"tslib@npm:^2.0.1":
   version: 2.2.0
   resolution: "tslib@npm:2.2.0"
   checksum: 2d35468c470410871c5246e43f12dcb6d0fc363b617c176f26443b9530e5c5ee8448966892a42956168d8f495da7865bda33dfe82c26c91991e28999974a618f
+  languageName: node
+  linkType: hard
+
+"tslib@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "tslib@npm:2.3.0"
+  checksum: 7b4fc9feff0f704743c3760f5d8d708f6417fac6458159e63df3a6b1100f0736e3b99edb9fe370f274ad15160a1f49ff05cb49402534c818ff552c48e38c3e6e
   languageName: node
   linkType: hard
 

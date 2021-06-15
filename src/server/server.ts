@@ -7,6 +7,7 @@ import TightCNCServer from './tightcnc-server';
 import { createJSONRPCErrorResponse, JSONRPC, JSONRPCID, JSONRPCMethod, JSONRPCRequest, JSONRPCResponse, JSONRPCResponsePromise, JSONRPCServer } from 'json-rpc-2.0';
 import Operation from './operation';
 import cors from 'cors'
+import {addExitCallback} from 'catch-exit';
 
 const config = littleconf.getConfig()
 
@@ -169,6 +170,17 @@ async function startServer() {
 	});
 
 }
+
+// Exit hook 
+
+//process.stdin.resume();//so the program will not close instantly
+
+addExitCallback(signal => {
+	console.log("TightCNC exit for signal ",signal)
+})
+
+// start the server
+
 
 startServer()
 	.catch((err) => {

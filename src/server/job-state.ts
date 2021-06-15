@@ -1,5 +1,6 @@
 import EventEmitter from 'events';
 import objtools from 'objtools';
+import GcodeProcessor from '../../lib/gcode-processor';
 /**
  * This class tracks the state of a running job or dry run.  It's mostly just a collection of properties
  * managed by JobManager.  It can also emit the events 'start', 'complete' and 'error' (also managed by JobManager).
@@ -14,7 +15,7 @@ export default class JobState extends EventEmitter {
     _hasFinished = false;
     waitList = [];
     sourceStream: any;
-    gcodeProcessors: any;
+    gcodeProcessors: GcodeProcessor[] = [];
 
     constructor(props:Partial<JobState>) {
         super();

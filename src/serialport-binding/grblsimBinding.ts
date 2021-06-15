@@ -1,6 +1,7 @@
 import AbstractBinding from "@serialport/binding-abstract"
 import { OpenOptions, PortInfo } from "serialport"
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
+import {addExitCallback} from 'catch-exit';
 
 export default class GrblsimBinding extends AbstractBinding {
 
@@ -58,7 +59,11 @@ export default class GrblsimBinding extends AbstractBinding {
             process.on('beforeExit', (code) => {
                 console.error(`TightCNC server shutdown.. ${code}`)
                 this.closeSync()
-            } )
+            })
+            addExitCallback(signal => {
+                console.log('TighCNC Exit hook')
+                this.closeSync()
+            });
             this.isOpen = true
             resolve()
         })

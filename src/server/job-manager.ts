@@ -16,7 +16,7 @@ export interface JobStatus {
     dryRunResults: any,
     startTime: any,
     error: string | null,
-    gcodeProcessors: GcodeProcessor,
+    gcodeProcessors: any,
     stats: {
         time: any;
         line: any;
@@ -38,19 +38,17 @@ export default class JobManager {
     }
     initialize() {
     }
-    getStatus(job?:any):JobStatus|undefined {
+    getStatus(job?:JobState):JobStatus|undefined {
         if (!job)
             job = this.currentJob;
         if (!job)
             return;
         // Fetch the status from each gcode processor
-        let gcodeProcessorStatuses = undefined;
+        let gcodeProcessorStatuses:any[] = [];
         if (job.gcodeProcessors) {
-            gcodeProcessorStatuses = {};
             for (let key in job.gcodeProcessors) {
                 let s = job.gcodeProcessors[key].getStatus();
                 if (s) {
-                    // @ts-expect-error ts-migrate(7053) FIXME: Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
                     gcodeProcessorStatuses[key] = s;
                 }
             }
@@ -118,7 +116,7 @@ export default class JobManager {
      *   @param {Boolean} [options.rawFile=false] - If true, pass the file unaltered to the controller, without running
      *     any gcode processors.  (Will disable status reports)
      */
-    async startJob(jobOptions:JobSourceOptions) {
+    async startJob(jobOptions:JobSourceOptions):Promise<JobStatus> {
         this.tightcnc.debug('Begin startJob');
         let job:JobState;
         // First do a dry run of the job to fetch overall stats
@@ -224,7 +222,7 @@ export default class JobManager {
         });
         job.state = 'running';
         this.tightcnc.debug('End startJob');
-        return this.getStatus(job);
+        return this.getStatus(job) as JobStatus;
     }
 
     async dryRunJob(jobOptions: JobSourceOptions, outputFile?: string) {
