@@ -1,14 +1,16 @@
 import objtools from 'objtools';
 //import XError from 'xerror';
 import { ERRORCODES, errRegistry } from './errRegistry';
-import zstreams from 'zstreams';
-import GcodeProcessor, {callLineHooks} from '../../lib/gcode-processor';
+//import zstreams from 'zstreams';
+import * as node_stream from 'stream'
+import {callLineHooks} from '../../lib/gcode-processor';
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
 //import { TightCNCServer } from '..'; // Avoid Circular dependency issue
 import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
 import { BaseRegistryError } from 'new-error';
+import { join } from 'path/posix';
 
 export interface JobStatus {
     state: string,
@@ -201,7 +203,6 @@ export default class JobManager {
         this.tightcnc.debug('startJob wait for processorChainReady');
         await new Promise<void>((resolve, reject) => {
             let finished = false;
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter '_chain' implicitly has an 'any' type.
             source.on('processorChainReady', (_chain, chainById) => {
                 if (finished)
                     return;
@@ -210,7 +211,6 @@ export default class JobManager {
                 job.startTime = new Date().toISOString();
                 resolve();
             });
-            // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'err' implicitly has an 'any' type.
             source.on('chainerror', (err) => {
                 if (finished)
                     return;
@@ -274,7 +274,6 @@ export default class JobManager {
         });
         job.sourceStream = source;
         job.state = 'running';
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter '_chain' implicitly has an 'any' type.
         origSource.on('processorChainReady', (_chain, chainById) => {
             job.gcodeProcessors = chainById;
         });
@@ -291,11 +290,19 @@ export default class JobManager {
                 .intoFile(outputFile);
         }
         else {
-            await source.pipe(new zstreams.BlackholeStream({ objectMode: true })).intoPromise();
+           // await source.pipe(new zstreams.BlackholeStream({ objectMode: true })).intoPromise();
+            await (async function() {
+                for await (const chunk of source) {
+                  // console.log(chunk);
+                }
+              })()
         }
         job.state = 'complete';
-        if (!job.gcodeProcessors)
-            job.gcodeProcessors = origSource.gcodeProcessorChainById || {};
+        if (!job.gcodeProcessors) {
+            job.gcodeProcessors = Object.values(origSource.gcodeProcessorChainById)
+            //job.gcodeProcessors = origSource.gcodeProcessorChainById || {};
+            
+        }
         // Get the job stats
         this.tightcnc.debug('Dry run get stats');
         /*let gpcStatuses = {};

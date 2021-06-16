@@ -1,12 +1,16 @@
-import zstreams from 'zstreams';
+//import zstreams from 'zstreams';
+import * as node_stream from 'stream'
 import GcodeLine from './gcode-line';
 //import XError from 'xerror';
 import { errRegistry } from '../src/server/errRegistry';
 import { deepCopy } from 'objtools';
+import fs from 'fs'
+import readline from 'readline'
 //const GcodeLine = require('./gcode-line');
 //const CrispHooks = require('crisphooks');
 
-export default class GcodeProcessor extends zstreams.Transform {
+
+export default class GcodeProcessor extends node_stream.Transform {
 
     id: string;
     syncWaitingForLine?:GcodeLine; // used to determine when the last line pushed from this processor is received by the next in the chain
@@ -309,8 +313,7 @@ export function callLineHooks(gline:GcodeLine) {
     gline.triggerSync('executed');
 }
 
-// filename can be either a filename, or an array of string gcode lines, or a function that, when called, returns a readable object zstream of GcodeLine's.
-function makeSourceStream(filename:string|string[]|(() => any /* zstreams.Readable */)) {
+function makeSourceStream(filename:string|string[]|(() => node_stream.Readable)):ExReadableStream {
     let lineStream;
 
     const glineCleanup = (gline:GcodeLine) => {
@@ -320,23 +323,45 @@ function makeSourceStream(filename:string|string[]|(() => any /* zstreams.Readab
     };
 
     if (Array.isArray(filename)) {
-        lineStream = zstreams.fromArray(filename);
+        lineStream = node_stream.Readable.from(filename);
     } else if (typeof filename === 'function') {
-        return filename().through((gline:GcodeLine) => {
-            glineCleanup(gline);
-            return gline;
-        });
+        return new ExReadableStream({
+            transform: (chunk:GcodeLine, encode, callaback) => {
+                callaback(null,glineCleanup(chunk))
+            }
+        }).wrap(filename())
+        //filename().through((gline: GcodeLine) => {
+        //    glineCleanup(gline);
+        //   return gline;
+        //});
     } else {
-        lineStream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream(/\r?\n/));
+        lineStream =ExReadableStream.fromFile(filename)
     }
-    return lineStream.through((lineStr:string) => {
-        // remove blanks
-        let gline = new GcodeLine(lineStr);
-        if (!gline.words!.length && !gline.comment) return undefined;
-        glineCleanup(gline);
-        return gline;
-    });
+    return new ExReadableStream({
+        transform: (lineStr: string, encoding: string, callback) => {
+            let gline = new GcodeLine(lineStr);
+            if (!gline.words!.length && !gline.comment) return undefined;
+            glineCleanup(gline);
+            callback(null,gline)
+        },
+    }).wrap(lineStream)
 }
+export class ExReadableStream extends node_stream.Transform {
+    gcodeProcessorChain: GcodeProcessor[] = [];
+    gcodeProcessorChainById: {
+        [key:string]:GcodeProcessor
+    } = {}
+
+    static fromFile(filename: string): ExReadableStream {
+        // FIXME: Very bad for performance on Big filenames
+        return new ExReadableStream().wrap(node_stream.Readable.from(fs.readFileSync(filename as string).toString().split(/\r?\n/)))
+    }
+
+    static fromArray(lines: string[]): ExReadableStream {
+        return new ExReadableStream().wrap(node_stream.Readable.from(lines))
+    }
+}
+
 
 /**
  * Constructs and initializes a chain of gcode processors.
@@ -358,9 +383,9 @@ function makeSourceStream(filename:string|string[]|(() => any /* zstreams.Readab
  *   to retrieve state data from processors.  This property is not available until after the 'processorChainReady'
  *   event is fired on the returned stream.
  */
-export function buildProcessorChain(filename:string|string[]|(() => any), processors:GcodeProcessor[], stringifyLines = false) {
+export function buildProcessorChain(filename:string|string[]|(() => node_stream.Readable), processors:GcodeProcessor[], stringifyLines = false): ExReadableStream {
     // use pass through so we can return a stream immediately while doing async stuff
-    let passthroughStream = new zstreams.PassThrough({ objectMode: true });
+    let passthroughStream =  new ExReadableStream() //new node_stream.PassThrough() // new zstreams.PassThrough({ objectMode: true });
 
     const doBuildChain = async() => {
 
@@ -388,7 +413,7 @@ export function buildProcessorChain(filename:string|string[]|(() => any), proces
             const preprocessInputGcode = function() {
                 // Use a passthrough as a placeholder so we can return a stream instead of
                 // a promise that resolves to a stream.
-                let passthroughStream = new zstreams.PassThrough({ objectMode: true });
+                let passthroughStream = new node_stream.PassThrough()// new zstreams.PassThrough({ objectMode: true });
                 let preprocessChain:GcodeProcessor[] = [];
                 let preprocessChainById: {
                     [key:string]:GcodeProcessor
@@ -410,11 +435,20 @@ export function buildProcessorChain(filename:string|string[]|(() => any), proces
                         stream.pipe(gp);
                         stream = gp;
                     }
+                    stream = new ExReadableStream({
+                        transform: (gline:GcodeLine, encoding, callback) => {
+                            // call hooks on all glines passing through to ensure gcode processors relying on hooks don't break
+                            callLineHooks(gline);
+                            callback(null, gline)                           
+                        }
+                    })
+                    /*
                     stream = stream.through((gline:GcodeLine) => {
                         // call hooks on all glines passing through to ensure gcode processors relying on hooks don't break
                         callLineHooks(gline);
                         return gline;
                     });
+                    */
                     stream.pipe(passthroughStream);
                 };
                 buildPreprocessChain()
@@ -443,7 +477,12 @@ export function buildProcessorChain(filename:string|string[]|(() => any), proces
         }
 
         if (stringifyLines) {
-            let stringifyStream = new zstreams.ThroughStream((gline:GcodeLine) => {
+            let stringifyStream = new ExReadableStream({
+                transform: (gline: GcodeLine, encoding, callback) => {
+                    callback(null, gline.toString()+'\n')
+                }
+            })
+            /*    new zstreams.ThroughStream((gline: GcodeLine) => {
                 return gline.toString() + '\n';
             }, {
                 writableObjectMode: true,
@@ -451,6 +490,7 @@ export function buildProcessorChain(filename:string|string[]|(() => any), proces
                 readableObjectMode: false,
                 readableHighWaterMark: 50
             });
+            */
             stream.pipe(stringifyStream);
             stream = stringifyStream;
             //stream = stream.throughData((gline) => {
@@ -467,8 +507,8 @@ export function buildProcessorChain(filename:string|string[]|(() => any), proces
 
     doBuildChain()
         .then((s) => {
-            (passthroughStream as any).gcodeProcessorChain = s.gcodeProcessorChain;
-            (passthroughStream as any).gcodeProcessorChainById = s.gcodeProcessorChainById;
+            passthroughStream.gcodeProcessorChain = s.gcodeProcessorChain;
+            passthroughStream.gcodeProcessorChainById = s.gcodeProcessorChainById;
             passthroughStream.emit('processorChainReady', s.gcodeProcessorChain, s.gcodeProcessorChainById);
         }, (err) => {
             passthroughStream.emit('error', err);

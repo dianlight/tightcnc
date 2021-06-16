@@ -4,8 +4,9 @@ import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
 import mkdirp from 'mkdirp';
-import { buildProcessorChain } from '../../lib/gcode-processor';
-import zstreams from 'zstreams';
+import GcodeProcessor, { buildProcessorChain, ExReadableStream } from '../../lib/gcode-processor';
+//import zstreams,{ZRedable} from 'zstreams';
+import * as node_stream from 'stream'
 import EventEmitter from 'events';
 import path from 'path';
 import fs from 'fs';
@@ -453,23 +454,29 @@ export default class TightCNCServer extends EventEmitter {
      *   the additional property 'gcodeProcessorChain' containing an array of all GcodeProcessor's in the chain.  This property
      *   is only available once the 'processorChainReady' event is fired on the returned stream;
      */
-    getGcodeSourceStream(options: JobSourceOptions ) {
+    getGcodeSourceStream(options: JobSourceOptions ): ExReadableStream {
         // Handle case where returning raw strings
         if (options.rawStrings) {
             if (options.filename) {
                 let filename = options.filename;
                 filename = this.getFilename(filename, 'data', true);
-                return zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
+                return ExReadableStream.fromFile(filename)
+                //return zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
             }
             else if (options.macro) {
-                return this.macros.generatorMacroStream(options.macro, options.macroParams || {}).through((gline:GcodeLine) => gline.toString());
+                return new ExReadableStream({
+                    transform: (chunk:GcodeLine, encode, callback) => {
+                        callback(null, chunk.toString())
+                    }
+                }).wrap(this.macros.generatorMacroStream(options.macro, options.macroParams || {}))
+               // this.macros.generatorMacroStream(options.macro, options.macroParams || {}).through((gline: GcodeLine) => gline.toString());
             }
             else {
-                return zstreams.fromArray(options.data);
+                return ExReadableStream.fromArray(options.data as string[]);
             }
         }
         // 
-        let macroStreamFn:(() => any)|undefined;
+        let macroStreamFn:(() => node_stream.Readable)|undefined;
         if (options.macro) {
             macroStreamFn = () => {
                 return this.macros.generatorMacroStream(options.macro as string, options.macroParams || {});
@@ -522,7 +529,9 @@ export default class TightCNCServer extends EventEmitter {
         
         if(options.filename)return buildProcessorChain(options.filename, gcodeProcessorInstances, false);
         else if(options.data)return buildProcessorChain(options.data, gcodeProcessorInstances, false);
-        else if(macroStreamFn)return buildProcessorChain(macroStreamFn, gcodeProcessorInstances, false);
+        else if (macroStreamFn) return buildProcessorChain(macroStreamFn, gcodeProcessorInstances, false);
+        
+        throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Unable to create GCODE stream')
     }
 
     async runMacro(macro: string | string[], params = {}, options: MacroOptions) {

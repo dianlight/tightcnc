@@ -5,7 +5,8 @@ import pasync from 'pasync';
 const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
 import fs from 'fs';
 import path from 'path';
-import zstreams from 'zstreams';
+//import zstreams from 'zstreams';
+import * as node_stream from 'stream'
 import objtools from 'objtools';
 import { createSchema } from 'common-schema';
 import { TightCNCServer } from '..'; // Avoid Circular dependency issue
@@ -463,7 +464,7 @@ export default class Macros {
         return new MacroGcodeSourceStream(this, macro, params);
     }
 }
-class MacroGcodeSourceStream extends zstreams.Readable {
+class MacroGcodeSourceStream extends node_stream.Readable {
     pushReadWaiter?:any;
 
     constructor(macros:Macros, macro:string, macroParams?:any) {

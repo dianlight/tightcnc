@@ -10,12 +10,12 @@ import GcodeProcessor from '../../lib/gcode-processor';
 export default class JobState extends EventEmitter {
     [x: string]: any;
 
-    state = 'initializing';
+    state:'initializing'|'complete'|'cancelled'|'error'|'running' = 'initializing';
     startTime = new Date().toISOString();
     _hasFinished = false;
     waitList = [];
     sourceStream: any;
-    gcodeProcessors: GcodeProcessor[] = [];
+    gcodeProcessors?: GcodeProcessor[];
 
     constructor(props:Partial<JobState>) {
         super();

@@ -1,9 +1,11 @@
 import EventEmitter from 'events';
 //import XError from 'xerror';
-import { errRegistry } from './errRegistry';
-import zstreams from 'zstreams';
+//import { errRegistry } from './errRegistry';
+//import zstreams from 'zstreams';
+import * as node_stream from 'stream'
 import { GcodeLine } from '../../lib/gcode-line';
 import { BaseRegistryError } from 'new-error';
+import fs from 'fs'
 
 export interface ControllerConfig {
     port: string
@@ -283,10 +285,12 @@ export default abstract class Controller extends EventEmitter {
      *   for the most part, but error handling is a bit different.
      * @return {Promise} - Resolves when whole stream has been sent, and movements processed.
      */
-    abstract sendStream(stream: ReadableStream): Promise<void>;
+    abstract sendStream(stream: node_stream.Readable ): Promise<void>;
 
     sendFile(filename: string) {
-        let stream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
+   //     let stream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
+        /** FIXME: Very bad for big file */
+        let stream =node_stream.Readable.from(fs.readFileSync(filename as string).toString().split(/\r?\n/))
         return this.sendStream(stream);
     }
     /**
