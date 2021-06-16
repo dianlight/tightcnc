@@ -1,9 +1,22 @@
-const GcodeProcessor = require('../gcode-processor').default;
-//const XError = require('xerror');
-const objtools = require('objtools');
-const GcodeVM = require('../gcode-vm');
+import GcodeProcessor  from '../gcode-processor';
+import objtools from 'objtools';
+import GcodeVM, { VMState } from '../gcode-vm';
+import GcodeLine from '../gcode-line';
+import Controller from '../../src/server/controller';
+import { TightCNCServer } from '../../src';
 
 
+
+interface GcodeVMProcessorOptions {
+    controller: Controller, // - The machine controller class instance for the gcode to run on.  Used to fetch initial state.
+    tightcnc: TightCNCServer, // - Server instance.  Can also be provided to get some initial state.
+    axisLabels: string[], // - Override default axis labels.  Defaults come from the controller, or are [ 'x', 'y', 'z' ].
+    maxFeed: number, // - Maximum feed rate, used to calculate time for G0 moves.
+    minMoveTime: number, // - Minimum time to count for a move.  Can be set to a low value to compensate for delays if lots  of small moves aren't filling the controller's buffer.
+    updateOnHook: string, // - If a string hook name (for example, "executed"), the VM state is only updated once this hook is called on the gcode line.  This option cannot be used with stateSnapshots.
+    stateSnapshots: boolean //  - If true (and not using updateOnHook), gcode lines passing through are augmented with the properties before (vm state before line), after (vm state after line), and isMotion (whether the line represents motion).
+   
+}
 
 /**
  * This gcode processor is a virtual machine that tracks the state of a gcode job as it executes, and annotates all gcode lines
@@ -44,9 +57,13 @@ const GcodeVM = require('../gcode-vm');
  *   @param {Boolean} stateSnapshots=false - If true (and not using updateOnHook), gcode lines passing through are augmented with
  *     the properties before (vm state before line), after (vm state after line), and isMotion (whether the line represents motion).
  */
-class GcodeVMProcessor extends GcodeProcessor {
+export default class GcodeVMProcessor extends GcodeProcessor {
 
-    constructor(options = {}) {
+    vm: GcodeVM
+    _statusVMState?: VMState
+    lastLineProcessedTime?: Date 
+
+    constructor(options:GcodeVMProcessorOptions) {
         super(options, 'gcodevm', false);
         let vmOptions = objtools.deepCopy(options);
         vmOptions.noInit = true;
@@ -57,11 +74,11 @@ class GcodeVMProcessor extends GcodeProcessor {
         }
     }
 
-    initProcessor() {
+    override initProcessor() {
         //this.vm.init(); // moved to constructor to avoid error w/ uninitialized VM
     }
 
-    getStatus() {
+    override getStatus():Record<string,any>|void {
         // return a reduced set of state information for the general status data; this is just used for
         // returning job data to clients - gline.before and gline.after still contain the full vmstate for internal use
         let vmState;
@@ -70,23 +87,24 @@ class GcodeVMProcessor extends GcodeProcessor {
         } else {
             vmState = this.vm.getState();
         }
-        if (!vmState) return null;
+        if (!vmState) return;
         return {
             units: vmState.units,
             line: vmState.line,
             totalTime: vmState.totalTime,
             lineCounter: vmState.lineCounter,
             bounds: vmState.bounds,
-            updateTime: this.lastLineProcessedTime && this.lastLineProcessedTime.toISOString()
+            updateTime: this.lastLineProcessedTime?this.lastLineProcessedTime.toISOString():undefined
         };
     }
 
-    processGcode(gline) {
+    override processGcode(gline:GcodeLine) {
         this.lastLineProcessedTime = new Date();
         if (this.processorOptions.updateOnHook && !this.dryRun) {
             let r = this.vm.runGcodeLine(gline);
             gline.isMotion = r.isMotion;
             let vmStateAfter = objtools.deepCopy(this.vm.getState());
+            console.log(typeof gline,gline)
             gline.hookSync(this.processorOptions.updateOnHook, () => {
                 this.lastLineProcessedTime = new Date();
                 // in case hooks are called out of order, don't update state with an out of date value
@@ -111,4 +129,4 @@ class GcodeVMProcessor extends GcodeProcessor {
 
 }
 
-module.exports = GcodeVMProcessor;
+//module.exports = GcodeVMProcessor;

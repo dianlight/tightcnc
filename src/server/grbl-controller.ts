@@ -1,6 +1,5 @@
 import  Controller, { ControllerConfig, ControllerStatus } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
-//import  XError from 'xerror';
 import { ERRORCODES, errRegistry } from './errRegistry';
 import  pasync from 'pasync';
 import GcodeLine from '../../lib/gcode-line';
@@ -10,7 +9,8 @@ import TightCNCServer from './tightcnc-server';
 import SerialportRawSocketBinding from '../serialport-binding/serialportRawSocketBinding';
 import GrblsimBinding from '../serialport-binding/grblsimBinding';
 import { BaseRegistryError, ErrorRegistry } from 'new-error';
-const GcodeVM = require('../../lib/gcode-vm');
+import GcodeVM from '../../lib/gcode-vm';
+import * as node_stream from 'stream'
 
 export interface GrblControllerConfig extends ControllerConfig {
     statusUpdateInterval?: number    
@@ -171,7 +171,7 @@ export default class GRBLController extends Controller {
     }
 
     debug(str: string) {
-        const enableDebug = false; // FIXME: Remmove debug linr
+        const enableDebug = true; // FIXME: Remmove debug linr
         if (this.tightcnc)
             this.tightcnc.debug('GRBL: ' + str);
         else if (enableDebug)
@@ -396,14 +396,14 @@ export default class GRBLController extends Controller {
                 // Not currently used.  At some point in the future, if this field is present, it can be used to additionally inform when executing and executed are called, and for waitSync
             }
             else if (key === 'Ln') {
-                obj.line = (statusReport as any).Ln;
+                obj.line = statusReport.Ln;
             }
             else if (key === 'F') {
-                obj.feed = (statusReport as any).F;
+                obj.feed = statusReport.F;
             }
             else if (key === 'FS') {
-                obj.feed = (statusReport as any).FS[0];
-                obj.spindleSpeed = (statusReport as any).FS[1];
+                obj.feed = statusReport.FS[0];
+                obj.spindleSpeed = statusReport.FS[1];
             }
             else if (key === 'Pn') {
                 // pin state; currently not used
@@ -497,24 +497,24 @@ export default class GRBLController extends Controller {
             this.spindleSpeedMin = value as number;
         if (setting === 110) {
             this.axisMaxFeeds[0] = value as number;
-            this.timeEstVM.options.maxFeed[0] = value;
+            (this.timeEstVM.options.maxFeed as number[])[0] = +value;
         }
         if (setting === 111) {
             this.axisMaxFeeds[1] = value as number;
-            this.timeEstVM.options.maxFeed[1] = value;
+            (this.timeEstVM.options.maxFeed as number[])[1] = +value;
         }
         if (setting === 112) {
             this.axisMaxFeeds[2] = value as number;
-            this.timeEstVM.options.maxFeed[2] = value;
+            (this.timeEstVM.options.maxFeed as number[])[2] = +value;
         }
         if (setting === 120) {
-            this.timeEstVM.options.acceleration[0] = +value * 3600;
+            (this.timeEstVM.options.acceleration as number[])[0] = +value * 3600;
         }
         if (setting === 121) {
-            this.timeEstVM.options.acceleration[1] = +value * 3600;
+            (this.timeEstVM.options.acceleration as number[])[1] = +value * 3600;
         }
         if (setting === 122) {
-            this.timeEstVM.options.acceleration[2] = +value * 3600;
+            (this.timeEstVM.options.acceleration as number[])[2] = +value * 3600;
         }
         if (setting === 130) {
             this.axisMaxTravel[0] = value as number;
@@ -1204,8 +1204,8 @@ export default class GRBLController extends Controller {
             this.initConnection(true);
         }, 5000);
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'line' implicitly has an 'any' type.
-    request(line) {
+
+    request(line: string | GcodeLine | Buffer):Promise<void> {
         // send line, wait for ack event or error
         return new Promise<void>((resolve, reject) => {
             let hooks = new CrispHooks();
@@ -1225,7 +1225,7 @@ export default class GRBLController extends Controller {
             this.send(line, { hooks: hooks });
         });
     }
-    _waitForEvent(eventName:string, condition?:() => boolean) {
+    _waitForEvent(eventName:string, condition?:(...args:any) => boolean) {
         // wait for the given event, or a cancelRunningOps event
         // return when the condition is true
         return new Promise((resolve, reject) => {
@@ -1234,7 +1234,6 @@ export default class GRBLController extends Controller {
             eventHandler = (...args) => {
                 if (finished)
                     return;
-                // @ts-expect-error ts-migrate(2721) FIXME: Cannot invoke an object which is possibly 'null'.
                 if (condition && !condition(...args))
                     return;
                 this.removeListener(eventName, eventHandler);
@@ -1561,7 +1560,8 @@ export default class GRBLController extends Controller {
         return true;
     }
 
-    _isImmediateCommand(str:string):boolean {
+    _isImmediateCommand(str: string): boolean {
+       // console.log("_isImmediateCommand",typeof str,str)
         str = str.trim();
         return str === '!' || str === '?' || str === '~' || str === '\x18';
     }
@@ -1623,6 +1623,7 @@ export default class GRBLController extends Controller {
     }
     sendGcode(gline: GcodeLine, options: {
         hooks?: CrispHooks
+        immediate?:boolean
     } = {}) {
         let hooks = options.hooks || /*(gline.triggerSync ?*/ gline /*: new CrispHooks())*/;
         hooks.hookSync('executing', () => this._updateStateFromGcode(gline));
@@ -1632,10 +1633,14 @@ export default class GRBLController extends Controller {
             gcode: gline,
             goesToPlanner: 1,
             fullSync: this._gcodeLineRequiresSync(gline)
-        }, (options as any).immediate);
+        }, options.immediate);
     }
  
-    override sendLine(str:string, options = {}) {
+    override sendLine(str: string, options?: {
+        hooks?: any
+        immediate?: boolean
+    }) {
+        this.debug(`sending line ${str}`)
         // Check for "immediate commands" like feed hold that don't go into the queue
         if (this._isImmediateCommand(str)) {
             //this._writeToSerial(str);
@@ -1644,17 +1649,16 @@ export default class GRBLController extends Controller {
         }
         // If it doesn't start with $, try to parse as gcode
         if (str.length && str[0] !== '$') {
-            let gcode = null;
             try {
-                gcode = new GcodeLine(str);
-            }
-            catch (err) { }
-            if (gcode) {
+                const gcode = new GcodeLine(str);
                 this.sendGcode(gcode, options);
                 return;
             }
+            catch (err) {
+                console.warn('Not GCode string',str,err)
+             }
         }
-        let hooks = (options as any).hooks || new CrispHooks();
+        let hooks = options?.hooks || new CrispHooks();
         let block = {
             str: str,
             hooks: hooks,
@@ -1665,7 +1669,7 @@ export default class GRBLController extends Controller {
         // Register hook to update state when this executes
         hooks.hookSync('ack', () => this._updateStateOnOutgoingCommand(block));
         // If can't parse as gcode (or starts with $), send as plain string
-        this._sendBlock(block, (options as any).immediate);
+        this._sendBlock(block, options?.immediate);
     }
     _updateStateOnOutgoingCommand(block:{
         str: string,
@@ -1840,8 +1844,8 @@ export default class GRBLController extends Controller {
         this.emit('statusUpdate');
         this.debug('close() complete');
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'stream' implicitly has an 'any' type.
-    sendStream(stream) {
+
+    sendStream(stream:node_stream.Readable) {
         let waiter = pasync.waiter();
         // Bounds within which to stop and start reading from the stream.  These correspond to the number of queued lines
         // not yet sent to the controller.
@@ -1866,7 +1870,7 @@ export default class GRBLController extends Controller {
             waiter.reject(err);
             stream.emit('error', err);
         };
-        stream.on(stream._isZStream ? 'chainerror' : 'error', (err:unknown) => {
+        stream.on('error', (err:unknown) => {
             if (canceled)
                 return;
             this.removeListener('sent', sentListener);
@@ -1875,7 +1879,7 @@ export default class GRBLController extends Controller {
             canceled = true;
         });
         this.on('sent', sentListener);
-        stream.on('data', (chunk:string|GcodeLine) => {
+        stream.on('data', (chunk: string | GcodeLine) => {
             if (canceled)
                 return;
             if (!chunk)
@@ -2119,7 +2123,6 @@ export default class GRBLController extends Controller {
         };
         this.on('receivedOk', ackHandler);
         try {
-            // @ts-expect-error ts-migrate(2345) FIXME: Argument of type '(paramName: any) => boolean' is ... Remove this comment to see the full error message
             await this._waitForEvent('deviceParamUpdate', (paramName) => paramName === 'PRB');
         }
         finally {

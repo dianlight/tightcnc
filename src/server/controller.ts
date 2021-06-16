@@ -275,7 +275,7 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      * @param {String} line - The string to send, without a \n at the end.
      * @param {Object} [options] - Controller-specific options
      */
-    sendLine(line:string, options = {}) { }
+    abstract sendLine(line:string, options?:{}):void 
     /**
      * Send a GcodeLine object to the controller.  The GcodeLine object may optionally contain hooks as a
      * crisphooks instance (ie, using crisphooks.addHooks()).  If hooks are attached to the GcodeLine, the
@@ -299,11 +299,12 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      */
     abstract sendGcode(gline: GcodeLine, options?:{}):void;
 
-    send(thing: string | GcodeLine, options?:{}):void {
-        if (typeof thing === 'object' && thing.isGcodeLine) {
-            this.sendGcode(thing, options);
-        }
-        else {
+    send(thing: string | GcodeLine | Buffer, options?:{}):void {
+        if (typeof thing === 'object' && !(thing instanceof Buffer) && thing.isGcodeLine) {
+            this.sendGcode(thing as GcodeLine, options);
+        } else if (thing instanceof Buffer) {
+            this.sendGcode(new GcodeLine(JSON.parse(thing.toLocaleString())))
+        } else {
             this.sendLine(thing as string, options);
         }
     }

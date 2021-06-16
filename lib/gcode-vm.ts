@@ -6,13 +6,13 @@ import { TightCNCServer } from '../src';
 
 
 export interface GcodeVMOptions {
-    controller: Controller,
-    tightcnc: TightCNCServer,
-    axisLabels: string[],
+    controller?: Controller,
+    tightcnc?: TightCNCServer,
+    axisLabels?: string[],
     maxFeed?: number | number[],
     acceleration?: number | number[],
-    minMoveTime: number
-    noInit?:boolean
+    minMoveTime?: number
+    noInit?: boolean
 }
 
 export interface VMState {
@@ -80,7 +80,7 @@ export interface VMState {
  *   @param {Number} minMoveTime - Minimum time to count for a move.  Can be set to a low value to compensate for delays if lots
  *     of small moves aren't filling the controller's buffer.
  */
-class GcodeVM {
+export default class GcodeVM {
 
     vmState: VMState = {
         pos: [],
@@ -102,7 +102,7 @@ class GcodeVM {
 
     _lastMoveAxisFeeds?:(number|undefined)[]
 
-    constructor(private options:GcodeVMOptions) {
+    constructor(public options:GcodeVMOptions) {
         this.options = options;
         if (!options.maxFeed) options.maxFeed = 1000;
         if (!options.acceleration) options.acceleration = 100000;
@@ -291,8 +291,8 @@ class GcodeVM {
     syncStateToMachine(options?:{
         vmState?: VMState,
         controller: Controller
-        include: string[],
-        exclude: string[]
+        include?: string[],
+        exclude?: string[]
     }):void {
         const shouldInclude = (prop: string) => {
             if (!options || (!options.include && !options.exclude)) return true;
@@ -302,29 +302,29 @@ class GcodeVM {
             return false;
         };
 
-        let controller = options?.controller || this.options.controller || (this.options.tightcnc && this.options.tightcnc.controller) || {};
+        let controller = options?.controller || this.options.controller || (this.options.tightcnc?this.options.tightcnc.controller:undefined);
         let vmState = options?.vmState || this.vmState || {};
 
-        if (shouldInclude('axisLabels')) vmState.axisLabels = objtools.deepCopy(this.options.axisLabels || controller.axisLabels || ['x', 'y', 'z']);
-        if (shouldInclude('mpos')) vmState.mpos = objtools.deepCopy(controller.mpos || this.zerocoord(null));
-        if (shouldInclude('pos')) vmState.pos = objtools.deepCopy((controller.getPos && controller.getPos()) || controller.pos || this.zerocoord(null));
-        if (shouldInclude('activeCoordSys')) vmState.activeCoordSys = (typeof controller.activeCoordSys === 'number') ? controller.activeCoordSys : undefined;
-        if (shouldInclude('coordSysOffsets')) vmState.coordSysOffsets = objtools.deepCopy(controller.coordSysOffsets || [this.zerocoord(null)]);
-        if (shouldInclude('offset')) vmState.offset = controller.offset || this.zerocoord(0);
-        if (shouldInclude('offsetEnabled')) vmState.offsetEnabled = controller.offsetEnabled || false;
-        if (shouldInclude('storedPositions')) vmState.storedPositions = objtools.deepCopy(controller.storedPositions || [this.zerocoord<number|undefined>(undefined), this.zerocoord<number|undefined>(undefined)]);
-        if (shouldInclude('units')) vmState.units = controller.units || 'mm';
-        if (shouldInclude('feed')) vmState.feed = controller.feed || (Array.isArray(this.options.maxFeed) ? this.options.maxFeed[0] : this.options.maxFeed);
-        if (shouldInclude('incremental')) vmState.incremental = controller.incremental || false;
-        if (shouldInclude('coolant')) vmState.coolant = controller.coolant || false;
-        if (shouldInclude('spindle')) vmState.spindle = controller.spindle || false;
-        if (shouldInclude('line')) vmState.line = controller.line || 0;
-        if (shouldInclude('spindle')) vmState.spindleDirection = controller.spindleDirection || 1;
-        if (shouldInclude('spindle')) vmState.spindleSpeed = controller.spindleSpeed;
-        if (shouldInclude('inverseFeed')) vmState.inverseFeed = controller.inverseFeed || false;
-        if (shouldInclude('motionMode')) vmState.motionMode = controller.motionMode;
-        if (shouldInclude('arcPlane')) vmState.arcPlane = controller.arcPlane || 0;
-        if (shouldInclude('tool')) vmState.tool = (controller.tool !== null && controller.tool !== undefined) ? controller.tool : undefined;
+        if (shouldInclude('axisLabels')) vmState.axisLabels = objtools.deepCopy(this.options.axisLabels || controller?.axisLabels || ['x', 'y', 'z']);
+        if (shouldInclude('mpos')) vmState.mpos = objtools.deepCopy(controller?.mpos || this.zerocoord(null));
+        if (shouldInclude('pos')) vmState.pos = objtools.deepCopy((controller?.getPos && controller?.getPos()) || controller?.pos || this.zerocoord(null));
+        if (shouldInclude('activeCoordSys')) vmState.activeCoordSys = (typeof controller?.activeCoordSys === 'number') ? controller.activeCoordSys : undefined;
+        if (shouldInclude('coordSysOffsets')) vmState.coordSysOffsets = objtools.deepCopy(controller?.coordSysOffsets || [this.zerocoord(null)]);
+        if (shouldInclude('offset')) vmState.offset = controller?.offset || this.zerocoord(0);
+        if (shouldInclude('offsetEnabled')) vmState.offsetEnabled = controller?.offsetEnabled || false;
+        if (shouldInclude('storedPositions')) vmState.storedPositions = objtools.deepCopy(controller?.storedPositions || [this.zerocoord<number|undefined>(undefined), this.zerocoord<number|undefined>(undefined)]);
+        if (shouldInclude('units')) vmState.units = controller?.units || 'mm';
+        if (shouldInclude('feed')) vmState.feed = controller?.feed || (Array.isArray(this.options.maxFeed) ? this.options.maxFeed[0] : this.options.maxFeed);
+        if (shouldInclude('incremental')) vmState.incremental = controller?.incremental || false;
+        if (shouldInclude('coolant')) vmState.coolant = controller?.coolant || false;
+        if (shouldInclude('spindle')) vmState.spindle = controller?.spindle || false;
+        if (shouldInclude('line')) vmState.line = controller?.line || 0;
+        if (shouldInclude('spindle')) vmState.spindleDirection = controller?.spindleDirection || 1;
+        if (shouldInclude('spindle')) vmState.spindleSpeed = controller?.spindleSpeed;
+        if (shouldInclude('inverseFeed')) vmState.inverseFeed = controller?.inverseFeed || false;
+        if (shouldInclude('motionMode')) vmState.motionMode = controller?.motionMode;
+        if (shouldInclude('arcPlane')) vmState.arcPlane = controller?.arcPlane || 0;
+        if (shouldInclude('tool')) vmState.tool = (controller?.tool !== null && controller?.tool !== undefined) ? controller.tool : undefined;
     }
 
     getState() {
@@ -516,8 +516,7 @@ class GcodeVM {
         time: number // estimated duration of instruction execution, in seconds
 
     } {
-        console.error('---------------->',gline)
-        if (typeof gline === 'string') gline = new GcodeLine(gline);
+        gline = new GcodeLine(gline);
         // This is NOT a gcode validator.  Input gcode is expected to be valid and well-formed.
         //
         let vmState = this.vmState;
@@ -761,5 +760,3 @@ class GcodeVM {
     }
 
 }
-
-module.exports = GcodeVM;

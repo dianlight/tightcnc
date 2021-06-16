@@ -3,7 +3,7 @@ import objtools from 'objtools';
 import { ERRORCODES, errRegistry } from './errRegistry';
 //import zstreams from 'zstreams';
 import * as node_stream from 'stream'
-import {callLineHooks, ExReadableStream} from '../../lib/gcode-processor';
+import GcodeProcessor, {callLineHooks, ExReadableStream} from '../../lib/gcode-processor';
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
@@ -12,6 +12,7 @@ import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
 import { BaseRegistryError } from 'new-error';
 import { join } from 'path/posix';
 import GcodeLine from '../../lib/gcode-line';
+import fs from 'fs'
 
 export interface JobStatus {
     state: string,
@@ -24,6 +25,7 @@ export interface JobStatus {
         time: any;
         line: any;
         lineCount: any;
+        predictedTime: any;
     },
     progress: {
         timeRunning: any;
@@ -39,15 +41,17 @@ export default class JobManager {
 
     constructor(public tightcnc:TightCNCServer) {
     }
+
     initialize() {
     }
+
     getStatus(job?:JobState):JobStatus|undefined {
         if (!job)
             job = this.currentJob;
         if (!job)
             return;
         // Fetch the status from each gcode processor
-        let gcodeProcessorStatuses:any[] = [];
+        let gcodeProcessorStatuses:Record<string,any> = {};
         if (job.gcodeProcessors) {
             for (let key in job.gcodeProcessors) {
                 let s = job.gcodeProcessors[key].getStatus();
@@ -59,18 +63,17 @@ export default class JobManager {
         // Calculate main stats and progress
         let progress = undefined;
         let stats = this._mainJobStats(gcodeProcessorStatuses);
-        (stats as any).predictedTime = stats.time;
-        // @ts-expect-error ts-migrate(2339) FIXME: Property 'final-job-vm' does not exist on type '{}... Remove this comment to see the full error message
-        let finalVMStatus = gcodeProcessorStatuses && gcodeProcessorStatuses['final-job-vm'];
-        if (finalVMStatus && (finalVMStatus as any).updateTime && !job.dryRun) {
-            let curTime = new Date((finalVMStatus as any).updateTime);
-            (stats as any).updateTime = curTime.toISOString();
+        stats.predictedTime = stats.time;
+        let finalVMStatus = gcodeProcessorStatuses?gcodeProcessorStatuses['final-job-vm']:undefined;
+        if (finalVMStatus && finalVMStatus.updateTime && !job.dryRun) {
+            let curTime = new Date(finalVMStatus.updateTime);
+            stats.updateTime = curTime.toISOString();
             stats.time = (curTime.getTime() - new Date(job.startTime).getTime()) / 1000;
             // create job progress object
             if (job.dryRunResults && job.dryRunResults.stats && job.dryRunResults.stats.time) {
                 let estTotalTime = job.dryRunResults.stats.time;
                 if (stats.lineCount >= 300) { // don't adjust based on current time unless enough lines have been processed to compensate for stream buffering
-                    estTotalTime *= (curTime.getTime() - new Date(job.startTime).getTime()) / 1000 / (stats as any).predictedTime;
+                    estTotalTime *= (curTime.getTime() - new Date(job.startTime).getTime()) / 1000 / stats.predictedTime;
                 }
                 progress = {
                     timeRunning: stats.time,
@@ -86,15 +89,15 @@ export default class JobManager {
             jobOptions: job.jobOptions,
             dryRunResults: job.dryRunResults,
             startTime: job.startTime,
-            error: job.state === 'error' ? job.error.toString() : null,
+            error: job.state === 'error' ? job.error.toString() : undefined,
             gcodeProcessors: gcodeProcessorStatuses,
             stats: stats,
             progress: progress,
             waits: job.waitList
         } as JobStatus;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gcodeProcessorStats' implicitly has an ... Remove this comment to see the full error message
-    _mainJobStats(gcodeProcessorStats) {
+
+    _mainJobStats(gcodeProcessorStats: Record<string,Record<string,any>>):Record<string,any> {
         if (!gcodeProcessorStats || !gcodeProcessorStats['final-job-vm'])
             return { time: 0, line: 0, lineCount: 0 };
         return {
@@ -272,13 +275,13 @@ export default class JobManager {
                 callLineHooks(gline)
                 callback(undefined,gline)
             }
-        })
+        }).wrap(origSource)
         /*source.through((gline) => {
             // call hooks on each line (since there's no real controller to do it)
             callLineHooks(gline);
             return gline;
         });
-        *
+        */
         job.sourceStream = source;
         job.state = 'running';
         origSource.on('processorChainReady', (_chain, chainById) => {
@@ -286,21 +289,12 @@ export default class JobManager {
         });
         this.tightcnc.debug('Dry run stream');
         if (outputFile) {
-            await source
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'chunk' implicitly has an 'any' type.
-                .throughData((chunk) => {
-                if (typeof chunk === 'string')
-                    return chunk + '\n';
-                else
-                    return chunk.toString() + '\n';
-            })
-                .intoFile(outputFile);
-        }
-        else {
+            await source.pipe(fs.createWriteStream(outputFile))
+        } else {
            // await source.pipe(new zstreams.BlackholeStream({ objectMode: true })).intoPromise();
             await (async function() {
                 for await (const chunk of source) {
-                  // console.log(chunk);
+                   console.log(chunk);
                 }
               })()
         }

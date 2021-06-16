@@ -1,14 +1,8 @@
-//import zstreams from 'zstreams';
 import * as node_stream from 'stream'
 import GcodeLine from './gcode-line';
-//import XError from 'xerror';
 import { errRegistry } from '../src/server/errRegistry';
 import { deepCopy } from 'objtools';
 import fs from 'fs'
-import readline from 'readline'
-//const GcodeLine = require('./gcode-line');
-//const CrispHooks = require('crisphooks');
-
 
 export default class GcodeProcessor extends node_stream.Transform {
 
@@ -26,6 +20,8 @@ export default class GcodeProcessor extends node_stream.Transform {
     job:any;
     preprocessInputGcode: ()=>void
     gcodeProcessorChainById: { [key: string]: GcodeProcessor; } = {};
+    sourceLine:number = 0
+    
 
     /**
      * This is the superclass for gcode processor streams.  Gcode processors can transform and analyze gcode
@@ -148,7 +144,7 @@ export default class GcodeProcessor extends node_stream.Transform {
      * @method getStatus
      * @return {Object|Null}
      */
-    getStatus():any|void {
+    getStatus():Record<string,any>|void {
         return;
     }
 
@@ -191,7 +187,7 @@ export default class GcodeProcessor extends node_stream.Transform {
             }
         } else {
             this._checkFlushedOnPush(gline);
-            this.push(gline);
+            this.push(JSON.stringify(gline));
         }
     }
 
@@ -238,34 +234,34 @@ export default class GcodeProcessor extends node_stream.Transform {
         }
     }
 
-    override _transform(chunk:GcodeLine|undefined, encoding:any, cb:(err?:any)=>any) {
+    override _transform(chunk:Buffer, encoding:any, cb:(err?:any)=>any) {
         if (!chunk) return cb();
-        this._checkFlushedOnRecv(chunk);
-        let r;
+        const gcodeLine = new GcodeLine(chunk.toLocaleString(),this.sourceLine++)
+        this._checkFlushedOnRecv(gcodeLine);
         try {
-            r = this.processGcode(chunk);
-        } catch (err:any) {
-            cb(err);
-            return;
-        }
-        if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
-            (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
+            let r = this.processGcode(gcodeLine);
+            if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
+                (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
+                    try {
+                        this.pushGcode(r2);
+                        cb();
+                    } catch (err) {
+                        cb(err);
+                    }
+                }, (err) => {
+                    cb(err);
+                });
+            } else {
                 try {
-                    this.pushGcode(r2);
+                    this.pushGcode(r as GcodeLine);
                     cb();
                 } catch (err) {
                     cb(err);
                 }
-            }, (err) => {
-                cb(err);
-            });
-        } else {
-            try {
-                this.pushGcode(r as GcodeLine);
-                cb();
-            } catch (err) {
-                cb(err);
             }
+        } catch (err:any) {
+            cb(err);
+            return;
         }
     }
 
@@ -351,6 +347,14 @@ export class ExReadableStream extends node_stream.Transform {
     gcodeProcessorChainById: {
         [key:string]:GcodeProcessor
     } = {}
+
+    constructor(opts?: node_stream.TransformOptions) {
+        if (!opts) opts = {}
+        if (!opts.transform) {
+            opts.transform = (chunk,encoding,callback)=>callback(undefined,chunk)
+        }
+        super(opts)
+    }
 
     static fromFile(filename: string): ExReadableStream {
         // FIXME: Very bad for performance on Big filenames

@@ -2,6 +2,7 @@
 import objtools from 'objtools';
 import CrispHooks from 'crisphooks';
 import { errLibRegistry } from './errLibRegistry'
+import { VMState } from './gcode-vm';
 
 /**
  * This class is a parser, modification interface, and generator for gcode.
@@ -58,7 +59,12 @@ export class GcodeLine extends CrispHooks {
 	words?: (string | [string,number])[]
 	comment?:string
 	commentStyle?:string
-	origLine?:string
+	origLine?: string
+	origLineNumber?: number
+	
+	before?: VMState
+	after?: VMState
+	isMotion?:boolean
 
 /**
 	 * The constructor can be called in one of the following forms:
@@ -68,30 +74,35 @@ export class GcodeLine extends CrispHooks {
 	 * - GcodeLine([ word ]) - Concatenates the array of strings then parses
 	 * - GcodeLine(gline) - Copy constructor
 	 */
-	constructor(arg?:string|string[]|[string,number][]|GcodeLine) {
+	constructor(arg?:string|string[]|[string,number][]|GcodeLine, origLineNumber?:number) {
 		super();
 		if (!arg || (Array.isArray(arg) && arg.length == 0)) {
 			this.words = [];
 			this.comment = '';
 			this.commentStyle = '(';
 			this.origLine = undefined;
+			this.origLineNumber = origLineNumber;
 		} else if (typeof arg === 'string') {
 			this.origLine = arg;
+			this.origLineNumber = origLineNumber
 			this.parse(arg);
 		} else if (Array.isArray(arg) && typeof arg[0] === 'string') {
 			this.origLine = arg.join(' ');
+			this.origLineNumber = origLineNumber
 			this.parse(this.origLine);
 		} else if (Array.isArray(arg) && Array.isArray(arg[0])) {
 			this.words = arg;
 			this.comment = '';
 			this.commentStyle = '(';
 			this.origLine = this.toString();
-		} else if (arg && arg instanceof GcodeLine) {
-			this.words = objtools.deepCopy(arg.words);
-			this.comment = arg.comment;
-			this.commentStyle = arg.commentStyle;
-			this.origLine = arg.origLine;
-			this.modified = arg.modified;
+			this.origLineNumber = origLineNumber
+		} else if (arg && typeof arg === 'object') {
+			this.words = objtools.deepCopy((arg as GcodeLine).words);
+			this.comment = (arg as GcodeLine).comment;
+			this.commentStyle = (arg as GcodeLine).commentStyle;
+			this.origLine = (arg as GcodeLine).origLine;
+			this.modified = (arg as GcodeLine).modified;
+			this.origLineNumber = (arg as GcodeLine).origLineNumber || origLineNumber
 		} else {
 			throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Invalid call to GcodeLine constructor');
 		}
@@ -383,11 +394,4 @@ export class GcodeLine extends CrispHooks {
 }
 
 export default GcodeLine;
-/*
-module.exports.modalGroupsG = modalGroupsG;
-module.exports.modalGroupsGByCode = modalGroupsGByCode;
-module.exports.modalGroupsM = modalGroupsM;
-module.exports.modalGroupsMByCode = modalGroupsMByCode;
-module.exports.nonModals = nonModals;
-*/
 

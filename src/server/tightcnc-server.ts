@@ -175,7 +175,7 @@ export default class TightCNCServer extends EventEmitter {
         [key:string]:unknown
     } = {};
     controller?:Controller;
-    gcodeProcessors:any = {};
+    gcodeProcessors:Record<string,typeof GcodeProcessor> = {};
     waitingForInput?:{
         prompt: any,
         schema: any,
@@ -215,7 +215,8 @@ export default class TightCNCServer extends EventEmitter {
         joboperations(this);
         macrooperation(this);
 
-        this.registerGcodeProcessor('gcodevm', require('../../lib/gcode-processors/gcode-vm'));
+        // {new(consoleui:ConsoleUI):JobOption}
+        import('../../lib/gcode-processors/gcode-vm').then((namespace) => this.registerGcodeProcessor('gcodevm',namespace.default))
         // Register bundled plugins
         import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
         // Register external plugins
@@ -488,13 +489,13 @@ export default class TightCNCServer extends EventEmitter {
             if ('order' in a)
                 aorder = a.order;
             else if (a.name && this.gcodeProcessors[a.name] && 'DEFAULT_ORDER' in this.gcodeProcessors[a.name])
-                aorder = this.gcodeProcessors[a.name].DEFAULT_ORDER;
+                aorder = (this.gcodeProcessors[a.name] as any).DEFAULT_ORDER;
             else
                 aorder = 0;
             if ('order' in b)
                 border = b.order;
             else if (b.name && this.gcodeProcessors[b.name] && 'DEFAULT_ORDER' in this.gcodeProcessors[b.name])
-                border = this.gcodeProcessors[b.name].DEFAULT_ORDER;
+                border = (this.gcodeProcessors[b.name] as any).DEFAULT_ORDER;
             else
                 border = 0;
             if (aorder > border)
@@ -519,7 +520,7 @@ export default class TightCNCServer extends EventEmitter {
                 opts.tightcnc = this;
                 if (options.job)
                     opts.job = options.job;
-                let inst = new cls(opts);
+                let inst = new cls(opts,gcpspec.name);
                 if (options.dryRun)
                     inst.dryRun = true;
                 gcpspec.inst = inst;
