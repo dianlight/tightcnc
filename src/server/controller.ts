@@ -6,6 +6,7 @@ import * as node_stream from 'stream'
 import { GcodeLine } from '../../lib/gcode-line';
 import { BaseRegistryError } from 'new-error';
 import fs from 'fs'
+import { VMState } from '../../lib/gcode-vm'
 
 export interface ControllerConfig {
     port: string
@@ -36,10 +37,14 @@ export interface ControllerCapabilities {
     //    'W': 'disableSyncOnWCOChange',
         startUpHomeLock: boolean // 'L': 'powerUpLockWithoutHoming'
 }
-export interface ControllerStatus {
+
+export interface ControllerStatus extends VMState {
     ready: boolean,
+    /*
     axisLabels: string[],
+    */
     usedAxes: boolean[],
+    /*
     axisMaxFeeds: number[]
     axisMaxTravel: number[]
     mpos: number[],
@@ -49,26 +54,35 @@ export interface ControllerStatus {
     offset:number[],
     offsetEnabled: boolean,
     storedPositions: number[][],
+    */
     homed: boolean[],
     held: boolean,
+    /*
     units: 'mm'|'in',
     feed: number,
     incremental: boolean,
+    */
     moving: boolean,
+    /*
     coolant: number,
     spindle: boolean,
     spindleDirection: number;
     spindleSpeed: number;
     line: number,
+    */
     error: boolean,
     errorData?: BaseRegistryError,
+    /*
     programRunning: boolean,
+    */
     capabilities: ControllerCapabilities
+    /*
     spindleSpeedMax?: number,
     spindleSpeedMin?: number
+    */
 }
 
-export default abstract class Controller extends EventEmitter {
+export default abstract class Controller  extends EventEmitter implements VMState  {
 
     axisLabels=['x', 'y', 'z'];
     ready = false;
@@ -84,21 +98,38 @@ export default abstract class Controller extends EventEmitter {
     storedPositions = [[0, 0, 0], [0, 0, 0]];
     homed = [false, false, false];
     held = false;
-    units = 'mm';
+    units:'mm'|'in' = 'mm';
     feed = 0;
     incremental = false;
     moving = false;
-    coolant = 0;
+    coolant:false|1|2|3 = false;
     spindle = false;
     line = 0;
     error = false;
     errorData?:BaseRegistryError;
     programRunning = false;
-    spindleDirection = 1;
-    spindleSpeed = null;
+    spindleDirection:-1|1 = 1;
+    spindleSpeed?:number;
     inverseFeed = false;
     spindleSpeedMax?: number
     spindleSpeedMin?: number
+
+    coord?: ((coords: number[], axis: string | number, value?: number | undefined) => number | undefined) | undefined;
+    totalTime: number = 0;
+    bounds?: [(number | null)[], (number | null)[]] | undefined;
+    mbounds?: [(number | null)[], (number | null)[]] | undefined;
+    lineCounter: number = 0;
+    hasMovedToAxes: boolean[] = [false,false,false];
+    seenWordSet: {
+        [key:string]:boolean
+    } = {};
+    tool?: number;
+    countT: number = 0;
+    countM6: number = 0;
+    motionMode?: 'G0' | 'G1' | undefined;
+    arcPlane?: number | undefined;
+    pos: number[] = [0,0,0];
+
 
     /**
      * Base class for CNC controllers.  Each subclass corresponds to a type of CNC controller and manages the connection
@@ -209,7 +240,7 @@ export default abstract class Controller extends EventEmitter {
         // If the machine is currently moving
         this.moving = false;
         // If coolant is running.  Can also be 1 or 2 for mist or flood coolant, or 3 for both.
-        this.coolant = 0;
+        this.coolant = false;
         // If spindle is running
         this.spindle = false;
         // Last line number executed
@@ -223,7 +254,7 @@ export default abstract class Controller extends EventEmitter {
         // 1 for CW, -1 for CCW
         this.spindleDirection = 1;
         // Speed of spindle, if known
-        this.spindleSpeed = null;
+        this.spindleSpeed = undefined;
         // True for inverse feedrate mode
         this.inverseFeed = false;
         // Spindle
@@ -287,7 +318,7 @@ export default abstract class Controller extends EventEmitter {
      */
     abstract sendStream(stream: node_stream.Readable ): Promise<void>;
 
-    sendFile(filename: string) {
+    sendFile(filename: string):Promise<void> {
    //     let stream = zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
         /** FIXME: Very bad for big file */
         let stream =node_stream.Readable.from(fs.readFileSync(filename as string).toString().split(/\r?\n/))
@@ -418,8 +449,14 @@ export default abstract class Controller extends EventEmitter {
                 coreXY: false, // 'C': 'coreXY',
                 homingSingleAxis:false, //'H': 'homingSingleAxis', $HX $HY $HZ
                 startUpHomeLock: false // 'L': 'powerUpLockWithoutHoming'
-            }
-        
+            },
+            lineCounter: c.lineCounter,
+            hasMovedToAxes: c.hasMovedToAxes,
+            countM6: c.countM6,
+            coordSysOffsets: c.coordSysOffsets,
+            countT: c.countT,
+            seenWordSet: c.seenWordSet,
+            totalTime: c.totalTime
         } as ControllerStatus;
     }
     listUsedAxisNumbers() {
@@ -440,21 +477,3 @@ export default abstract class Controller extends EventEmitter {
         return ret;
     }
 }
-/*
-// Error code for serial port communication errors
-XError.registerErrorCode('comm_error', { message: 'Error communicating with controller.' });
-// Error code when probe doesn't trip
-XError.registerErrorCode('probe_end', { message: 'Probe reached end position without tripping.' });
-// Error code when failing to parse serial message
-XError.registerErrorCode('parse_error', { message: 'Error parsing' });
-// Error code for generic error report from the machine
-XError.registerErrorCode('machine_error', { message: 'Machine error' });
-// When an operation is cancelled
-XError.registerErrorCode('cancelled', { message: 'Cancelled' });
-// Error when a probe is not tripped
-XError.registerErrorCode('probe_not_tripped', { message: 'Probe was not tripped' });
-XError.registerErrorCode('probe_initial_state', { message: 'Probe initial state not as expected' });
-// Error when a safety interlock or door is disengaged
-XError.registerErrorCode('safety_interlock', { message: 'Safety interlock disengaged' });
-XError.registerErrorCode('limit_hit', { message: 'Limit switch hit' });
-*/

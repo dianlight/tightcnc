@@ -3,7 +3,7 @@ import SerialPort from 'serialport';
 //import XError from 'xerror';
 import { errRegistry } from './errRegistry';
 import pasync from 'pasync';
-const GcodeLine = require('../../lib/gcode-line');
+import GcodeLine from '../../lib/gcode-line';
 const AbbrJSON = require('./tinyg-abbr-json');
 import CrispHooks from 'crisphooks';
 import SerialportRawSocketBinding  from '../serialport-binding/serialportRawSocketBinding';
@@ -583,7 +583,7 @@ export default class TinyGController extends Controller {
             this.activeCoordSys = 0;
             this.incremental = false;
             this.spindle = false;
-            this.coolant = 0;
+            this.coolant = false;
             this.emit('statusUpdate');
             this.sendLine({ coor: null }, { immediate: true });
             this.sendLine({ unit: null }, { immediate: true });
@@ -600,7 +600,7 @@ export default class TinyGController extends Controller {
             else if (gline.has('M8'))
                 this.coolant = 2;
             else
-                this.coolant = 0;
+                this.coolant = false;
             this.emit('statusUpdate');
         }
     }

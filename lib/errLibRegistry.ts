@@ -92,10 +92,16 @@ export const ERRORCODES = {
         logLevel: 'warn'                
     },
     GCODE_PARSER_ERROR: {
-        message: 'Error parsing gcode',
+        message: 'Error parsing gcode %s',
         subCode: 'GE_008',
         statusCode: 204,
         logLevel: 'warn'                
+    },
+    UNSUPPORTED_OPERATION: {
+        message: 'Unsupported %s',
+        subCode: 'GE_009',
+        statusCode: 504,
+        logLevel: 'error'                
     }
 
 

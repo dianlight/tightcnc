@@ -3,7 +3,7 @@ import objtools from 'objtools';
 import { ERRORCODES, errRegistry } from './errRegistry';
 //import zstreams from 'zstreams';
 import * as node_stream from 'stream'
-import {callLineHooks} from '../../lib/gcode-processor';
+import {callLineHooks, ExReadableStream} from '../../lib/gcode-processor';
 //import fs from 'fs';
 //import path from 'path';
 import JobState from './job-state';
@@ -11,6 +11,7 @@ import JobState from './job-state';
 import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
 import { BaseRegistryError } from 'new-error';
 import { join } from 'path/posix';
+import GcodeLine from '../../lib/gcode-line';
 
 export interface JobStatus {
     state: string,
@@ -266,12 +267,18 @@ export default class JobManager {
             job: job
         });
         let origSource = source;
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-        source = source.through((gline) => {
+        source = new ExReadableStream({
+            transform: (gline: GcodeLine, encoding, callback) => {
+                callLineHooks(gline)
+                callback(undefined,gline)
+            }
+        })
+        /*source.through((gline) => {
             // call hooks on each line (since there's no real controller to do it)
             callLineHooks(gline);
             return gline;
         });
+        *
         job.sourceStream = source;
         job.state = 'running';
         origSource.on('processorChainReady', (_chain, chainById) => {

@@ -54,8 +54,7 @@
         "stable": "^0.1.8",
         "term.js": "^0.0.7",
         "xhr2": "^0.2.1",
-        "yargs": "next",
-        "zstreams": "^5.0.0"
+        "yargs": "next"
     },
     "devDependencies": {
         "@types/blessed": "^0.1.17",

@@ -110,7 +110,7 @@ export class GcodeLine extends CrispHooks {
 	 * @param {Boolean} [multi=false] - If true, returns an array of all matching words.
 	 * @return {Number|Number[]|null}
 	 */
-	get(letter:string, mgroup?:number|string, multi = false):number|number[]|undefined {
+	get<T extends (number|string|number[]|string[])>(letter:string, mgroup?:number|string, multi = false):T|undefined {
 		// Convert letter to uppercase
 		letter = letter.toUpperCase();
 
@@ -136,7 +136,7 @@ export class GcodeLine extends CrispHooks {
 			else mgroup = undefined;
 		}
 
-		let matches:number[]|undefined = multi ? [] : undefined;
+		let matches:T|T[]|undefined = multi ? [] as T[] : undefined;
 		if(this.words) for (let word of this.words) {
 			if (word[0] === letter) {
 				if (mgroup) {
@@ -144,15 +144,14 @@ export class GcodeLine extends CrispHooks {
 					if (!mgroupMap || mgroup !== mgroupMap[fullCode]) continue;
 				}
 				if (multi) {
-					matches?.push(word[1] as number);
+					(matches as (number|string)[]).push(word[1]);
 				} else {
 					if (matches) throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Multiple words with the same letter on gcode line: ' + this.toString());
-					matches = word[1] as unknown as number[];
+					matches = word[1] as T;
 				}
 			}
 		}
-
-		return matches;
+		return matches as T;
 	}
 
 	/**
