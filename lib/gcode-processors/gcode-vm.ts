@@ -91,6 +91,7 @@ export default class GcodeVMProcessor extends GcodeProcessor {
         return {
             units: vmState.units,
             line: vmState.line,
+            gcodeLine: this.sourceLine,
             totalTime: vmState.totalTime,
             lineCounter: vmState.lineCounter,
             bounds: vmState.bounds,

@@ -1,10 +1,8 @@
 import Operation from './operation';
-import  objtools from 'objtools';
-//import commonSchema from 'common-schema';
 import TightCNCServer, { JobSourceOptions } from './tightcnc-server';
 
 
-
+/*
 const jobOptionsSchema = {
     type: 'object',
     properties: {
@@ -13,12 +11,12 @@ const jobOptionsSchema = {
             type: String,
             description: 'Name of generator macro to use as gcode source',
             validate: (str: string) => {
-                /*
+                / *
                 if (str.indexOf(';') !== -1)
                     throw new commonSchema.FieldError('invalid', 'Cannot supply raw javascript');
                 if (!/^generator-/.test(str))
                     throw new commonSchema.FieldError('invalid', 'Macro name must begin with generator-');
-                    */
+                    * /
             }
         },
         macroParams: {
@@ -36,14 +34,15 @@ const jobOptionsSchema = {
     },
 
     validate(obj: JobSourceOptions) {
-        /*
+        / *
         if (!obj.filename && !obj.macro)
             throw new commonSchema.FieldError('invalid', 'Must supply either filename or macro');
         if (obj.filename && obj.macro)
             throw new commonSchema.FieldError('invalid', 'Cannot supply both filename and macro');
-            */
+            * /
     }
 };
+*/
 class OpStartJob extends Operation {
     /*
     override getParamSchema() {

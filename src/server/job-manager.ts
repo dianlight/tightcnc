@@ -16,18 +16,14 @@ import fs from 'fs'
 
 export interface JobStatus {
     state: string,
-    jobOptions: any,
+    jobOptions: Record<string,any>,
     dryRunResults: any,
     startTime: any,
     error: string | null,
-    gcodeProcessors: any,
-    stats: {
-        time: any;
-        line: any;
-        lineCount: any;
-        predictedTime: any;
-    },
+    gcodeProcessors: Record<string,Record<string,any>>,
+    stats: Record<string,any>,
     progress: {
+        gcodeLine: number;
         timeRunning: any;
         estTotalTime: any;
         estTimeRemaining: number;
@@ -77,6 +73,7 @@ export default class JobManager {
                 }
                 progress = {
                     timeRunning: stats.time,
+                    gcodeLine: stats.gcodeLine,
                     estTotalTime: estTotalTime,
                     estTimeRemaining: Math.max(estTotalTime - stats.time, 0),
                     percentComplete: Math.min(stats.time / (estTotalTime || 1) * 100, 100)
@@ -276,33 +273,26 @@ export default class JobManager {
                 callback(undefined,gline)
             }
         }).wrap(origSource)
-        /*source.through((gline) => {
-            // call hooks on each line (since there's no real controller to do it)
-            callLineHooks(gline);
-            return gline;
-        });
-        */
+
         job.sourceStream = source;
         job.state = 'running';
         origSource.on('processorChainReady', (_chain, chainById) => {
+            console.log("!ChainID:",chainById)
             job.gcodeProcessors = chainById;
         });
         this.tightcnc.debug('Dry run stream');
         if (outputFile) {
             await source.pipe(fs.createWriteStream(outputFile))
         } else {
-           // await source.pipe(new zstreams.BlackholeStream({ objectMode: true })).intoPromise();
             await (async function() {
                 for await (const chunk of source) {
-                   console.log(chunk);
+                  // console.log(chunk);
                 }
               })()
         }
         job.state = 'complete';
         if (!job.gcodeProcessors) {
             job.gcodeProcessors = Object.values(origSource.gcodeProcessorChainById)
-            //job.gcodeProcessors = origSource.gcodeProcessorChainById || {};
-            
         }
         // Get the job stats
         this.tightcnc.debug('Dry run get stats');

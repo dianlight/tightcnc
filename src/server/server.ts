@@ -1,9 +1,6 @@
-//import { APIRouter, JSONRPCInterface } from 'yaar';
 import express from 'express';
 import littleconf from 'littleconf';
 import TightCNCServer from './tightcnc-server';
-//import { createSchema, Schema } from 'common-schema';
-//import XError  from 'xerror';
 import { createJSONRPCErrorResponse, JSONRPC, JSONRPCID, JSONRPCMethod, JSONRPCRequest, JSONRPCResponse, JSONRPCResponsePromise, JSONRPCServer } from 'json-rpc-2.0';
 import Operation from './operation';
 import cors from 'cors'
@@ -19,19 +16,11 @@ async function startServer() {
 	const app = express();
 	app.use(express.json({}))
 	app.use(cors())
-	/*
-	app.use(router.getExpressRouter());
-	router.version(1).addInterface(new JSONRPCInterface({
-		includeErrorStack: true
-	}));
-	*/
-
 
 	let tightcnc = new TightCNCServer(config);
 	await tightcnc.initServer();
 
 	app.post("/v1/jsonrpc", (req, res) => {
-		//console.debug("Request!",req)
 		const jsonRPCRequest = req.body;
 		let authHeader = req.header('Authorization');
 		if (!authHeader) {
@@ -67,27 +56,6 @@ async function startServer() {
 		next()
 	})
 	
-/*
-	function authMiddleware(ctx:any) {
-		let authHeader = ctx.req.header('Authorization');
-		if (!authHeader) throw new XError(XError.ACCESS_DENIED, 'Authorization header is required.');
-
-		let parts = authHeader.split(' ');
-		if (parts.length > 2) parts[1] = parts.slice(1).join(' ');
-		let authType = parts[0].toLowerCase();
-		let authString = parts[1];
-
-		if (authType === 'key') {
-			if (config.authKey && authString === config.authKey) {
-				return;
-			} else {
-				throw new XError(XError.ACCESS_DENIED, 'Incorrect authentication key.');
-			}
-		} else {
-			throw new XError(XError.ACCESS_DENIED, 'Unsupported authorization type: ' + authType);
-		}
-	}
-*/
 	
 	function registerOperationAPICall(operationName: string, operation: any) {
 
@@ -140,24 +108,7 @@ async function startServer() {
 			};
 		}
 		server.addMethodAdvanced(operationName, toJSONRPCObject(operation))
-		/*
-		let paramSchema = operation.getParamSchema();
-		if (paramSchema && !Schema.isSchema(paramSchema)) paramSchema = createSchema(paramSchema);
-		router.register(
-			{
-				method: operationName,
-				schema: paramSchema
-			},
-			authMiddleware,
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'ctx' implicitly has an 'any' type.
-			async (ctx) => {
-				let result = await tightcnc.runOperation(operationName, ctx.params);
-				//let result = await operation.run(ctx.params);
-				if (!result) result = { success: true };
-				return result;
-			}
-		);
-		*/
+		
 	}
 
 	for (let operationName in tightcnc.operations) {
@@ -172,8 +123,6 @@ async function startServer() {
 }
 
 // Exit hook 
-
-//process.stdin.resume();//so the program will not close instantly
 
 addExitCallback(signal => {
 	console.log("TightCNC exit for signal ",signal)

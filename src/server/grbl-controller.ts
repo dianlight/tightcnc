@@ -171,7 +171,7 @@ export default class GRBLController extends Controller {
     }
 
     debug(str: string) {
-        const enableDebug = true; // FIXME: Remmove debug linr
+        const enableDebug = false; // FIXME: Remmove debug linr
         if (this.tightcnc)
             this.tightcnc.debug('GRBL: ' + str);
         else if (enableDebug)
@@ -2117,6 +2117,7 @@ export default class GRBLController extends Controller {
         // Wait for a probe report, or an ack.  If an ack is received before a probe report, send out a param request and wait for the probe report to be returned with that.
         // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
         const ackHandler = (block) => {
+            console.log("This is a Block",typeof block,block)
             if (block.str.trim() !== '$#' && this._numInFlightRequests() < 10) { // prevent infinite loops and built on send queues
                 this.send('$#');
             }

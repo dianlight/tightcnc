@@ -462,7 +462,6 @@ export default class TightCNCServer extends EventEmitter {
                 let filename = options.filename;
                 filename = this.getFilename(filename, 'data', true);
                 return ExReadableStream.fromFile(filename)
-                //return zstreams.fromFile(filename).pipe(new zstreams.SplitStream());
             }
             else if (options.macro) {
                 return new ExReadableStream({

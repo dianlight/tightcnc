@@ -1,5 +1,4 @@
 
-//import  XError from 'xerror';
 import { errRegistry } from './errRegistry';
 import TightCNCServer from './tightcnc-server';
 /**
@@ -9,8 +8,7 @@ import TightCNCServer from './tightcnc-server';
  * @class Operation
  */
 export default abstract class Operation {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(public tightcnc: TightCNCServer, public config){}
+    constructor(public tightcnc: TightCNCServer, public config:any){}
     
     /**
      * Initialize the operation.  May return a Promise.
