@@ -1,13 +1,12 @@
 import  cross from 'cross';
 import  Operation from '../server/operation';
 import  commonSchema from 'common-schema';
-//import  XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
 import  objtools from'objtools';
 import { kdTree } from 'kd-tree-javascript';
 import fs from 'fs';
-import GcodeProcessor from '../../lib/gcode-processor';
-const GcodeVM = require('../../lib/gcode-vm');
+import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
+import  GcodeVM  from '../server/new-gcode-processor/GcodeVM'
 import { MoveSplitter } from './move-splitter';
 import  JobOption from '../consoleui/job-option';
 import  ListForm from '../consoleui/list-form';
@@ -418,7 +417,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
     }) {
         super(options, 'autolevel', true);
         this.surfaceMapFilename = options.surfaceMapFilename;
-        this.vm = new GcodeVM(options);
+        this.vm = new GcodeVM({} /*options*/);
     }
     _loadSurfaceMap() {
         if (this.surfaceMap)
@@ -435,8 +434,7 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
             });
         });
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'chain' implicitly has an 'any' type.
-    async addToChain(chain) {
+    override async addToChain(chain:GcodeProcessor[]) {
         await this._loadSurfaceMap();
         chain.push(new MoveSplitter({
             tightcnc: this.tightcnc,

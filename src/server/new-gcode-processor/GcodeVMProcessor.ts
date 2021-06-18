@@ -1,9 +1,9 @@
-import GcodeProcessor  from '../gcode-processor';
+import { GcodeProcessor } from './GcodeProcessor';
 import objtools from 'objtools';
-import GcodeVM, { VMState } from '../gcode-vm';
-import GcodeLine from '../gcode-line';
-import Controller from '../../src/server/controller';
-import { TightCNCServer } from '../../src';
+import GcodeVM, { VMState } from './GcodeVM';
+import GcodeLine from './GcodeLine';
+import Controller from '../controller';
+import TightCNCServer from '../tightcnc-server';
 
 
 
@@ -74,8 +74,8 @@ export default class GcodeVMProcessor extends GcodeProcessor {
         }
     }
 
-    override initProcessor() {
-        //this.vm.init(); // moved to constructor to avoid error w/ uninitialized VM
+    override async initProcessor() {
+        this.vm.init();
     }
 
     override getStatus():Record<string,any>|void {
@@ -91,7 +91,6 @@ export default class GcodeVMProcessor extends GcodeProcessor {
         return {
             units: vmState.units,
             line: vmState.line,
-            gcodeLine: this.sourceLine,
             totalTime: vmState.totalTime,
             lineCounter: vmState.lineCounter,
             bounds: vmState.bounds,
@@ -99,13 +98,13 @@ export default class GcodeVMProcessor extends GcodeProcessor {
         };
     }
 
-    override processGcode(gline:GcodeLine) {
+    override processGcode(gline: GcodeLine) {
         this.lastLineProcessedTime = new Date();
         if (this.processorOptions.updateOnHook && !this.dryRun) {
             let r = this.vm.runGcodeLine(gline);
             gline.isMotion = r.isMotion;
             let vmStateAfter = objtools.deepCopy(this.vm.getState());
-            console.log(typeof gline,gline)
+            //console.log(typeof gline,gline)
             gline.hookSync(this.processorOptions.updateOnHook, () => {
                 this.lastLineProcessedTime = new Date();
                 // in case hooks are called out of order, don't update state with an out of date value
@@ -129,5 +128,3 @@ export default class GcodeVMProcessor extends GcodeProcessor {
     }
 
 }
-
-//module.exports = GcodeVMProcessor;

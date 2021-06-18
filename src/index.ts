@@ -11,4 +11,4 @@ export { JobStatus } from './server/job-manager'
 //export { default as ListForm } from './consoleui/list-form'
 
 // lib
-export { default as TightCNCClient } from '../lib/clientlib'
+//export { default as TightCNCClient } from '../lib/clientlib'

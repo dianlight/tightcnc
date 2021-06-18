@@ -3,7 +3,7 @@ import SerialPort from 'serialport';
 //import XError from 'xerror';
 import { errRegistry } from './errRegistry';
 import pasync from 'pasync';
-import GcodeLine from '../../lib/gcode-line';
+import GcodeLine from './new-gcode-processor/GcodeLine';
 const AbbrJSON = require('./tinyg-abbr-json');
 import CrispHooks from 'crisphooks';
 import SerialportRawSocketBinding  from '../serialport-binding/serialportRawSocketBinding';

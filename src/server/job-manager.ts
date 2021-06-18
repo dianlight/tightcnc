@@ -1,18 +1,14 @@
 import objtools from 'objtools';
-//import XError from 'xerror';
 import { ERRORCODES, errRegistry } from './errRegistry';
-//import zstreams from 'zstreams';
 import * as node_stream from 'stream'
-import GcodeProcessor, {callLineHooks, ExReadableStream} from '../../lib/gcode-processor';
-//import fs from 'fs';
-//import path from 'path';
+//import GcodeProcessor, {callLineHooks, ExReadableStream} from '../../lib/gcode-processor';
+import { callLineHooks, GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 import JobState from './job-state';
-//import { TightCNCServer } from '..'; // Avoid Circular dependency issue
 import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
 import { BaseRegistryError } from 'new-error';
-import { join } from 'path/posix';
-import GcodeLine from '../../lib/gcode-line';
+import GcodeLine from './new-gcode-processor/GcodeLine';
 import fs from 'fs'
+import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
 
 export interface JobStatus {
     state: string,
@@ -119,20 +115,20 @@ export default class JobManager {
      *   @param {Boolean} [options.rawFile=false] - If true, pass the file unaltered to the controller, without running
      *     any gcode processors.  (Will disable status reports)
      */
-    async startJob(jobOptions:JobSourceOptions):Promise<JobStatus> {
+    async startJob(_jobOptions:Readonly<JobSourceOptions>):Promise<JobStatus> {
         this.tightcnc.debug('Begin startJob');
         let job:JobState;
         // First do a dry run of the job to fetch overall stats
-        let dryRunResults = await this.dryRunJob(jobOptions);
+        let dryRunResults = await this.dryRunJob(_jobOptions);
         // Set up the gcode processors for this job
-        let origJobOptions = jobOptions;
-        jobOptions = objtools.deepCopy(jobOptions);
+        let origJobOptions = _jobOptions;
+
+        const jobOptions = objtools.deepCopy(_jobOptions) as JobSourceOptions;
         if (jobOptions.filename)
             jobOptions.filename = this.tightcnc.getFilename(jobOptions.filename, 'data', true);
         if (jobOptions.rawFile) {
             delete jobOptions.gcodeProcessors;
-        }
-        else {
+        } else {
             // add default gcode vm processor to enable basic status updates automatically
             if (!jobOptions.gcodeProcessors)
                 jobOptions.gcodeProcessors = [];
@@ -187,6 +183,7 @@ export default class JobManager {
             .then(() => {
             job.state = 'complete';
             job.emitJobComplete();
+            this.tightcnc.debug('Job Completed');
         })
             .catch((err: BaseRegistryError) => {
             if (err.getSubCode() === ERRORCODES.CANCELLED.subCode) {
@@ -204,11 +201,11 @@ export default class JobManager {
         this.tightcnc.debug('startJob wait for processorChainReady');
         await new Promise<void>((resolve, reject) => {
             let finished = false;
-            source.on('processorChainReady', (_chain, chainById) => {
+            source.on('processorChainReady', (_chain:GcodeProcessor[]) => {
                 if (finished)
                     return;
                 finished = true;
-                job.gcodeProcessors = chainById;
+                job.gcodeProcessors = _chain.reduce((prev:Record<string,GcodeProcessor>, next) => { prev[next.id] = next; return prev; }, {} as Record<string,GcodeProcessor>);
                 job.startTime = new Date().toISOString();
                 resolve();
             });
@@ -226,22 +223,20 @@ export default class JobManager {
         return this.getStatus(job) as JobStatus;
     }
 
-    async dryRunJob(jobOptions: JobSourceOptions, outputFile?: string) {
+    async dryRunJob(origJobOptions: Readonly<JobSourceOptions>, outputFile?: string):Promise<JobStatus> {
         this.tightcnc.debug('Begin dryRunJob');
-        let origJobOptions = jobOptions;
-        jobOptions = objtools.deepCopy(jobOptions);
-        if (jobOptions.filename)
-            jobOptions.filename = this.tightcnc.getFilename(jobOptions.filename, 'data', true);
+        const _jobOptions = objtools.deepCopy(origJobOptions) as JobSourceOptions;
+        if (_jobOptions.filename)
+            _jobOptions.filename = this.tightcnc.getFilename(_jobOptions.filename, 'data', true);
         if (outputFile)
             outputFile = this.tightcnc.getFilename(outputFile, 'data', true);
-        if (jobOptions.rawFile) {
-            delete jobOptions.gcodeProcessors;
-        }
-        else {
+        if (_jobOptions.rawFile) {
+            delete _jobOptions.gcodeProcessors;
+        } else {
             // add default gcode vm processor to enable basic status updates automatically
-            if (!jobOptions.gcodeProcessors)
-                jobOptions.gcodeProcessors = [];
-            jobOptions.gcodeProcessors.push({
+            if (!_jobOptions.gcodeProcessors)
+                _jobOptions.gcodeProcessors = [];
+            _jobOptions.gcodeProcessors.push({
                 name: 'gcodevm',
                 options: {
                     id: 'final-job-vm'
@@ -258,17 +253,17 @@ export default class JobManager {
         // Do dry run to get overall stats
         this.tightcnc.debug('Dry run getGcodeSourceStream');
         let source = this.tightcnc.getGcodeSourceStream({
-            filename: jobOptions.filename,
-            macro: jobOptions.macro,
-            macroParams: jobOptions.macroParams,
-            gcodeProcessors: jobOptions.gcodeProcessors,
-            rawStrings: jobOptions.rawFile,
+            filename: _jobOptions.filename,
+            macro: _jobOptions.macro,
+            macroParams: _jobOptions.macroParams,
+            gcodeProcessors: _jobOptions.gcodeProcessors,
+            rawStrings: _jobOptions.rawFile,
             dryRun: true,
             job: job
         });
         let origSource = source;
-        source = new ExReadableStream({
-            transform: (gline: GcodeLine, encoding, callback) => {
+        source = new GcodeLineReadableStream({
+            gcodeLineTransform: (gline: GcodeLine, callback) => {
                 callLineHooks(gline)
                 callback(undefined,gline)
             }
@@ -276,41 +271,35 @@ export default class JobManager {
 
         job.sourceStream = source;
         job.state = 'running';
-        origSource.on('processorChainReady', (_chain, chainById) => {
-            console.log("!ChainID:",chainById)
-            job.gcodeProcessors = chainById;
-        });
-        this.tightcnc.debug('Dry run stream');
-        if (outputFile) {
-            await source.pipe(fs.createWriteStream(outputFile))
-        } else {
-            await (async function() {
-                for await (const chunk of source) {
-                  // console.log(chunk);
-                }
-              })()
-        }
-        job.state = 'complete';
-        if (!job.gcodeProcessors) {
-            job.gcodeProcessors = Object.values(origSource.gcodeProcessorChainById)
-        }
-        // Get the job stats
-        this.tightcnc.debug('Dry run get stats');
-        /*let gpcStatuses = {};
-        let gpc = origSource.gcodeProcessorChainById || {};
-        for (let key in gpc) {
-            let s = gpc[key].getStatus();
-            if (s) {
-                gpcStatuses[key] = s;
-            }
-        }*/
-        let ret = this.getStatus(job);
-        this.tightcnc.debug('End dryRunJob');
-        /*return {
-            jobOptions: origJobOptions,
-            stats: this._mainJobStats(gpcStatuses),
-            gcodeProcessors: gpcStatuses
-        };*/
-        return ret;
+        return new Promise((resolve, reject) => {
+            origSource.on('processorChainReady', async (_chain:GcodeProcessor[]) => {
+                //console.log("Dry Run Chain Processors:",_chain)
+                job.gcodeProcessors = _chain.reduce((prev:Record<string,GcodeProcessor>, next) => { prev[next.id] = next; return prev; }, {} as Record<string,GcodeProcessor>);
+                this.tightcnc.debug('Dry run stream');
+                if (outputFile) {
+                    source.pipe(new node_stream.Transform({
+                        transform: (chunk, encoding, cb) => {
+                            if (chunk instanceof GcodeLine) cb(undefined, chunk.toString()+'\n')
+                            else cb(undefined,chunk)
+                        },
+                        objectMode: true
+                    }))
+                    .pipe(fs.createWriteStream(outputFile))
+                } 
+                await (async function() {
+                    for await (const chunk of source) {
+                        // console.log(chunk);
+                    }
+                })()
+                
+                job.state = 'complete';
+                // Get the job stats
+                this.tightcnc.debug('Dry run get stats');
+                let ret = this.getStatus(job);
+                this.tightcnc.debug('End dryRunJob');
+                if(!ret)reject(errRegistry.newError('INTERNAL_SERVER_ERROR','GENERIC').formatMessage('DryRun produce no status!'))
+                else resolve(ret);                 
+            });
+        })
     }
 }

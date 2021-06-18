@@ -1696,6 +1696,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/split2@npm:^3":
+  version: 3.2.0
+  resolution: "@types/split2@npm:3.2.0"
+  dependencies:
+    "@types/node": "*"
+  checksum: 90d41c94ee4e041cab1a8837d64d9e1400425be1bb2d64978233b86f819d09b22798e55e6edd7da9b223caed80450ae3a89a587e6990bb190aa409da9d6fceca
+  languageName: node
+  linkType: hard
+
 "@types/tapable@npm:^1":
   version: 1.0.7
   resolution: "@types/tapable@npm:1.0.7"
@@ -6681,7 +6690,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"readable-stream@npm:^3.1.1, readable-stream@npm:^3.4.0, readable-stream@npm:^3.5.0, readable-stream@npm:^3.6.0":
+"readable-stream@npm:^3.0.0, readable-stream@npm:^3.1.1, readable-stream@npm:^3.4.0, readable-stream@npm:^3.5.0, readable-stream@npm:^3.6.0":
   version: 3.6.0
   resolution: "readable-stream@npm:3.6.0"
   dependencies:
@@ -7399,6 +7408,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"split2@npm:^3.2.2":
+  version: 3.2.2
+  resolution: "split2@npm:3.2.2"
+  dependencies:
+    readable-stream: ^3.0.0
+  checksum: 04bf20af25bfe917edbb7f719cc9dbd2ca16633e4e6a5e343a8c834310aafd802c74b3aceb96acf3571545b0340d55d2d3273dbee8f9bc6a811371dcfbe0c8a7
+  languageName: node
+  linkType: hard
+
 "sprintf-js@npm:^1.1.2":
   version: 1.1.2
   resolution: "sprintf-js@npm:1.1.2"
@@ -7813,6 +7831,7 @@ __metadata:
     "@types/node": ^15.12.2
     "@types/objtools": ^2.0.0
     "@types/serialport": ^8.0.1
+    "@types/split2": ^3
     "@types/terser-webpack-plugin": ^5.0.3
     "@types/webpack-manifest-plugin": ^3.0.4
     axios: ^0.21.1
@@ -7835,6 +7854,7 @@ __metadata:
     pasync: ^2.0.2
     request: ^2.88.2
     serialport: ^9.1.0
+    split2: ^3.2.2
     stable: ^0.1.8
     term.js: ^0.0.7
     terser-webpack-plugin: ^5.1.3

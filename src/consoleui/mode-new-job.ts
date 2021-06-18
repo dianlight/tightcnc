@@ -1,6 +1,4 @@
-import ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
-//import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
 import objtools from 'objtools';
 import fs from 'fs';
@@ -334,7 +332,7 @@ export default class ModeNewJob extends ModeControl {
             this.consoleui.hideWaitingBox();
             this.updateJobInfoText();
         })
-            .catch((err) => {
+            .catch((err:any) => {
             this.consoleui.clientError(err);
             this.consoleui.hideWaitingBox();
         });
@@ -357,16 +355,16 @@ export default class ModeNewJob extends ModeControl {
                 }
             }
         }>('startJob', jobOptions)
-            .then((result) => {
-            if (result.dryRunResults) {
-                this.dryRunResults = result.dryRunResults;
-            }
-            this.consoleui.showTempMessage('Starting job.');
-            this.consoleui.hideWaitingBox();
-            this.updateJobInfoText();
-            this.consoleui.activateMode('jobInfo');
-        })
-            .catch((err) => {
+            .then((result:any) => {
+                if (result.dryRunResults) {
+                    this.dryRunResults = result.dryRunResults;
+                }
+                this.consoleui.showTempMessage('Starting job.');
+                this.consoleui.hideWaitingBox();
+                this.updateJobInfoText();
+                this.consoleui.activateMode('jobInfo');
+                })
+            .catch((err:any) => {
             this.consoleui.clientError(err);
             this.consoleui.hideWaitingBox();
         });

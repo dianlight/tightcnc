@@ -1,8 +1,8 @@
-import { errLibRegistry } from './errLibRegistry'
-import GcodeLine from './gcode-line';
+import { errRegistry } from '../errRegistry'
+import GcodeLine from './GcodeLine';
 import objtools from 'objtools' 
-import Controller from '../src/server/controller';
-import { TightCNCServer } from '../src';
+import Controller from '../controller';
+import TightCNCServer from '../tightcnc-server';
 
 
 export interface GcodeVMOptions {
@@ -47,6 +47,7 @@ export interface VMState {
     offsetEnabled?: boolean
     storedPositions: number[][]
     line?: number
+    gcodeLine?:string
 }
 
 /**
@@ -89,7 +90,7 @@ export default class GcodeVM {
         coord:this.coord.bind(this),
         totalTime:0, // seconds
         bounds:[[],[]],// min and max points
-        mbounds:[[], []], // bounds for machine coordinates
+        mbounds: [[], []], // bounds for machine coordinates
         lineCounter:0,
         hasMovedToAxes: [], // true for each axis that we've moved on, and have a definite position for
         seenWordSet: {},// a mapping from word letters to boolean true if that word has been seen at least once
@@ -113,8 +114,8 @@ export default class GcodeVM {
     // If value is null, it returns the current value.  If value is numeric, it sets it.
     coord(coords:number[], axis:number|string, value?:number):number|undefined {
         let axisNum = (typeof axis === 'number') ? axis : this.vmState?.axisLabels?.indexOf(axis.toLowerCase()) || 0;
-        if (axisNum === -1) throw  errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Invalid axis ' + axis);
-        if (axisNum < 0 || axisNum >= this.vmState!.axisLabels!.length) throw errLibRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Axis out of bounds ' + axisNum);
+        if (axisNum === -1) throw  errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Invalid axis ' + axis);
+        if (axisNum < 0 || axisNum >= this.vmState!.axisLabels!.length) throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Axis out of bounds ' + axisNum);
         //if (typeof value === 'number') {
         if (value !== undefined) {
             while (axisNum >= coords.length) coords.push(0);
@@ -140,7 +141,7 @@ export default class GcodeVM {
     }
 
     reset() {
-        let controller = this.options.controller || (this.options.tightcnc && this.options.tightcnc.controller) || {};
+        //let controller = this.options.controller || (this.options.tightcnc && this.options.tightcnc.controller) || {};
         let vmState: VMState = {
             pos: [],
             mpos: [],
@@ -520,6 +521,7 @@ export default class GcodeVM {
         // This is NOT a gcode validator.  Input gcode is expected to be valid and well-formed.
         //
         let vmState = this.vmState;
+        vmState.gcodeLine = gline.toString()
         let origCoordSys = vmState.activeCoordSys;
         let origTotalTime = vmState.totalTime;
         let changedCoordOffsets = false;
@@ -658,7 +660,7 @@ export default class GcodeVM {
             this._processMove(storedPos, undefined, vmState.feed, undefined, false);
             isMotion = true;
         } else if (doMotion) {
-            throw errLibRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Unsupported motion gcode ' + doMotion + ': ' + gline.toString());
+            throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Unsupported motion gcode ' + doMotion + ': ' + gline.toString());
         }
 
         if (!isSimpleMotion) {
@@ -745,6 +747,7 @@ export default class GcodeVM {
 
         // Add to line counter
         vmState.lineCounter++;
+        //console.log(vmState.lineCounter,vmState.gcodeLine)
 
         // Reset coordinate system if using G53
         if (tempCoordSys) this._setCoordSys(origCoordSys);

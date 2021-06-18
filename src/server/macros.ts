@@ -10,8 +10,8 @@ import * as node_stream from 'stream'
 import objtools from 'objtools';
 import { createSchema } from 'common-schema';
 import { TightCNCServer } from '..'; // Avoid Circular dependency issue
-import GcodeLine from '../../lib/gcode-line';
-import GcodeProcessor from '../../lib/gcode-processor';
+import GcodeLine from './new-gcode-processor/GcodeLine';
+import { GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 import { BaseRegistryError } from 'new-error';
 
 interface MacroData {

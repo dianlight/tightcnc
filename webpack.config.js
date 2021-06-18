@@ -11,7 +11,7 @@ const serverConfig = (env, argv) => {
         externals: [nodeExternals()],
         entry: {
             server: './src/server/server.ts',
-            consoleui: './src/consoleui/consoleui.ts',
+            //            consoleui: './src/consoleui/consoleui.ts',
         },
         module: {
             rules: [{
@@ -152,4 +152,5 @@ const clientConfig = (env, argv) => {
     return config;
 }
 
-module.exports = [serverConfig, clientConfig, /*pluginsConfig*/ ]
+//module.exports = [serverConfig, /*clientConfig*/ , /*pluginsConfig*/ ]
+module.exports = serverConfig

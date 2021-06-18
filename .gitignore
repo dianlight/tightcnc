@@ -34,3 +34,7 @@ EEPROM.DAT
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+
+# Refactor
+data/simpletest.txt
+lib.no

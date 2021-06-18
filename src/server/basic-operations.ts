@@ -1,6 +1,5 @@
 import  Operation from './operation';
 import objtools from 'objtools';
-//import XError from 'xerror';
 import { errRegistry } from './errRegistry';
 import TightCNCServer, { StatusObject } from './tightcnc-server';
 

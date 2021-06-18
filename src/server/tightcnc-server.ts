@@ -4,8 +4,6 @@ import objtools from 'objtools';
 import LoggerDisk from './logger-disk';
 import LoggerMem from './logger-mem';
 import mkdirp from 'mkdirp';
-import GcodeProcessor, { buildProcessorChain, ExReadableStream } from '../../lib/gcode-processor';
-//import zstreams,{ZRedable} from 'zstreams';
 import * as node_stream from 'stream'
 import EventEmitter from 'events';
 import path from 'path';
@@ -22,9 +20,12 @@ import basicoperation from './basic-operations'
 import systemoperation from './system-operations'
 import Controller, { ControllerStatus } from './controller';
 import JobState from './job-state';
-import GcodeLine from '../../lib/gcode-line';
+import GcodeLine from './new-gcode-processor/GcodeLine';
 import { BaseRegistryError } from 'new-error';
-import {addExitCallback} from 'catch-exit';
+import { addExitCallback } from 'catch-exit';
+import { registerGcodeProcessors } from './new-gcode-processor'
+import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
+import { buildProcessorChain, GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -49,7 +50,7 @@ export interface JobSourceOptions {
             updateOnHook?: string
         },
         order: number
-        inst?: any
+        inst?: GcodeProcessor
     }[]
     data?: string[],
     rawStrings?: boolean,
@@ -206,7 +207,7 @@ export default class TightCNCServer extends EventEmitter {
         }
         this.baseDir = this.config!.baseDir;
         // Register builtin modules
-        import('./tinyg-controller').then( (namespace)=>this.registerController('TinyG',namespace.default))
+        import('./tinyg-controller').then((namespace)=>this.registerController('TinyG',namespace.default))
         import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
         
         basicoperation(this);
@@ -214,9 +215,10 @@ export default class TightCNCServer extends EventEmitter {
         registerOperations(this);
         joboperations(this);
         macrooperation(this);
-
+        registerGcodeProcessors(this);
+        
         // {new(consoleui:ConsoleUI):JobOption}
-        import('../../lib/gcode-processors/gcode-vm').then((namespace) => this.registerGcodeProcessor('gcodevm',namespace.default))
+//        import('../../lib/gcode-processors/gcode-vm').then((namespace) => this.registerGcodeProcessor('gcodevm',namespace.default))
         // Register bundled plugins
         import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
         // Register external plugins
@@ -455,24 +457,24 @@ export default class TightCNCServer extends EventEmitter {
      *   the additional property 'gcodeProcessorChain' containing an array of all GcodeProcessor's in the chain.  This property
      *   is only available once the 'processorChainReady' event is fired on the returned stream;
      */
-    getGcodeSourceStream(options: JobSourceOptions ): ExReadableStream {
+    getGcodeSourceStream(options: Readonly<JobSourceOptions> ): GcodeLineReadableStream {
         // Handle case where returning raw strings
         if (options.rawStrings) {
             if (options.filename) {
                 let filename = options.filename;
                 filename = this.getFilename(filename, 'data', true);
-                return ExReadableStream.fromFile(filename)
+                return GcodeLineReadableStream.fromFile(filename)
             }
             else if (options.macro) {
-                return new ExReadableStream({
-                    transform: (chunk:GcodeLine, encode, callback) => {
+                return new GcodeLineReadableStream({
+                    gcodeLineTransform: (chunk:GcodeLine, callback) => {
                         callback(null, chunk.toString())
                     }
                 }).wrap(this.macros.generatorMacroStream(options.macro, options.macroParams || {}))
                // this.macros.generatorMacroStream(options.macro, options.macroParams || {}).through((gline: GcodeLine) => gline.toString());
             }
             else {
-                return ExReadableStream.fromArray(options.data as string[]);
+                return GcodeLineReadableStream.fromArray(options.data as string[]);
             }
         }
         // 
@@ -482,6 +484,7 @@ export default class TightCNCServer extends EventEmitter {
                 return this.macros.generatorMacroStream(options.macro as string, options.macroParams || {});
             };
         }
+
         // Sort gcode processors
         let sortedGcodeProcessors = stable(options.gcodeProcessors || [], (a:any, b:any) => {
             let aorder, border;
@@ -503,15 +506,15 @@ export default class TightCNCServer extends EventEmitter {
                 return -1;
             return 0;
         });
+
         // Construct gcode processor chain
-        let gcodeProcessorInstances = [];
+        let gcodeProcessorInstances: GcodeProcessor[] = [];
         for (let gcpspec of sortedGcodeProcessors) {
             if (gcpspec.inst) {
-                if (options.dryRun)
-                    gcpspec.inst.dryRun = true;
+                if (options.dryRun !== undefined)
+                    gcpspec.inst.dryRun = options.dryRun;
                 gcodeProcessorInstances.push(gcpspec.inst);
-            }
-            else {
+            } else {
                 let cls = this.gcodeProcessors[gcpspec.name];
                 if (!cls)
                     throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('Gcode processor not found: ' + gcpspec.name);
@@ -519,7 +522,7 @@ export default class TightCNCServer extends EventEmitter {
                 opts.tightcnc = this;
                 if (options.job)
                     opts.job = options.job;
-                let inst = new cls(opts,gcpspec.name);
+                let inst = new (cls as any)(opts,gcpspec.name);
                 if (options.dryRun)
                     inst.dryRun = true;
                 gcpspec.inst = inst;
@@ -527,9 +530,9 @@ export default class TightCNCServer extends EventEmitter {
             }
         }
         
-        if(options.filename)return buildProcessorChain(options.filename, gcodeProcessorInstances, false);
-        else if(options.data)return buildProcessorChain(options.data, gcodeProcessorInstances, false);
-        else if (macroStreamFn) return buildProcessorChain(macroStreamFn, gcodeProcessorInstances, false);
+        if(options.filename)return buildProcessorChain(options.filename, gcodeProcessorInstances);
+        else if(options.data)return buildProcessorChain(options.data, gcodeProcessorInstances);
+        else if (macroStreamFn) return buildProcessorChain(macroStreamFn, gcodeProcessorInstances);
         
         throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Unable to create GCODE stream')
     }

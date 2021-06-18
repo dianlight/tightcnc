@@ -1,12 +1,10 @@
 import EventEmitter from 'events';
-//import XError from 'xerror';
-//import { errRegistry } from './errRegistry';
-//import zstreams from 'zstreams';
 import * as node_stream from 'stream'
-import { GcodeLine } from '../../lib/gcode-line';
+import { GcodeLine } from './new-gcode-processor/GcodeLine';
 import { BaseRegistryError } from 'new-error';
 import fs from 'fs'
-import { VMState } from '../../lib/gcode-vm'
+import { VMState } from './new-gcode-processor/GcodeVM'
+import CrispHooks from 'crisphooks'
 
 export interface ControllerConfig {
     port: string
@@ -299,11 +297,11 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      */
     abstract sendGcode(gline: GcodeLine, options?:{}):void;
 
-    send(thing: string | GcodeLine | Buffer, options?:{}):void {
+    send(thing: string | GcodeLine, options?:{}):void {
         if (typeof thing === 'object' && !(thing instanceof Buffer) && thing.isGcodeLine) {
             this.sendGcode(thing as GcodeLine, options);
-        } else if (thing instanceof Buffer) {
-            this.sendGcode(new GcodeLine(JSON.parse(thing.toLocaleString())))
+//        } else if (thing instanceof Buffer) {
+//            this.sendGcode(GcodeLine.fromJSONBuffer(thing), options)
         } else {
             this.sendLine(thing as string, options);
         }

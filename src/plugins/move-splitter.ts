@@ -1,7 +1,7 @@
 //import XError from 'xerror';
-import GcodeProcessor from '../../lib/gcode-processor';
-import GcodeLine from '../../lib/gcode-line';
-const GcodeVM = require('../../lib/gcode-vm');
+import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor'
+import GcodeLine from '../server/new-gcode-processor/GcodeLine';
+import GcodeVM  from '../server/new-gcode-processor/GcodeVM';
 import  objtools from 'objtools';
 /**
  * This gcode processor will split long linear moves into a series of shorter ones.

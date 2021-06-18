@@ -1,10 +1,11 @@
 import * as node_stream from 'stream'
-import GcodeLine from './gcode-line';
-import { errRegistry } from '../src/server/errRegistry';
+import GcodeLine from './GcodeLine';
+import { errRegistry } from '../errRegistry';
 import { deepCopy } from 'objtools';
-import fs from 'fs'
+import { GcodeLineReadableStream } from './GcodeLineReadableStream';
+import stable, { inplace } from 'stable'
 
-export default class GcodeProcessor extends node_stream.Transform {
+export abstract class GcodeProcessor extends GcodeLineReadableStream {
 
     id: string;
     syncWaitingForLine?:GcodeLine; // used to determine when the last line pushed from this processor is received by the next in the chain
@@ -20,7 +21,6 @@ export default class GcodeProcessor extends node_stream.Transform {
     job:any;
     preprocessInputGcode: ()=>void
     gcodeProcessorChainById: { [key: string]: GcodeProcessor; } = {};
-    sourceLine:number = 0
     
 
     /**
@@ -69,7 +69,7 @@ export default class GcodeProcessor extends node_stream.Transform {
      * @method addToChain
      * @param {GcodeProcessor[]} processorChain - Array of GcodeProcessor instances in the chain so far.
      */
-    addToChain(processorChain:GcodeProcessor[]) {
+    async addToChain(processorChain:GcodeProcessor[]):Promise<void> {
         processorChain.push(this);
     }
 
@@ -80,7 +80,7 @@ export default class GcodeProcessor extends node_stream.Transform {
      *
      * @method initProcessor
      */
-    initProcessor() {}
+    async initProcessor():Promise<void> {}
 
     /**
      * This method must be implemented by subclasses.  It should construct AND initialize a copy of this instance,
@@ -178,12 +178,12 @@ export default class GcodeProcessor extends node_stream.Transform {
         });
     }
 
+    
     pushGcode(gline:GcodeLine|GcodeLine[]) {
-        if (!gline) return;
         if (Array.isArray(gline)) {
             for (let l of gline) {
                 this._checkFlushedOnPush(l);
-                this.push(l);
+                this.push(JSON.stringify(l));
             }
         } else {
             this._checkFlushedOnPush(gline);
@@ -234,12 +234,12 @@ export default class GcodeProcessor extends node_stream.Transform {
         }
     }
 
-    override _transform(chunk:Buffer, encoding:any, cb:(err?:any)=>any) {
-        if (!chunk) return cb();
-        const gcodeLine = new GcodeLine(chunk.toLocaleString(),this.sourceLine++)
+    override _gcodeLineTransform(gcodeLine: GcodeLine, cb: node_stream.TransformCallback): void {
         this._checkFlushedOnRecv(gcodeLine);
         try {
             let r = this.processGcode(gcodeLine);
+            cb(undefined,r)
+            /*
             if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
                 (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
                     try {
@@ -259,6 +259,7 @@ export default class GcodeProcessor extends node_stream.Transform {
                     cb(err);
                 }
             }
+            */
         } catch (err:any) {
             cb(err);
             return;
@@ -309,7 +310,7 @@ export function callLineHooks(gline:GcodeLine) {
     gline.triggerSync('executed');
 }
 
-function makeSourceStream(filename:string|string[]|(() => node_stream.Readable)):ExReadableStream {
+function makeSourceStream(filename:string|string[]|(() => node_stream.Readable)):GcodeLineReadableStream {
     let lineStream;
 
     const glineCleanup = (gline:GcodeLine) => {
@@ -321,8 +322,8 @@ function makeSourceStream(filename:string|string[]|(() => node_stream.Readable))
     if (Array.isArray(filename)) {
         lineStream = node_stream.Readable.from(filename);
     } else if (typeof filename === 'function') {
-        return new ExReadableStream({
-            transform: (chunk:GcodeLine, encode, callaback) => {
+        return new GcodeLineReadableStream({
+            gcodeLineTransform: (chunk:GcodeLine, callaback) => {
                 callaback(null,glineCleanup(chunk))
             }
         }).wrap(filename())
@@ -331,12 +332,11 @@ function makeSourceStream(filename:string|string[]|(() => node_stream.Readable))
         //   return gline;
         //});
     } else {
-        lineStream =ExReadableStream.fromFile(filename)
+        lineStream =GcodeLineReadableStream.fromFile(filename)
     }
-    return new ExReadableStream({
-        transform: (lineStr: string, encoding: string, callback) => {
-            let gline = new GcodeLine(lineStr);
-            if (!gline.words!.length && !gline.comment) return undefined;
+    return new GcodeLineReadableStream({
+        gcodeLineTransform: (gline: GcodeLine, callback) => {
+//            if (!gline.words!.length && !gline.comment) return undefined;
             glineCleanup(gline);
             callback(null,gline)
         },
@@ -355,15 +355,6 @@ export class ExReadableStream extends node_stream.Transform {
         }
         super(opts)
     }
-
-    static fromFile(filename: string): ExReadableStream {
-        // FIXME: Very bad for performance on Big filenames
-        return new ExReadableStream().wrap(node_stream.Readable.from(fs.readFileSync(filename as string).toString().split(/\r?\n/)))
-    }
-
-    static fromArray(lines: string[]): ExReadableStream {
-        return new ExReadableStream().wrap(node_stream.Readable.from(lines))
-    }
 }
 
 
@@ -378,8 +369,6 @@ export class ExReadableStream extends node_stream.Transform {
  * @param {GcodeProcessor[]} processors - An array of constructed, but not initialized, gcode processor
  *   instances.  These will be added to the chain in order.  It's possible that the chain may contain
  *   additional processors not in this list if a processor's addToChain() method appends any.
- * @param {Boolean} [stringifyLines=false] - If true, the returned stream is a readable data stream containing
- *   a single stream of data.  If false, the returned stream is a readable object stream of GcodeLine objects.
  * @return {ReadableStream} - A readable stream for the output of the chain.  It's either
  *   a readable data stream or a readable object stream (of GcodeLine objects) depending
  *   on the value of the stringifyLines parameter.  The ReadableStream will also have a property
@@ -387,8 +376,40 @@ export class ExReadableStream extends node_stream.Transform {
  *   to retrieve state data from processors.  This property is not available until after the 'processorChainReady'
  *   event is fired on the returned stream.
  */
-export function buildProcessorChain(filename:string|string[]|(() => node_stream.Readable), processors:GcodeProcessor[], stringifyLines = false): ExReadableStream {
+export function buildProcessorChain(filename:string|string[]|(() => node_stream.Readable), processors:GcodeProcessor[]): GcodeLineReadableStream {
     // use pass through so we can return a stream immediately while doing async stuff
+    const final = new GcodeLineReadableStream()
+    const processorChain: GcodeProcessor[] = []
+
+    const doBuildChain = async () => {
+        // Add all list to chain
+        for (let processor of processors) {
+            await processor.addToChain(processorChain); // A processor can add its dependencies
+        }
+        // NOTE: No reorder. Missing information for orderting. ?!?!?
+    }
+
+    const doInitProcessor = async () => {
+        for (let processor of processors) {
+            await processor.initProcessor();
+        }
+    }
+
+    doBuildChain().then(() => {
+        doInitProcessor().then(() => {
+            let prev = makeSourceStream(filename);
+            for ( let processor of processors) {
+                prev.pipe(processor)
+                prev = processor
+            }
+            final.wrap(prev)
+            final.emit('processorChainReady', processorChain );
+        })
+    })
+
+    return final
+
+    /*
     let passthroughStream =  new ExReadableStream() //new node_stream.PassThrough() // new zstreams.PassThrough({ objectMode: true });
 
     const doBuildChain = async() => {
@@ -439,20 +460,13 @@ export function buildProcessorChain(filename:string|string[]|(() => node_stream.
                         stream.pipe(gp);
                         stream = gp;
                     }
-                    stream = new ExReadableStream({
-                        transform: (gline:GcodeLine, encoding, callback) => {
+                    stream = new GcodeLineReadableStream({
+                        gcodeLineTransform: (gline:GcodeLine, callback) => {
                             // call hooks on all glines passing through to ensure gcode processors relying on hooks don't break
                             callLineHooks(gline);
                             callback(null, gline)                           
                         }
                     })
-                    /*
-                    stream = stream.through((gline:GcodeLine) => {
-                        // call hooks on all glines passing through to ensure gcode processors relying on hooks don't break
-                        callLineHooks(gline);
-                        return gline;
-                    });
-                    */
                     stream.pipe(passthroughStream);
                 };
                 buildPreprocessChain()
@@ -486,20 +500,10 @@ export function buildProcessorChain(filename:string|string[]|(() => node_stream.
                     callback(null, gline.toString()+'\n')
                 }
             })
-            /*    new zstreams.ThroughStream((gline: GcodeLine) => {
-                return gline.toString() + '\n';
-            }, {
-                writableObjectMode: true,
-                writableHighWaterMark: 3,
-                readableObjectMode: false,
-                readableHighWaterMark: 50
-            });
-            */
+
             stream.pipe(stringifyStream);
             stream = stringifyStream;
-            //stream = stream.throughData((gline) => {
-            //	return gline.toString() + '\n';
-            //});
+
             stream.gcodeProcessorChain = chain;
             stream.gcodeProcessorChainById = chainById;
         }
@@ -507,6 +511,7 @@ export function buildProcessorChain(filename:string|string[]|(() => node_stream.
         // pipe to pass through
         stream.pipe(passthroughStream);
         return stream;
+        
     };
 
     doBuildChain()
@@ -519,5 +524,6 @@ export function buildProcessorChain(filename:string|string[]|(() => node_stream.
         });
 
     return passthroughStream;
+    */
 }
 

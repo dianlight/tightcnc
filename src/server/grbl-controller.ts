@@ -2,14 +2,14 @@ import  Controller, { ControllerConfig, ControllerStatus } from './controller';
 import  SerialPort, { OpenOptions } from 'serialport';
 import { ERRORCODES, errRegistry } from './errRegistry';
 import  pasync from 'pasync';
-import GcodeLine from '../../lib/gcode-line';
+import GcodeLine from './new-gcode-processor/GcodeLine';
 import CrispHooks from 'crisphooks';
 import objtools from 'objtools';
 import TightCNCServer from './tightcnc-server';
 import SerialportRawSocketBinding from '../serialport-binding/serialportRawSocketBinding';
 import GrblsimBinding from '../serialport-binding/grblsimBinding';
 import { BaseRegistryError, ErrorRegistry } from 'new-error';
-import GcodeVM from '../../lib/gcode-vm';
+import GcodeVM from './new-gcode-processor/GcodeVM';
 import * as node_stream from 'stream'
 
 export interface GrblControllerConfig extends ControllerConfig {
@@ -1205,7 +1205,7 @@ export default class GRBLController extends Controller {
         }, 5000);
     }
 
-    request(line: string | GcodeLine | Buffer):Promise<void> {
+    request(line: string | GcodeLine):Promise<void> {
         // send line, wait for ack event or error
         return new Promise<void>((resolve, reject) => {
             let hooks = new CrispHooks();
@@ -1845,7 +1845,7 @@ export default class GRBLController extends Controller {
         this.debug('close() complete');
     }
 
-    sendStream(stream:node_stream.Readable) {
+    override async sendStream(stream:node_stream.Readable):Promise<void> {
         let waiter = pasync.waiter();
         // Bounds within which to stop and start reading from the stream.  These correspond to the number of queued lines
         // not yet sent to the controller.
@@ -1917,7 +1917,7 @@ export default class GRBLController extends Controller {
         // wait until the conditions become true.
         if (this.error)
             return Promise.reject(this.errorData || errRegistry.newError('MACHINE_ERROR','MACHINE_ERROR').formatMessage('Error waiting for sync'));
-        this.send('G4 P0.01'); // grbl won't ack this until its planner buffer is empty
+        this.send('G4 P0.01 (sync)'); // grbl won't ack this until its planner buffer is empty
         //if (this._isSynced()) return Promise.resolve();	
         //this.send('?');
         return new Promise<void>((resolve, reject) => {

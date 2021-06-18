@@ -1,8 +1,8 @@
 //import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
-import GcodeProcessor from '../../lib/gcode-processor';
-import GcodeLine from '../../lib/gcode-line';
-const GcodeVM = require('../../lib/gcode-vm');
+import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
+import GcodeLine from '../server/new-gcode-processor/GcodeLine';
+import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import objtools from 'objtools';
 import Operation from '../server/operation';
 import pasync from 'pasync';
@@ -10,8 +10,6 @@ import JobOption from '../consoleui/job-option';
 import ListForm from '../consoleui/list-form';
 import TightCNCServer, { StatusObject } from '../server/tightcnc-server';
 import { ConsoleUI } from '../consoleui/consoleui';
-import { isArray } from 'util';
-//import blessed from 'blessed';
 // Order: Must be after recovery processor
 /**
  * This gcode processor can handle software tool changes and job stops.  It can intercept T, M6, M0, M1, and M60
@@ -56,7 +54,7 @@ export default class ToolChangeProcessor extends GcodeProcessor {
         stopSwitch?: boolean
     } = {}) {
         super(options, 'toolchange', true);
-        this.vm = new GcodeVM(options);
+        this.vm = new GcodeVM({}/*options*/);
         this.stopSwitch = (options as any).stopSwitch || false;
         this.handleT = ('handleT' in options) ? (options as any).handleT : true;
         this.handleM6 = ('handleM6' in options) ? (options as any).handleM6 : true;

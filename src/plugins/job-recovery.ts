@@ -14,9 +14,9 @@
  */
 //import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
-import GcodeProcessor from '../../lib/gcode-processor';
-import GcodeLine from '../../lib/gcode-line';
-const GcodeVM = require('../../lib/gcode-vm');
+import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
+import GcodeLine from '../server/new-gcode-processor/GcodeLine';
+import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import Operation from '../server/operation';
 import objtools from 'objtools';
 import pasync from 'pasync';
@@ -65,7 +65,7 @@ class JobRecoveryTracker extends GcodeProcessor {
             predictedTimeOffset: 0
         };
     }
-    override initProcessor() {
+    override async initProcessor() {
         if ((this as any).dryRun)
             return;
         const saveLoop = async () => {
