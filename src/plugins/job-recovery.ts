@@ -12,7 +12,6 @@
  * for these clearance movements, including the ability to use different axes.  The default assumes a typical x, y, z
  * axis configuration with clearance on Z at machine position 0 (ie, G53 G0 Z0).
  */
-//import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
 import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
@@ -21,7 +20,6 @@ import Operation from '../server/operation';
 import objtools from 'objtools';
 import pasync from 'pasync';
 import fs from 'fs';
-//const path = require('path');
 import ListForm from '../consoleui/list-form';
 const getRecoveryFilename = (tightcnc: any) => {
     return tightcnc.getFilename('_recovery.json', 'data');

@@ -42,9 +42,9 @@ export interface ControllerStatus extends VMState {
     axisLabels: string[],
     */
     usedAxes: boolean[],
-    /*
     axisMaxFeeds: number[]
     axisMaxTravel: number[]
+    /*
     mpos: number[],
     pos: number[],
     mposOffset: number[],
@@ -70,14 +70,10 @@ export interface ControllerStatus extends VMState {
     */
     error: boolean,
     errorData?: BaseRegistryError,
-    /*
     programRunning: boolean,
-    */
-    capabilities: ControllerCapabilities
-    /*
+    capabilities: ControllerCapabilities   
     spindleSpeedMax?: number,
     spindleSpeedMin?: number
-    */
 }
 
 export default abstract class Controller  extends EventEmitter implements VMState  {

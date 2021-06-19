@@ -14,7 +14,7 @@ async function startServer() {
 	// const router = new APIRouter();
 	const server = new JSONRPCServer()
 	const app = express();
-	app.use(express.json({}))
+	app.use(express.json({ limit:'1Gb'}))
 	app.use(cors())
 
 	let tightcnc = new TightCNCServer(config);

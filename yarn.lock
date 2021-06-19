@@ -1372,7 +1372,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@serialport/binding-mock@npm:^9.0.7":
+"@serialport/binding-mock@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/binding-mock@npm:9.0.7"
   dependencies:
@@ -1382,9 +1382,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@serialport/bindings@npm:^9.1.0":
-  version: 9.1.0
-  resolution: "@serialport/bindings@npm:9.1.0"
+"@serialport/bindings@npm:^9.2.0":
+  version: 9.2.0
+  resolution: "@serialport/bindings@npm:9.2.0"
   dependencies:
     "@serialport/binding-abstract": ^9.0.7
     "@serialport/parser-readline": ^9.0.7
@@ -1393,39 +1393,39 @@ __metadata:
     nan: ^2.14.2
     node-gyp: latest
     prebuild-install: ^6.0.1
-  checksum: 76ead9d1ae79ff973e546c89d9aaaf71ce68c5ceeb329cd88367dfcbbef98aeedc1e506cef167e620585d3d6cf2f1d41874dd0ab971c3579bdba6498e9993ab3
+  checksum: f39440ea1bb544f4b323e2c58a96e51d75e8e671ac3444132ec2f03c7190a57ca54798469149567f87d66a690a0f3209232c401604cdc96bafdca031386ec803
   languageName: node
   linkType: hard
 
-"@serialport/parser-byte-length@npm:^9.0.7":
+"@serialport/parser-byte-length@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-byte-length@npm:9.0.7"
   checksum: 281055642c4467391b9ba3d1954dfbcaa47fe57b1f5c93123be6ffc3e40b24b651f4dc2485d09bc8b4e95fc7bbc5beb3b6b1e1036700d2e604ac100c48cd2c5e
   languageName: node
   linkType: hard
 
-"@serialport/parser-cctalk@npm:^9.0.7":
+"@serialport/parser-cctalk@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-cctalk@npm:9.0.7"
   checksum: 90d469d809e554291e346fbda3b819eb00cb6822b74ea691d8ec85dfc50dcf920f77e8c27baf3d9cb4a2df3fbf2c076b021728a0332726e4fdb987eaed61b4e6
   languageName: node
   linkType: hard
 
-"@serialport/parser-delimiter@npm:^9.0.7":
+"@serialport/parser-delimiter@npm:9.0.7, @serialport/parser-delimiter@npm:^9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-delimiter@npm:9.0.7"
   checksum: 59e2c6469efd4c4aaa1608f5748e5d62cf61a143f4e7f223bab1a7ef1900e29c3cb2d270a7bea2aa2101d555168c439069fea78f12f6595a7042989e73e22275
   languageName: node
   linkType: hard
 
-"@serialport/parser-inter-byte-timeout@npm:^9.0.7":
+"@serialport/parser-inter-byte-timeout@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-inter-byte-timeout@npm:9.0.7"
   checksum: ddd5cc218b3327d999c2754caa1633d5b2b12c0bd526fb093a5ac17a8082d8e74a4073c6905101e2fa2b4c7a26b9004f7a7118b7241fd6d5f3ce092c5dcaa62a
   languageName: node
   linkType: hard
 
-"@serialport/parser-readline@npm:^9.0.7":
+"@serialport/parser-readline@npm:9.0.7, @serialport/parser-readline@npm:^9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-readline@npm:9.0.7"
   dependencies:
@@ -1434,21 +1434,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@serialport/parser-ready@npm:^9.0.7":
+"@serialport/parser-ready@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-ready@npm:9.0.7"
   checksum: e2d64e5aed9f49de572f880e8b1f9e246456779fa0299fc1af25e676d65f259d6f3f1bf7c868856e41e714c947c752def228d6ffc06d97e6db9d561f8e7eb344
   languageName: node
   linkType: hard
 
-"@serialport/parser-regex@npm:^9.0.7":
+"@serialport/parser-regex@npm:9.0.7":
   version: 9.0.7
   resolution: "@serialport/parser-regex@npm:9.0.7"
   checksum: a1b58073175a7696652e8d9ad9a27a1365c5db4057bef53811a2d37fd1d67eaf69ff3a8741839e7447cc5925cee0480b2e6c52137eca53f68f8a336809a9b05f
   languageName: node
   linkType: hard
 
-"@serialport/stream@npm:^9.0.7":
+"@serialport/stream@npm:9.0.7, @serialport/stream@npm:^9.0.7":
   version: 9.0.7
   resolution: "@serialport/stream@npm:9.0.7"
   dependencies:
@@ -1642,10 +1642,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^15.12.2":
-  version: 15.12.2
-  resolution: "@types/node@npm:15.12.2"
-  checksum: 26b9170eb825656751955e919dcea7963d1be4d1eba361c67e41b51a55436c51d69d63f49ee98aaf4fe2e0e5eb3c0038408a8f542316b7583e9badf4fdd10024
+"@types/node@npm:^15.12.4":
+  version: 15.12.4
+  resolution: "@types/node@npm:15.12.4"
+  checksum: 64b121a7e805379382aeb3eefed56c4c34f1ebf5e818ba2c732e43beebc4fbde20be438f3eaaffd8dba5062f0e0c9ae085127b7239906d170eda816885a6c508
   languageName: node
   linkType: hard
 
@@ -1696,7 +1696,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/split2@npm:^3":
+"@types/split2@npm:^3.2.0":
   version: 3.2.0
   resolution: "@types/split2@npm:3.2.0"
   dependencies:
@@ -7121,22 +7121,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"serialport@npm:^9.1.0":
-  version: 9.1.0
-  resolution: "serialport@npm:9.1.0"
+"serialport@npm:^9.2.0":
+  version: 9.2.0
+  resolution: "serialport@npm:9.2.0"
   dependencies:
-    "@serialport/binding-mock": ^9.0.7
-    "@serialport/bindings": ^9.1.0
-    "@serialport/parser-byte-length": ^9.0.7
-    "@serialport/parser-cctalk": ^9.0.7
-    "@serialport/parser-delimiter": ^9.0.7
-    "@serialport/parser-inter-byte-timeout": ^9.0.7
-    "@serialport/parser-readline": ^9.0.7
-    "@serialport/parser-ready": ^9.0.7
-    "@serialport/parser-regex": ^9.0.7
-    "@serialport/stream": ^9.0.7
+    "@serialport/binding-mock": 9.0.7
+    "@serialport/bindings": ^9.2.0
+    "@serialport/parser-byte-length": 9.0.7
+    "@serialport/parser-cctalk": 9.0.7
+    "@serialport/parser-delimiter": 9.0.7
+    "@serialport/parser-inter-byte-timeout": 9.0.7
+    "@serialport/parser-readline": 9.0.7
+    "@serialport/parser-ready": 9.0.7
+    "@serialport/parser-regex": 9.0.7
+    "@serialport/stream": 9.0.7
     debug: ^4.3.1
-  checksum: 24eaa279c52847d0310bded26ea6a5b19468aa78293537f32f05a2da4d2812649620ac39a0e9dd4fa2df8cada969ab13383347d9afe99788f47300f0c95701ea
+  checksum: b84895c268ad09be69267cfeff0a1c274344a34c6a2b8c58dd7085650a56d2f7ec2bdfc1065f415b44c54545095f12ac2c8cf90977ffaa393f09ef1b83a1c81c
   languageName: node
   linkType: hard
 
@@ -7828,10 +7828,10 @@ __metadata:
     "@types/express": ^4.17.12
     "@types/kd-tree-javascript": ^1.0.0
     "@types/mkdirp": ^1.0.1
-    "@types/node": ^15.12.2
+    "@types/node": ^15.12.4
     "@types/objtools": ^2.0.0
     "@types/serialport": ^8.0.1
-    "@types/split2": ^3
+    "@types/split2": ^3.2.0
     "@types/terser-webpack-plugin": ^5.0.3
     "@types/webpack-manifest-plugin": ^3.0.4
     axios: ^0.21.1
@@ -7853,7 +7853,7 @@ __metadata:
     objtools: ^3.0.0
     pasync: ^2.0.2
     request: ^2.88.2
-    serialport: ^9.1.0
+    serialport: ^9.2.0
     split2: ^3.2.2
     stable: ^0.1.8
     term.js: ^0.0.7
@@ -7862,8 +7862,8 @@ __metadata:
     ts-migrate: ^0.1.19
     ts-node: ^10.0.0
     tslib: ^2.3.0
-    typescript: ^4.3.2
-    webpack: ^5.39.0
+    typescript: ^4.3.4
+    webpack: ^5.39.1
     webpack-cli: ^4.7.2
     webpack-manifest-plugin: ^3.1.1
     webpack-node-externals: ^3.0.0
@@ -8128,13 +8128,13 @@ typescript@4.2.4:
   languageName: node
   linkType: hard
 
-typescript@^4.3.2:
-  version: 4.3.2
-  resolution: "typescript@npm:4.3.2"
+typescript@^4.3.4:
+  version: 4.3.4
+  resolution: "typescript@npm:4.3.4"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 21e1285402e32fd240f6ad3f97b6fea81b90d2591f412677d01b570a8bd93151d1e08460d58f43689fc758671a5baaebb16fa93d3c8260181612c8e619bd24f7
+  checksum: 9791c5fe98db6cb70ec0efad8d3d2eb957b9643ee600b90bff49267de69768d0d5f59c41a8fd731cfd63df1ccfb2cb25505a2015d7b39ac10ea51f605a058e16
   languageName: node
   linkType: hard
 
@@ -8148,13 +8148,13 @@ typescript@^4.3.2:
   languageName: node
   linkType: hard
 
-"typescript@patch:typescript@^4.3.2#builtin<compat/typescript>":
-  version: 4.3.2
-  resolution: "typescript@patch:typescript@npm%3A4.3.2#builtin<compat/typescript>::version=4.3.2&hash=ddfc1b"
+"typescript@patch:typescript@^4.3.4#builtin<compat/typescript>":
+  version: 4.3.4
+  resolution: "typescript@patch:typescript@npm%3A4.3.4#builtin<compat/typescript>::version=4.3.4&hash=ddfc1b"
   bin:
     tsc: bin/tsc
     tsserver: bin/tsserver
-  checksum: 68d48dc86dacfeab59a22414ff061c976c46b679a9717a3a710051ea7bab779fd23f4edb856434da8155e8e8646c90b3912e342cc0010dfd15ed321a42cb0578
+  checksum: c8766e84a4f71e925cc059af8286cc7f41819fe821d433b90c83e9b36729cbda7a8e4be3292d8a1433cd717d529c93217d58d173418f43862290b206bd88b284
   languageName: node
   linkType: hard
 
@@ -8480,9 +8480,9 @@ typescript@^4.3.2:
   languageName: node
   linkType: hard
 
-"webpack@npm:^5.39.0":
-  version: 5.39.0
-  resolution: "webpack@npm:5.39.0"
+"webpack@npm:^5.39.1":
+  version: 5.39.1
+  resolution: "webpack@npm:5.39.1"
   dependencies:
     "@types/eslint-scope": ^3.7.0
     "@types/estree": ^0.0.47
@@ -8512,7 +8512,7 @@ typescript@^4.3.2:
       optional: true
   bin:
     webpack: bin/webpack.js
-  checksum: 2a2170f421c78f32d6662411912a9d4dededf8923cf7708d69f9781f6b197856404d7d4c8b90ec0284ce12d4b8161ba2d234a87d1352c47f7383230ef9b9eee4
+  checksum: 1f8d2bd54533ac60bbfeb154b6a3abc36e30f15ac9f9f2c7cf1cea31a729be258b8d3a94ec5b0e655ad2ba48461b725976be82cd901322a7e7798c859a9eab2a
   languageName: node
   linkType: hard
 
