@@ -1,4 +1,3 @@
-//import XError from 'xerror';
 import objtools from 'objtools';
 import CrispHooks from 'crisphooks';
 import { errRegistry } from '../errRegistry'
@@ -9,8 +8,6 @@ import { VMState } from './GcodeVM';
  *
  * @class GcodeLine
  */
-
-//XError.registerErrorCode('gcode_parse_error', { message: 'Error parsing gcode' });
 
 const modalGroupsG = [
 	[],
@@ -318,9 +315,9 @@ export class GcodeLine extends CrispHooks {
 	parse(line:string) {
 		let matches;
 
-		// Pull out comments
+		// Pull out comments and %
 		this.comment = '';
-		const parenCommentRegex = /\(([^)]*)\)/;
+		const parenCommentRegex = /\(([^)]*)\)|%/;
 		matches = parenCommentRegex.exec(line);
 		while (matches) {
 			if (!this.commentStyle) this.commentStyle = '(';

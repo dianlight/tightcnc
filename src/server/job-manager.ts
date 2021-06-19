@@ -5,10 +5,11 @@ import * as node_stream from 'stream'
 import { callLineHooks, GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 import JobState from './job-state';
 import  TightCNCServer, {JobSourceOptions } from './tightcnc-server';
-import { BaseRegistryError } from 'new-error';
+import { BaseRegistryError, ErrorRegistry } from 'new-error';
 import GcodeLine from './new-gcode-processor/GcodeLine';
 import fs from 'fs'
 import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
+import { hasSubscribers } from 'diagnostic_channel';
 
 export interface JobStatus {
     state: string,
@@ -286,19 +287,28 @@ export default class JobManager {
                     }))
                     .pipe(fs.createWriteStream(outputFile))
                 } 
-                await (async function() {
+                (async function () {
                     for await (const chunk of source) {
                         // console.log(chunk);
                     }
                 })()
+                    .then(() => {
+                        job.state = 'complete';
+                        // Get the job stats
+                        this.tightcnc.debug('Dry run get stats');
+                        let ret = this.getStatus(job);
+                        this.tightcnc.debug('End dryRunJob');
+                        if(!ret)reject(errRegistry.newError('INTERNAL_SERVER_ERROR','GENERIC').formatMessage('DryRun produce no status!'))
+                        else resolve(ret);                                         
+                    })
+                    .catch((err) => {
+                        console.error(typeof err, err)
+                        this.tightcnc.debug('Dry run got error');
+                        job.state = 'error'
+                        job.emitJobError(err)
+                        reject(err)                    
+                    })
                 
-                job.state = 'complete';
-                // Get the job stats
-                this.tightcnc.debug('Dry run get stats');
-                let ret = this.getStatus(job);
-                this.tightcnc.debug('End dryRunJob');
-                if(!ret)reject(errRegistry.newError('INTERNAL_SERVER_ERROR','GENERIC').formatMessage('DryRun produce no status!'))
-                else resolve(ret);                 
             });
         })
     }

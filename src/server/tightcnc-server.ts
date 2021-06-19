@@ -22,7 +22,7 @@ import Controller, { ControllerStatus } from './controller';
 import JobState from './job-state';
 import GcodeLine from './new-gcode-processor/GcodeLine';
 import { BaseRegistryError } from 'new-error';
-import { addExitCallback } from 'catch-exit';
+import { addExitCallback, CatchSignals } from 'catch-exit';
 import { registerGcodeProcessors } from './new-gcode-processor'
 import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
 import { buildProcessorChain, GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
@@ -299,8 +299,11 @@ export default class TightCNCServer extends EventEmitter {
         }
         // Setup Exit Hooks
 
-        addExitCallback(signal => {
-            console.log('Controller shutdown for Signal ',signal)
+        addExitCallback((signal: CatchSignals, exitCode?: number, error?: Error) => {
+            console.log('Controller shutdown for Signal ', signal, exitCode)
+            if (signal === 'uncaughtException') {
+                console.error(error)         
+            } 
             if (signal !== 'exit') {
                 this.controller?.disconnect()
             }

@@ -656,9 +656,12 @@ export default class GcodeVM {
                 this._processMove(coordPos, coordFlags, vmState.feed, undefined, vmState.incremental);
             }
             let storedPos = vmState.storedPositions[(doMotion === 'G28') ? 0 : 1];
-            storedPos = this._convertCoordSys(storedPos, undefined, vmState.activeCoordSys, undefined, vmState.offsetEnabled?vmState.offset:undefined);
+            storedPos = this._convertCoordSys(storedPos, undefined, vmState.activeCoordSys, undefined, vmState.offsetEnabled ? vmState.offset : undefined);
             this._processMove(storedPos, undefined, vmState.feed, undefined, false);
             isMotion = true;
+        } else if (doMotion === 'G80') {
+            // Motion Mode Cancel
+            isMotion = false
         } else if (doMotion) {
             throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Unsupported motion gcode ' + doMotion + ': ' + gline.toString());
         }

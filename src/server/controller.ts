@@ -294,10 +294,8 @@ export default abstract class Controller  extends EventEmitter implements VMStat
     abstract sendGcode(gline: GcodeLine, options?:{}):void;
 
     send(thing: string | GcodeLine, options?:{}):void {
-        if (typeof thing === 'object' && !(thing instanceof Buffer) && thing.isGcodeLine) {
+        if (typeof thing === 'object' && thing.isGcodeLine) {
             this.sendGcode(thing as GcodeLine, options);
-//        } else if (thing instanceof Buffer) {
-//            this.sendGcode(GcodeLine.fromJSONBuffer(thing), options)
         } else {
             this.sendLine(thing as string, options);
         }

@@ -596,10 +596,10 @@ export default class GRBLController extends Controller {
         switch (ecode) {
             case 1:
             case 'Expected command letter':
-                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('G-code words consist of a letter and a value. Letter was not found.').withMetadata({ grblErrorCode: 1 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G-code words consist of a letter and a value. Letter was not found.').withMetadata({ grblErrorCode: 1 });
             case 2:
             case 'Bad number format':
-                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('Missing the expected G-code word value or numeric value format is not valid.').withMetadata({ grblErrorCode: 2 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Missing the expected G-code word value or numeric value format is not valid.').withMetadata({ grblErrorCode: 2 });
             case 3:
             case 'Invalid statement':
                 return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Grbl \'$\' system command was not recognized or supported.').withMetadata({ grblErrorCode: 3 });
@@ -647,10 +647,10 @@ export default class GRBLController extends Controller {
                 return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Laser mode requires PWM output.').withMetadata({ grblErrorCode: 17 });
             case 20:
             case 'Unsupported command':
-                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('Unsupported or invalid g-code command found in block.').withMetadata({ grblErrorCode: 20 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Unsupported or invalid g-code command found in block.').withMetadata({ grblErrorCode: 20 });
             case 21:
             case 'Modal group violation':
-                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('More than one g-code command from same modal group found in block.').withMetadata({ grblErrorCode: 21 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('More than one g-code command from same modal group found in block.').withMetadata({ grblErrorCode: 21 });
             case 22:
             case 'Undefined feed rate':
                 return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Feed rate has not yet been set or is undefined.').withMetadata({ grblErrorCode: 22 });
@@ -659,7 +659,7 @@ export default class GRBLController extends Controller {
                 return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('G-code command in block requires an integer value.').withMetadata({ grblErrorCode: 23 });
             case 24:
             case 'Invalid gcode ID:24':
-                return errRegistry.newError('PARSE_ERROR','GENERIC').formatMessage('More than one g-code command that requires axis words found in block.').withMetadata({ grblErrorCode: 24 });
+                return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('More than one g-code command that requires axis words found in block.').withMetadata({ grblErrorCode: 24 });
             case 25:
             case 'Invalid gcode ID:25':
                 return errRegistry.newError('MACHINE_ERROR','GENERIC').formatMessage('Repeated g-code word found in block.').withMetadata({ grblErrorCode: 25 });
