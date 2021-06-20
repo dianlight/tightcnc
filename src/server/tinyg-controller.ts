@@ -45,7 +45,7 @@ export interface TinyGControllerConfig extends ControllerConfig {
     probeUsesMachineCoords?:boolean
 }
 
-export default class TinyGController extends Controller {
+export  class TinyGController extends Controller {
     serial?: SerialPort;
 
     sendQueue:any[] = [];

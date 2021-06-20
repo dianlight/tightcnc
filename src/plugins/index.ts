@@ -1,19 +1,31 @@
 import { ConsoleUI } from "../consoleui/consoleui";
 import TightCNCServer from "../server/tightcnc-server";
 
-const pluginList = [ 'autolevel', 'move-splitter', 'job-recovery', 'tool-change', 'runtime-override' ];
+import * as autolevel from './autolevel'
+import * as moveSplitter from './move-splitter'
+import * as jobRecovery from './job-recovery'
+import * as toolChange from './tool-change'
+import * as runtimeOverride from './runtime-override'
 
-const plugins = pluginList.map(async (reqName) => await import(`./${reqName}`));
+const pluginList = [
+	autolevel.registerServerComponents,
+	//	moveSplitter, jobRecovery, 
+	toolChange.registerServerComponents
+	//, runtimeOverride
+];
+
+//const plugins = pluginList.map(async (reqName) => await import(`./${reqName}`));
 
 export function registerServerComponents(tightcnc: TightCNCServer) {
-	for (let plugin of plugins) {
-		plugin.then( p => p.registerServerComponents(tightcnc))
+	for (let plugin of pluginList) {
+		plugin(tightcnc)
 	}
 };
 
+/*
 export function registerConsoleUIComponents(consoleui:ConsoleUI) {
 	for (let plugin of plugins) {
 		plugin.then( p => p.registerConsoleUIComponents(consoleui))
 	}
 };
-
+*/

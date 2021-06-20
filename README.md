@@ -4,7 +4,8 @@ This fork scope is to upgrate TightCNC to better use in my GCODEGO project.
 Planned task upgrade:
 - [x] Typescript Migration (ts-migrate)
  - [x] Generate dist with types
- - [ ] Correct macro loading
+ - [ ] Correct macro loading -- radulucut/script-store o @krlwlfrt/dml
+ - [ ] Dynamic Plugin and Processor loader - @krlwlfrt/dml
  - [x] Remove XError
  - [ ] Code cleanup
   - [x] Remove yaar and use a Typescript system.
@@ -13,7 +14,7 @@ Planned task upgrade:
   - [ ] Correct all ts-migrate FIXME:
   - [ ] Use import not required
  - [ ] Remove not Typescript friendly dependencies 
- - [ ] Typescript Migration for lib ( ts-migrate )
+ - [x] ~~Typescript Migration for lib ( ts-migrate )~~ rewrited lib content
   - [ ] Remove ts-migrate dependecy
  - [x] Clientlib migration
   - [x] Expose clientlib d.ts

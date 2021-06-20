@@ -13,6 +13,7 @@ import  ListForm from '../consoleui/list-form';
 import  blessed from 'blessed';
 import  moment from 'moment';
 import { ConsoleUI } from '../consoleui/consoleui';
+import TightCNCServer from '../server/tightcnc-server';
 export class SurfaceLevelMap {
 
     pointList: number[][]
@@ -787,11 +788,10 @@ class AutolevelConsoleUIJobOption extends JobOption {
         }
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerServerComponents = function (tightcnc) {
+
+export function registerServerComponents(tightcnc:TightCNCServer) {
     tightcnc.registerGcodeProcessor('autolevel', AutolevelGcodeProcessor);
     tightcnc.registerOperation('probeSurface', OpProbeSurface);
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'status' implicitly has an 'any' type.
     tightcnc.on('statusRequest', (status) => {
         let probeStatus = getProbeStatus();
         if (probeStatus) {
@@ -799,7 +799,9 @@ module.exports.registerServerComponents = function (tightcnc) {
         }
     });
 };
+/*
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerConsoleUIComponents = function (consoleui) {
     consoleui.registerJobOption('AutoLevel', AutolevelConsoleUIJobOption);
 };
+*/

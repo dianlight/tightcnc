@@ -27,6 +27,11 @@ import { registerGcodeProcessors } from './new-gcode-processor'
 import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
 import { buildProcessorChain, GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 
+import { TinyGController } from './tinyg-controller'
+import { GRBLController } from './grbl-controller'
+import { registerServerComponents } from '../plugins'
+import Operation from './operation';
+
 export interface StatusObject {
     controller?: ControllerStatus
     job?: JobStatus
@@ -169,7 +174,7 @@ export interface TightCNCConfig {
  */
 export default class TightCNCServer extends EventEmitter {
 
-    operations: any = {}
+    operations: Record<string,Operation> = {}
     baseDir:string;
     macros = new Macros(this);
     controllerClasses: {
@@ -207,9 +212,12 @@ export default class TightCNCServer extends EventEmitter {
         }
         this.baseDir = this.config!.baseDir;
         // Register builtin modules
-        import('./tinyg-controller').then((namespace)=>this.registerController('TinyG',namespace.default))
-        import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
+        //import('./tinyg-controller').then((namespace)=>this.registerController('TinyG',namespace.default))
+        //import('./grbl-controller').then((namespace) => this.registerController('grbl', namespace.default));
         
+        this.registerController('TinyG',TinyGController)
+        this.registerController('grbl',GRBLController)
+
         basicoperation(this);
         systemoperation(this);
         registerOperations(this);
@@ -220,8 +228,10 @@ export default class TightCNCServer extends EventEmitter {
         // {new(consoleui:ConsoleUI):JobOption}
 //        import('../../lib/gcode-processors/gcode-vm').then((namespace) => this.registerGcodeProcessor('gcodevm',namespace.default))
         // Register bundled plugins
-        import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
+       // import('../plugins').then( (namespace) => namespace.registerServerComponents(this));
+        registerServerComponents(this)
         // Register external plugins
+        /*
         for (let plugin of (this.config!.plugins || [])) {
             import(plugin).then((p) => {
                 if (p.registerServerComponents) {
@@ -229,6 +239,7 @@ export default class TightCNCServer extends EventEmitter {
                 }                    
             })
         }
+        */
     }
     /**
      * Initialize class.  To be called after everything's registered.

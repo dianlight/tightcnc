@@ -290,6 +290,8 @@ export function registerServerComponents(tightcnc: TightCNCServer) {
     tightcnc.registerOperation('resumeFromStop', ResumeFromStopOperation);
     tightcnc.registerOperation('setToolOffset', SetToolOffsetOperation);
 };
+
+/*
 class ToolChangeConsoleUIJobOption extends JobOption {
 
     tcOptions = {
@@ -377,7 +379,9 @@ class ToolChangeConsoleUIJobOption extends JobOption {
         }
     }
 }
+*/
 
+/*
 module.exports.registerConsoleUIComponents = function (consoleui: ConsoleUI) {
     consoleui.registerJobOption('Tool Change / Job Stop', ToolChangeConsoleUIJobOption);
     const doToolOffset = async () => {
@@ -465,3 +469,4 @@ module.exports.registerConsoleUIComponents = function (consoleui: ConsoleUI) {
         }
     });
 };
+*/

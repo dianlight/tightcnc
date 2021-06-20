@@ -48,7 +48,7 @@ interface GRBLOptions {
 
 }
 
-export default class GRBLController extends Controller {
+export class GRBLController extends Controller {
     serial?:SerialPort;
     _initializing = false;
     _resetting = false;
