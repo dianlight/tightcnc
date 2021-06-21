@@ -21,6 +21,7 @@ import objtools from 'objtools';
 import pasync from 'pasync';
 import fs from 'fs';
 import ListForm from '../consoleui/list-form';
+import { JSONSchema7 } from 'json-schema';
 const getRecoveryFilename = (tightcnc: any) => {
     return tightcnc.getFilename('_recovery.json', 'data');
 };
@@ -272,7 +273,7 @@ class JobRecoveryOperation extends Operation {
                 type: 'number',
                 description: 'Number of seconds to rewind before restarting the job'
             }
-        };
+        } as JSONSchema7;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {

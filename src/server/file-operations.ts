@@ -3,21 +3,27 @@ import  fs from 'fs';
 import  path from 'path';
 import TightCNCServer from './tightcnc-server';
 import {addExitCallback} from 'catch-exit';
-import { filemanager } from 'blessed';
+//import { filemanager } from 'blessed';
+import { JSONSchema7 } from 'json-schema';
 
 class OpListFiles extends Operation {
-    /*
+    
     override getParamSchema() {
         return {
-            dir: {
-                type: 'string',
-                required: true,
-                default: 'data',
-                description: 'Name of directory to list'
-            }
-        };
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/listFiles",
+            type: "object",
+            properties: {
+                dir: {
+                    type: 'string',
+                    default: 'data',
+                    description: 'Name of directory to list'
+                }
+            },
+            required: ['dir']
+        } as JSONSchema7 ;
     }
-    */
+    
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let dir = this.tightcnc.getFilename(undefined, params.dir, false, true, true);
@@ -70,29 +76,35 @@ class OpListFiles extends Operation {
     }
 }
 class OpUploadFile extends Operation {
-    /*
+    
     override getParamSchema() {
         return {
-            filename: {
-                type: String,
-                required: true,
-                description: 'Remote filename to save file as',
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
-                validate: (val) => {
-                    if (!(/\.(nc|gcode)$/i.test(val)))
-                        throw new commonSchema.FieldError('invalid', 'Filename must end in .nc or .gcode');
-                    if (val.indexOf('/') !== -1)
-                        throw new commonSchema.FieldError('invalid', 'Subdirectories not supported');
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/uploadFile",
+            type: "object",
+            properties: {
+                filename: {
+                    type: "string",
+                    description: 'Remote filename to save file as',
+                    /*
+                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
+                    validate: (val) => {
+                        if (!(/\.(nc|gcode)$/i.test(val)))
+                            throw new commonSchema.FieldError('invalid', 'Filename must end in .nc or .gcode');
+                        if (val.indexOf('/') !== -1)
+                            throw new commonSchema.FieldError('invalid', 'Subdirectories not supported');
+                    }
+                    */
+                },
+                data: {
+                    type: "string",
+                    description: 'File data'
                 }
             },
-            data: {
-                type: String,
-                required: true,
-                description: 'File data'
-            }
-        };
+            required: ['filename','data']
+        } as JSONSchema7;
     }
-    */
+    
     async run(params: {
         filename: string,
         data: string
@@ -118,6 +130,8 @@ class OpUploadFile extends Operation {
 }
 
 export function registerOperations(tightcnc: TightCNCServer) {
-    tightcnc.registerOperation('listFiles', OpListFiles);
-    tightcnc.registerOperation('uploadFile', OpUploadFile);
+    
+    tightcnc.registerOperation(/*'listFiles',*/ OpListFiles);
+    tightcnc.registerOperation(/*'uploadFile',*/ OpUploadFile);
+    
 }

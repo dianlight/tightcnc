@@ -31,6 +31,7 @@ import { TinyGController } from './tinyg-controller'
 import { GRBLController } from './grbl-controller'
 import { registerServerComponents } from '../plugins'
 import Operation from './operation';
+import Ajv from 'ajv'
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -192,7 +193,9 @@ export default class TightCNCServer extends EventEmitter {
     loggerDisk?: LoggerDisk;
     loggerMem?: LoggerMem;
     messageLog?: LoggerMem;
-    jobManager?:JobManager;
+    jobManager?: JobManager;
+    
+    ajv = new Ajv()
     
 
 
@@ -402,8 +405,13 @@ export default class TightCNCServer extends EventEmitter {
     registerController(name:string, cls:any) {
         this.controllerClasses[name] = cls;
     }
-    registerOperation(name:string, cls:any) {
-        this.operations[name] = new cls(this, (this.config!.operations as any)[name] || {});
+    registerOperation(cls: typeof Operation) {
+        const opr: Operation = new (cls as any)(this);
+        const validate = this.ajv.compile(opr.getParamSchema())
+        const name = opr.getParamSchema().$id?.slice(1) as string
+        if(this.operations[name])throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Duble registration of operation: ' + name);
+        opr.config = (this.config!.operations as any)[name]
+        this.operations[name] = opr
     }
     registerGcodeProcessor(name:string, cls:any) {
         this.gcodeProcessors[name] = cls;

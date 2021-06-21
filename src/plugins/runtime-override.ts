@@ -8,6 +8,7 @@ import pasync from 'pasync';
 import Operation from '../server/operation';
 import ListForm from '../consoleui/list-form';
 import commonSchema from 'common-schema';
+import { JSONSchema7 } from 'json-schema';
 /**
  * This gcode processors allows overriding things at job runtime.  Currently just supports feed multiplier.
  *
@@ -84,7 +85,7 @@ class SetFeedMultiplierOperation extends Operation {
                 default: 1,
                 description: 'Multiplier for job feed rates'
             }
-        };
+        } as JSONSchema7;
     }
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {

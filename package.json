@@ -31,8 +31,10 @@
     "main": "dist/server/server.js",
     "types": "types/src/index.d.ts",
     "dependencies": {
+        "@jsonforms/core": "^2.5.2",
         "@serialport/binding-abstract": "^9.0.7",
         "@serialport/stream": "^9.0.7",
+        "ajv": "^8.6.0",
         "axios": "^0.21.1",
         "blessed": "^0.1.81",
         "catch-exit": "^1.1.0",

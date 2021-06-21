@@ -1,12 +1,18 @@
+import { JSONSchema7 } from 'json-schema';
 import Operation from './operation';
-//import commonSchema from 'common-schema';
 import TightCNCServer from './tightcnc-server';
+
 class OpListMacros extends Operation {
-    /*
+
     override getParamSchema() {
-        return {};
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/listMacros",
+            type: "null",
+        } as JSONSchema7
     }
-    */
+
+
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         let list = await (this as any).tightcnc.macros.listAllMacros();
@@ -21,32 +27,41 @@ class OpListMacros extends Operation {
         return list;
     }
 }
+
+
 class OpRunMacro extends Operation {
-    /*
+    
     override getParamSchema() {
         return {
-            macro: {
-                type: 'string',
-                required: true,
-                description: 'Name of macro to run',
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
-                validate: (val) => {
-                    if (val.indexOf(';') !== -1)
-                        throw new commonSchema.FieldError('invalid', 'Raw javascript not allowed from client');
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/runMacro",
+            type: "object",
+            properties: {
+                macro: {
+                    type: 'string',
+                    description: 'Name of macro to run',
+                    /*
+                    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
+                    validate: (val) => {
+                        if (val.indexOf(';') !== -1)
+                            throw new commonSchema.FieldError('invalid', 'Raw javascript not allowed from client');
+                    }
+                    */
+                },
+                params: {
+                    type: 'object',
+                    default: {}
+                },
+                waitSync: {
+                    type: 'boolean',
+                    default: true,
+                    description: 'Whether to wait until all pushed gcode runs'
                 }
             },
-            params: {
-                type: 'mixed',
-                default: {}
-            },
-            waitSync: {
-                type: 'boolean',
-                default: true,
-                description: 'Whether to wait until all pushed gcode runs'
-            }
-        };
+            required: ['macro']
+        } as JSONSchema7;
     }
-    */
+    
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
     async run(params) {
         (this as any).checkReady();
@@ -54,7 +69,9 @@ class OpRunMacro extends Operation {
         return { success: true };
     }
 }
-export default function registerOperations(tightcnc:TightCNCServer) {
-    tightcnc.registerOperation('listMacros', OpListMacros);
-    tightcnc.registerOperation('runMacro', OpRunMacro);
+
+
+export default function registerOperations(tightcnc: TightCNCServer) {
+    tightcnc.registerOperation(/*'listMacros',*/ OpListMacros);
+    tightcnc.registerOperation(/*'runMacro',*/ OpRunMacro);
 }

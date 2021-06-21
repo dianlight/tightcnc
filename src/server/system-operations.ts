@@ -1,16 +1,23 @@
 import  Operation from './operation';
 import  TightCNCServer from './tightcnc-server';
 import  SerialPort, { PortInfo } from 'serialport';
-import { resolve } from 'path/posix';
-import { GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
+//import { resolve } from 'path/posix';
+//import { GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
+import { JSONSchema7 } from 'json-schema';
+import { UISchemaElement } from '@jsonforms/core'
 
 
 
 class OpGetAvailableSerials extends Operation {
 
-    async run(): Promise<PortInfo[]> {
+    override getParamSchema() {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/getAvailableSerials",
+        } as JSONSchema7
+    }
 
-        // FIXME: Need to use configured controlle to check custom bindings
+    async run(): Promise<PortInfo[]> {
         return new Promise<PortInfo[]>((resolve, reject) => {
             SerialPort.list().then(portInfos => {
                 // console.log('Serial PortInfo', portInfos)
@@ -19,10 +26,17 @@ class OpGetAvailableSerials extends Operation {
         })
     }
 
-  //  getParamSchema() { return {} }
 }
 
 class OpGetAvailableOperations extends Operation {
+
+    override getParamSchema() {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/getAvailableOperations",
+        } as JSONSchema7
+    }
+
     async run(): Promise<string[]> {
         return new Promise<string[]>((resolve, reject) => {
             resolve(Object.keys(this.tightcnc.operations))
@@ -32,16 +46,44 @@ class OpGetAvailableOperations extends Operation {
   //  getParamSchema() { return {} }
 }
 
+
 class OpGetAvailableGcodeProcessors extends Operation {
-    async run(): Promise<string[]> {
-        return new Promise<string[]>((resolve, reject) => {
-            resolve(Object.keys(this.tightcnc.gcodeProcessors))
+
+    override getParamSchema() {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/getAvailableGcodeProcessors",
+        } as JSONSchema7
+    }
+
+    async run(): Promise<Record<string,{
+        schema: JSONSchema7,
+        uiSchema: UISchemaElement|void
+    }>> {
+        return new Promise<Record<string,{
+            schema: JSONSchema7,
+            uiSchema: UISchemaElement | void
+        }>>((resolve, reject) => {
+            resolve(Object.keys(this.tightcnc.gcodeProcessors)
+                .reduce((prev: Record<string, {
+                    schema: JSONSchema7,
+                    uiSchema: (UISchemaElement | void) 
+                }>, cur: string) => {
+                    prev[cur] = {
+                        schema: this.tightcnc.gcodeProcessors[cur].getOptionSchema(),
+                        uiSchema: this.tightcnc.gcodeProcessors[cur].getOptionUISchema()
+                    }
+                    return prev;
+                }, {} as Record<string, {
+                    schema: JSONSchema7,
+                    uiSchema: UISchemaElement | void
+                }>))
         })
     }
 
-  //  getParamSchema() { return {} }
 }
 
+/*
 class OpShutdown extends Operation {
     async run(): Promise<void> {
         this.tightcnc!.shutdown()
@@ -49,10 +91,11 @@ class OpShutdown extends Operation {
 
   //  getParamSchema() { return {} }
 }
+*/
 
 export default function registerOperations(tightcnc: TightCNCServer) {
-    tightcnc.registerOperation('getAvailableSerials', OpGetAvailableSerials);
-    tightcnc.registerOperation('getAvailableOperations', OpGetAvailableOperations);
-    tightcnc.registerOperation('getAvailableGcodeProcessors', OpGetAvailableGcodeProcessors);
-    tightcnc.registerOperation('shutdown', OpShutdown);
+    tightcnc.registerOperation(/*'getAvailableSerials',*/ OpGetAvailableSerials);
+    tightcnc.registerOperation(/*'getAvailableOperations',*/ OpGetAvailableOperations);
+    tightcnc.registerOperation(/*'getAvailableGcodeProcessors',*/ OpGetAvailableGcodeProcessors);
+//    tightcnc.registerOperation('shutdown', OpShutdown);
 }

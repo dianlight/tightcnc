@@ -14,6 +14,8 @@ import  blessed from 'blessed';
 import  moment from 'moment';
 import { ConsoleUI } from '../consoleui/consoleui';
 import TightCNCServer from '../server/tightcnc-server';
+import { JSONSchema7 } from 'json-schema';
+
 export class SurfaceLevelMap {
 
     pointList: number[][]
@@ -299,9 +301,9 @@ function getProbeStatus() {
     return surfaceProbeStatus;
 }
 class OpProbeSurface extends Operation {
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-    constructor(tightcnc, config) {
-        super(tightcnc, config);
+
+    constructor(tightcnc: TightCNCServer) {
+        super(tightcnc);
     }
 
     async _getBounds(params: {
@@ -331,7 +333,7 @@ class OpProbeSurface extends Operation {
         startProbeSurface(this.tightcnc, options);
         return surfaceProbeStatus;
     }
-    /*
+    
     getParamSchema() {
         return {
             surfaceMapFilename: {
@@ -343,17 +345,21 @@ class OpProbeSurface extends Operation {
                 elements: {
                     type: 'array',
                     elements: Number,
+                    /*
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
                     validate(val) {
                         if (val.length < 2)
                             throw new commonSchema.FieldError('invalid', 'Bounds points must have at least 2 coordinates');
                     }
+                    */
                 },
+                /*
                 // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
                 validate(val) {
                     if (val.length !== 2)
                         throw new commonSchema.FieldError('invalid', 'Bounds must have 2 elements');
                 },
+                */
                 description: 'Bounds to run surface probe on'
             },
             gcodeFilename: {
@@ -362,46 +368,46 @@ class OpProbeSurface extends Operation {
             },
             probeSpacing: {
                 type: Number,
-                default: this.config.defaultOptions.probeSpacing,
+                default: this.config?.defaultOptions.probeSpacing,
                 description: 'Maximum grid separation between probe points'
             },
             probeFeed: {
                 type: Number,
-                default: this.config.defaultOptions.probeFeed,
+                default: this.config?.defaultOptions.probeFeed,
                 description: 'Feed rate for probing'
             },
             clearanceHeight: {
                 type: Number,
-                default: this.config.defaultOptions.clearanceHeight,
+                default: this.config?.defaultOptions.clearanceHeight,
                 description: 'Clearance Z for moving across surface'
             },
             autoClearance: {
                 type: Boolean,
-                default: this.config.defaultOptions.autoClearance,
+                default: this.config?.defaultOptions.autoClearance,
                 description: 'Whether to automatically adjust clearance height based on known probe points to optimize speed'
             },
             autoClearanceMin: {
                 type: Number,
-                default: this.config.defaultOptions.autoClearanceMin,
+                default: this.config?.defaultOptions.autoClearanceMin,
                 description: 'Minimum amount of clearance when using autoClearance'
             },
             probeMinZ: {
                 type: Number,
-                default: this.config.defaultOptions.probeMinZ,
+                default: this.config?.defaultOptions.probeMinZ,
                 description: 'Minimum Z value to probe toward.  Error if this Z is reached without the probe tripping.'
             },
             numProbeSamples: {
                 type: Number,
-                default: this.config.defaultOptions.numProbeSamples,
+                default: this.config?.defaultOptions.numProbeSamples,
                 description: 'Number of times to probe for each point'
             },
             extraProbeSampleClearance: {
                 type: Number,
-                default: this.config.defaultOptions.extraProbeSampleClearance,
+                default: this.config?.defaultOptions.extraProbeSampleClearance,
                 description: 'When probing multiple times per point, the clearance to use for all but the first probe'
             }
-        };
-    }*/
+        } as JSONSchema7
+    }
 }
 class AutolevelGcodeProcessor extends GcodeProcessor {
     surfaceMapFilename: string;
@@ -791,7 +797,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
 
 export function registerServerComponents(tightcnc:TightCNCServer) {
     tightcnc.registerGcodeProcessor('autolevel', AutolevelGcodeProcessor);
-    tightcnc.registerOperation('probeSurface', OpProbeSurface);
+    tightcnc.registerOperation(/*'probeSurface',*/ OpProbeSurface);
     tightcnc.on('statusRequest', (status) => {
         let probeStatus = getProbeStatus();
         if (probeStatus) {

@@ -1,6 +1,8 @@
 
 import { errRegistry } from './errRegistry';
 import TightCNCServer from './tightcnc-server';
+import { JSONSchema7 } from 'json-schema';
+
 /**
  * Base class for an operation that can be performed.  Operations pretty much map
  * one-to-one to API calls.
@@ -8,8 +10,11 @@ import TightCNCServer from './tightcnc-server';
  * @class Operation
  */
 export default abstract class Operation {
-    constructor(public tightcnc: TightCNCServer, public config:any){}
-    
+
+    public config?:Record<string,any>
+
+    constructor(public tightcnc: TightCNCServer) { }
+        
     /**
      * Initialize the operation.  May return a Promise.
      *
@@ -26,12 +31,20 @@ export default abstract class Operation {
      */
     abstract run(params:any):unknown
     /**
-     * Return a common-schema Schema object corresponding to the accepted parameters for the operation.
+     * Return a json-schema Schema object corresponding to the accepted parameters for the operation.
      *
      * @method getParamSchema
-     * @return {Object|Schema}
+     * @return {Schema}
      */
-    //abstract getParamSchema(): unknown
+    abstract getParamSchema(): JSONSchema7
+
+    /**
+     * Return a json-schema Schema object corresponding to the returned parameters from the operation.
+     *
+     * @method getResultSchema
+     * @return {Schema}
+     */
+    //abstract getResultSchema(): Schema
     
     checkReady() {
         if (!this.tightcnc.controller || !this.tightcnc.controller.ready) {

@@ -1326,6 +1326,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@jsonforms/core@npm:^2.5.2":
+  version: 2.5.2
+  resolution: "@jsonforms/core@npm:2.5.2"
+  dependencies:
+    "@types/json-schema": ^7.0.3
+    ajv: ^6.10.2
+    json-schema-ref-parser: 7.1.3
+    lodash: ^4.17.15
+    uri-js: ^4.2.2
+    uuid: ^3.3.3
+  checksum: 10cee31c36632b060be6bff5904e400ed94324bd13b4fbfb025e285007fa5fdea7ccf956332677173e3ad07c99ff0de02aa00c821cd42051f3ab951a4e570496
+  languageName: node
+  linkType: hard
+
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -1605,7 +1619,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/json-schema@npm:*, @types/json-schema@npm:^7.0.6":
+"@types/json-schema@npm:*, @types/json-schema@npm:^7.0.3, @types/json-schema@npm:^7.0.6":
   version: 7.0.7
   resolution: "@types/json-schema@npm:7.0.7"
   checksum: b9d2c509fa4e0b82f58e73f5e6ab76c60ff1884ba41bb82f37fb1cece226d4a3e5a62fedf78a43da0005373a6713d9abe61c1e592906402c41c08ad6ab26d52b
@@ -2047,7 +2061,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ajv@npm:^6.10.0, ajv@npm:^6.12.3, ajv@npm:^6.12.4, ajv@npm:^6.12.5":
+"ajv@npm:^6.10.0, ajv@npm:^6.10.2, ajv@npm:^6.12.3, ajv@npm:^6.12.4, ajv@npm:^6.12.5":
   version: 6.12.6
   resolution: "ajv@npm:6.12.6"
   dependencies:
@@ -2068,6 +2082,18 @@ __metadata:
     require-from-string: ^2.0.2
     uri-js: ^4.2.2
   checksum: 91274ac6627004c68467e8a05643b448d5581e77218c0331527d080c494cd24b5713c662ad8632fb2e46cbe5c9475aa73c8385ed59fa44b5813ff1c5e7b066c8
+  languageName: node
+  linkType: hard
+
+"ajv@npm:^8.6.0":
+  version: 8.6.0
+  resolution: "ajv@npm:8.6.0"
+  dependencies:
+    fast-deep-equal: ^3.1.1
+    json-schema-traverse: ^1.0.0
+    require-from-string: ^2.0.2
+    uri-js: ^4.2.2
+  checksum: 4eed9ee72e752d34a99541d04a608030db17735672ec334563b7cbc5936cb879a394e8f75789174690c7cd58ec2610c8363cb7480c23c15a9ca4424911cd683d
   languageName: node
   linkType: hard
 
@@ -2732,6 +2758,13 @@ __metadata:
     function-bind: ^1.1.1
     get-intrinsic: ^1.0.2
   checksum: 18cc6107a1f028247f2b505dae73ad1c63b737addfcd43ff75159f072c5c827300c1fb66f26ee0ec70fc2fdd005ce68d65c05a2a34b74bab08c3b1921954ada9
+  languageName: node
+  linkType: hard
+
+"call-me-maybe@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "call-me-maybe@npm:1.0.1"
+  checksum: 07e1afb493ed945c6b053940881d46ece2ab04e1862e7cd8c483e8651e9831a70b31098e6be321a897b7e702d34b6417301280efda98c5e663a608baaf95d2f4
   languageName: node
   linkType: hard
 
@@ -5223,6 +5256,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-schema-ref-parser@npm:7.1.3":
+  version: 7.1.3
+  resolution: "json-schema-ref-parser@npm:7.1.3"
+  dependencies:
+    call-me-maybe: ^1.0.1
+    js-yaml: ^3.13.1
+    ono: ^6.0.0
+  checksum: 1e7c165b996496ced3c853e48f759cb5dec224fa493db2ebfe03a4452a681a9ee0c973f7bc3c87ece4323213f8c6bc04e2a5742e5e73be31d8515f3ed1789719
+  languageName: node
+  linkType: hard
+
 "json-schema-traverse@npm:^0.4.1":
   version: 0.4.1
   resolution: "json-schema-traverse@npm:0.4.1"
@@ -5451,7 +5495,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:^4.17.20":
+"lodash@npm:^4.17.15, lodash@npm:^4.17.20":
   version: 4.17.21
   resolution: "lodash@npm:4.17.21"
   checksum: 4983720b9abca930a4a46f18db163d7dad8dd00dbed6db0cc7b499b33b717cce69f80928b27bbb1ff2cbd3b19d251ee90669a8b5ea466072ca81c2ebe91e7468
@@ -6186,6 +6230,13 @@ __metadata:
   dependencies:
     mimic-fn: ^2.1.0
   checksum: e425f6caeb20cf2598ffece94be5663932e34d074f1631b682b13d5f01cc1e0712a7dc711eff1706bb5a5aaab8a52e37bd5edcf560334e3222219d7e8b09c21c
+  languageName: node
+  linkType: hard
+
+"ono@npm:^6.0.0":
+  version: 6.0.1
+  resolution: "ono@npm:6.0.1"
+  checksum: b80d267a554d8143723fbc27be4ceed38524034f4be0ee9d2d459704aa57d23961295aa5d2fd231c3dc6a44a72e18d01727e3abc6171b0d3c5eaa2fa169f4666
   languageName: node
   linkType: hard
 
@@ -7821,6 +7872,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "tightcnc@workspace:."
   dependencies:
+    "@jsonforms/core": ^2.5.2
     "@serialport/binding-abstract": ^9.0.7
     "@serialport/stream": ^9.0.7
     "@types/blessed": ^0.1.17
@@ -7834,6 +7886,7 @@ __metadata:
     "@types/split2": ^3.2.0
     "@types/terser-webpack-plugin": ^5.0.3
     "@types/webpack-manifest-plugin": ^3.0.4
+    ajv: ^8.6.0
     axios: ^0.21.1
     blessed: ^0.1.81
     catch-exit: ^1.1.0
@@ -8320,7 +8373,7 @@ typescript@^4.3.4:
   languageName: node
   linkType: hard
 
-"uuid@npm:^3.3.2":
+"uuid@npm:^3.3.2, uuid@npm:^3.3.3":
   version: 3.4.0
   resolution: "uuid@npm:3.4.0"
   bin:

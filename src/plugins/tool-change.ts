@@ -6,10 +6,14 @@ import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import objtools from 'objtools';
 import Operation from '../server/operation';
 import pasync from 'pasync';
-import JobOption from '../consoleui/job-option';
-import ListForm from '../consoleui/list-form';
+//import JobOption from '../consoleui/job-option';
+//import ListForm from '../consoleui/list-form';
 import TightCNCServer, { StatusObject } from '../server/tightcnc-server';
-import { ConsoleUI } from '../consoleui/consoleui';
+//import { ConsoleUI } from '../consoleui/consoleui';
+import { JSONSchema7 } from 'json-schema';
+import { UISchemaElement } from '@jsonforms/core';
+import { type } from 'os';
+
 // Order: Must be after recovery processor
 /**
  * This gcode processor can handle software tool changes and job stops.  It can intercept T, M6, M0, M1, and M60
@@ -48,23 +52,89 @@ export default class ToolChangeProcessor extends GcodeProcessor {
     constructor(options: {
         id?: any
         handleT?: boolean,
-        habdleM6?: boolean
+        handleM6?: boolean
         toolChangeOnT?: boolean
         handleProgramStop?: boolean
         stopSwitch?: boolean
     } = {}) {
         super(options, 'toolchange', true);
-        this.vm = new GcodeVM({}/*options*/);
-        this.stopSwitch = (options as any).stopSwitch || false;
-        this.handleT = ('handleT' in options) ? (options as any).handleT : true;
-        this.handleM6 = ('handleM6' in options) ? (options as any).handleM6 : true;
-        this.toolChangeOnT = ('toolChangeOnT' in options) ? (options as any).toolChangeOnT : true;
-        this.handleProgramStop = ('handleProgramStop' in options) ? (options as any).handleProgramStop : true;
+        this.vm = new GcodeVM(options);
+        this.stopSwitch = options.stopSwitch || false;
+        this.handleT = (options.handleT!==undefined) ? options.handleT : true;
+        this.handleM6 = (options.handleM6!==undefined) ? options.handleM6 : true;
+        this.toolChangeOnT = (options.toolChangeOnT !== undefined) ? options.toolChangeOnT : true;
+        this.handleProgramStop = (options.handleProgramStop !== undefined) ? options.handleProgramStop : true;
         this.maxDwell = 0;
         this.currentToolOffset = 0;
         this.toolOffsetAxis = this.tightcnc.config.toolChange.toolOffsetAxis;
         this.toolOffsetAxisLetter = this.tightcnc.controller.axisLabels[this.toolOffsetAxis];
     }
+
+    static override getOptionSchema(): JSONSchema7 {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            $id: "/tool-change",
+            properties: {
+                "handleT": {
+                    type: "boolean",
+                    description: "Whether to intercept T words"
+                },
+                "handleM6": {
+                    type: "boolean",
+                    description: "Whether to intercept M6 words"
+                },
+                "toolChangeOnT": {
+                    type: "boolean",
+                    description: "Whether to execute a tool change wait when a T word is seen"
+                },
+                "handleProgramStop": {
+                    type: "boolean",
+                    description: "Whether to handle M0, M1, and M60"
+                },
+                "stopSwitch": {
+                    type: "boolean",
+                    description: "Whether the optional stop switch is engaged"
+                }
+            }
+        } as JSONSchema7
+    }
+
+    static override getOptionUISchema(): UISchemaElement {
+        return {
+            type: 'HorizontalLayout',
+            elements: [
+                {
+                    type: 'Control',
+                    label: 'intercept T words',
+                    scope: '#/properties/handleT'
+                },
+                {
+                    type: 'Control',
+                    label: 'intercept M6 words',
+                    scope: '#/properties/handleM6'
+                },
+                {
+                    type: 'Control',
+                    label: 'tool change on T',
+                    scope: '#/properties/toolChangeOnT'
+                },
+                {
+                    type: 'Control',
+                    label: 'handle M0, M1, and M60',
+                    scope: '#/properties/handleProgramStop'
+                },
+                {
+                    type: 'Control',
+                    label: 'use stop switch',
+                    scope: '#/properties/stopSwitch'
+                },
+            ]
+        } as UISchemaElement
+    }
+
+
+
     override getStatus() {
         return {
             stopped: this.currentlyStopped,
@@ -168,7 +238,7 @@ export default class ToolChangeProcessor extends GcodeProcessor {
             // this should only be reached in the case that a chainerror has already occurred on this stream, so just ignore the error here and let the chainerror propagate
         }
         finally {
-            this.programStopWaiter = null;
+            this.programStopWaiter = undefined;
             this.removeListener('chainerror', chainerrorListener);
         }
     }
@@ -216,8 +286,8 @@ export default class ToolChangeProcessor extends GcodeProcessor {
         return gline;
     }
 }
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-function findCurrentJobGcodeProcessor(tightcnc:TightCNCServer, name, throwOnMissing = true) {
+
+function findCurrentJobGcodeProcessor(tightcnc: TightCNCServer, name:string, throwOnMissing = true) {
     let currentJob = tightcnc.jobManager!.currentJob;
     if (!currentJob || currentJob.state === 'cancelled' || currentJob.state === 'error' || currentJob.state === 'complete') {
         throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('No currently running job');
@@ -236,31 +306,46 @@ function findCurrentJobGcodeProcessor(tightcnc:TightCNCServer, name, throwOnMiss
     }
 }
 class ResumeFromStopOperation extends Operation {
-    getParamSchema() {
-        return {};
+
+    override getParamSchema() {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/resumeFromStop",
+            type: "null",
+        } as JSONSchema7
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+
+    async run() {
         findCurrentJobGcodeProcessor(this.tightcnc, 'toolchange').resumeFromStop();
         return { success: true };
     }
 }
 class SetToolOffsetOperation extends Operation {
+    
     getParamSchema() {
         return {
-            toolOffset: {
-                type: 'number',
-                description: 'Tool offset.  If not supplied, use current Z position.'
-            },
-            accountForAutolevel: {
-                type: 'boolean',
-                default: true,
-                description: 'If true, and an autolevel processor is enabled for this job, use its surface map to adjust for tool length at the current X,Y position.  (Not used if toolOffset is supplied)'
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/setToolOffset",
+            type: "object",
+            properties: {
+                toolOffset: {
+                    type: 'number',
+                    description: 'Tool offset.  If not supplied, use current Z position.'
+                },
+                accountForAutolevel: {
+                    type: 'boolean',
+                    default: true,
+                    description: 'If true, and an autolevel processor is enabled for this job, use its surface map to adjust for tool length at the current X,Y position.  (Not used if toolOffset is supplied)'
+                }
             }
-        };
+        } as JSONSchema7;
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+    
+
+    async run(params: {
+        toolOffset?: number
+        accountForAutolevel?:boolean
+    }) {
         let toolchange = findCurrentJobGcodeProcessor(this.tightcnc, 'toolchange');
         if (typeof params.toolOffset === 'number') {
             toolchange.currentToolOffset = params.toolOffset;
@@ -287,8 +372,8 @@ class SetToolOffsetOperation extends Operation {
 
 export function registerServerComponents(tightcnc: TightCNCServer) {
     tightcnc.registerGcodeProcessor('toolchange', ToolChangeProcessor);
-    tightcnc.registerOperation('resumeFromStop', ResumeFromStopOperation);
-    tightcnc.registerOperation('setToolOffset', SetToolOffsetOperation);
+    tightcnc.registerOperation(/*'resumeFromStop',*/ ResumeFromStopOperation);
+    tightcnc.registerOperation(/*'setToolOffset',*/ SetToolOffsetOperation);
 };
 
 /*

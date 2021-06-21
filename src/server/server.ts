@@ -4,9 +4,13 @@ import TightCNCServer from './tightcnc-server';
 import { createJSONRPCErrorResponse, JSONRPC, JSONRPCID, JSONRPCMethod, JSONRPCRequest, JSONRPCResponse, JSONRPCResponsePromise, JSONRPCServer } from 'json-rpc-2.0';
 import Operation from './operation';
 import cors from 'cors'
-import {addExitCallback, CatchSignals} from 'catch-exit';
+import { addExitCallback, CatchSignals } from 'catch-exit';
+//import { JSONSchema7 } from 'json-schema';
+import Ajv from 'ajv'
 
 const config = littleconf.getConfig()
+
+const ajv = new Ajv()
 
 
 async function startServer() {
@@ -37,9 +41,9 @@ async function startServer() {
 					// The parameter will be injected to the JSON-RPC method as the second parameter.
 					server.receive(jsonRPCRequest).then((jsonRPCResponse) => {
 						if (jsonRPCResponse) {
-						res.json(jsonRPCResponse);
+							res.json(jsonRPCResponse);
 						} else {
-						res.sendStatus(204);
+							res.sendStatus(204);
 						}
 					});
 				  } else {
@@ -94,6 +98,9 @@ async function startServer() {
 			object: Operation
 		): JSONRPCMethod {
 			return (request: JSONRPCRequest): JSONRPCResponsePromise => {
+				const validator = ajv.getSchema(object.getParamSchema().$id || '') || ajv.compile(object.getParamSchema())				
+				const valid = validator(request.params)
+				if(!valid)console.warn(object.getParamSchema().$id,validator.errors)
 				let response = object.run(request.params);
 				return Promise.resolve(response).then(
 					(result: any) => mapResultToJSONRPCResponse(request.id, result),

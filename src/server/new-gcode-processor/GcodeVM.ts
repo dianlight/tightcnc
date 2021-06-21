@@ -12,7 +12,8 @@ export interface GcodeVMOptions {
     maxFeed?: number | number[],
     acceleration?: number | number[],
     minMoveTime?: number
-    noInit?: boolean
+    noInit?: boolean,
+    [key:string]:any
 }
 
 export interface VMState {

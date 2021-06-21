@@ -4,6 +4,9 @@ import { errRegistry } from '../errRegistry';
 import { deepCopy } from 'objtools';
 import { GcodeLineReadableStream } from './GcodeLineReadableStream';
 import stable, { inplace } from 'stable'
+import { JSONSchema7 } from 'json-schema';
+import { UISchemaElement } from '@jsonforms/core'
+
 
 export abstract class GcodeProcessor extends GcodeLineReadableStream {
 
@@ -58,6 +61,27 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
         };
     }
 
+    /**
+     * Thi method return json-schema definition of the custom options for the controller
+     */
+    static getOptionSchema(): JSONSchema7 {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            $id: "",
+        } as JSONSchema7
+    }
+
+    /**
+     * Thi method return json-schema definition of the custom UI options for the controller
+     * @see jsonforms
+     * 
+     * @returns the JSONSchema for UI (jsonform standard) or void if no UI
+     */
+    static getOptionUISchema(): UISchemaElement|void {
+        return
+    }
+    
     /**
      * This method is called to append this gcode processor to the end of a gcode processor chain.  Normally,
      * it will just push itself onto the array.  It can also ensure that prerequisite processors are appended
@@ -183,11 +207,11 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
         if (Array.isArray(gline)) {
             for (let l of gline) {
                 this._checkFlushedOnPush(l);
-                this.push(JSON.stringify(l));
+                this.push(l);
             }
         } else {
             this._checkFlushedOnPush(gline);
-            this.push(JSON.stringify(gline));
+            this.push(gline);
         }
     }
 
@@ -238,28 +262,7 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
         this._checkFlushedOnRecv(gcodeLine);
         try {
             let r = this.processGcode(gcodeLine);
-            cb(undefined,r)
-            /*
-            if (r && typeof (r as Promise<GcodeLine|GcodeLine[]>).then === 'function') {
-                (r as Promise<GcodeLine|GcodeLine[]>).then((r2) => {
-                    try {
-                        this.pushGcode(r2);
-                        cb();
-                    } catch (err) {
-                        cb(err);
-                    }
-                }, (err) => {
-                    cb(err);
-                });
-            } else {
-                try {
-                    this.pushGcode(r as GcodeLine);
-                    cb();
-                } catch (err) {
-                    cb(err);
-                }
-            }
-            */
+            Promise.resolve(r).then( vr =>  cb(undefined,vr))           
         } catch (err:any) {
             cb(err);
             return;
