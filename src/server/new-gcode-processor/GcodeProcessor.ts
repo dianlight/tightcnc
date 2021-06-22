@@ -8,6 +8,7 @@ import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core'
 import * as _ from "lodash";
 
+export type GcodeProcessorLifeCycle = 'server-only'|'need-ui'|'optional-ui'|'internal'
 
 export abstract class GcodeProcessor extends GcodeLineReadableStream {
 
@@ -81,6 +82,10 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
      */
     static getOptionUISchema(): UISchemaElement|void {
         return
+    }
+
+    static getLifeCicle(): GcodeProcessorLifeCycle {
+        return 'internal'
     }
     
     /**

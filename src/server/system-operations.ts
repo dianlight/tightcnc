@@ -6,6 +6,7 @@ import  SerialPort, { PortInfo } from 'serialport';
 import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core'
 import { errRegistry } from './errRegistry';
+import { GcodeProcessorLifeCycle } from './new-gcode-processor/GcodeProcessor';
 
 
 
@@ -77,25 +78,30 @@ class OpGetAvailableGcodeProcessors extends Operation {
 
     async run(): Promise<Record<string,{
         schema: JSONSchema7,
-        uiSchema: UISchemaElement|void
+        uiSchema: UISchemaElement | void,
+        lifeCycle: GcodeProcessorLifeCycle    
     }>> {
         return new Promise<Record<string,{
             schema: JSONSchema7,
             uiSchema: UISchemaElement | void
+            lifeCycle: GcodeProcessorLifeCycle    
         }>>((resolve, reject) => {
             resolve(Object.keys(this.tightcnc.gcodeProcessors)
                 .reduce((prev: Record<string, {
                     schema: JSONSchema7,
-                    uiSchema: (UISchemaElement | void) 
+                    uiSchema: (UISchemaElement | void),
+                    lifeCycle: GcodeProcessorLifeCycle                        
                 }>, cur: string) => {
                     prev[cur] = {
                         schema: this.tightcnc.gcodeProcessors[cur].getOptionSchema(),
-                        uiSchema: this.tightcnc.gcodeProcessors[cur].getOptionUISchema()
+                        uiSchema: this.tightcnc.gcodeProcessors[cur].getOptionUISchema(),
+                        lifeCycle: this.tightcnc.gcodeProcessors[cur].getLifeCicle()
                     }
                     return prev;
                 }, {} as Record<string, {
                     schema: JSONSchema7,
-                    uiSchema: UISchemaElement | void
+                    uiSchema: UISchemaElement | void,
+                    lifeCycle: GcodeProcessorLifeCycle                        
                 }>))
         })
     }

@@ -4,6 +4,7 @@ export { ControllerStatus, ControllerCapabilities } from './server/controller';
 export { PortInfo } from 'serialport'
 export { ERRORCODES } from './server/errRegistry'
 export { JobStatus } from './server/job-manager'
+export { GcodeProcessorLifeCycle } from './server/new-gcode-processor/GcodeProcessor'
 
 // ConsoleUI
 //export { default as ConsoleUIMode } from './consoleui/consoleui-mode'

@@ -1,6 +1,6 @@
 //import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
-import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
+import { GcodeProcessor, GcodeProcessorLifeCycle } from '../server/new-gcode-processor/GcodeProcessor';
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
 import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import objtools from 'objtools';
@@ -203,6 +203,11 @@ export default class ToolChangeProcessor extends GcodeProcessor {
             ]
         } as UISchemaElement
     }
+
+    static override getLifeCicle(): GcodeProcessorLifeCycle {
+        return 'need-ui'
+    }
+
 
 
 

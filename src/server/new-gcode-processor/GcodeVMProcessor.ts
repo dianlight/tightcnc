@@ -1,4 +1,4 @@
-import { GcodeProcessor } from './GcodeProcessor';
+import { GcodeProcessor, GcodeProcessorLifeCycle } from './GcodeProcessor';
 import objtools from 'objtools';
 import GcodeVM, { VMState } from './GcodeVM';
 import GcodeLine from './GcodeLine';
@@ -87,6 +87,11 @@ export default class GcodeVMProcessor extends GcodeProcessor {
             $id: "/gcodevm",
         } as JSONSchema7
     }
+
+    static override getLifeCicle(): GcodeProcessorLifeCycle {
+        return 'internal'
+    }
+
 
 
     override getStatus():Record<string,any>|void {
