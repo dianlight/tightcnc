@@ -7,8 +7,15 @@ import stable, { inplace } from 'stable'
 import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core'
 import * as _ from "lodash";
+import TightCNCServer from '../tightcnc-server';
 
-export type GcodeProcessorLifeCycle = 'server-only'|'need-ui'|'optional-ui'|'internal'
+export type GcodeProcessorLifeCycle = 'server-only' | 'need-ui' | 'optional-ui' | 'internal'
+
+export interface GcodeProcessorOptions {
+    id?: string
+    tightcnc?: TightCNCServer 
+    job?: unknown    
+}
 
 export abstract class GcodeProcessor extends GcodeLineReadableStream {
 
@@ -44,11 +51,7 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
      *   without modifying them.  (Adding additional properties that don't affect the gcode itself doesn't
      *   count as modification)
      */
-    constructor(options: {
-        id?: string
-        tightcnc?: unknown /* No return dependencies from lib to src */
-        job?: unknown
-    }, name:string, modifiesGcode = true) {
+    constructor(options: GcodeProcessorOptions, name:string, modifiesGcode = true) {
         super({ objectMode: true, highWaterMark: 20 });
         this.gcodeProcessorName = name;
         this.modifiesGcode = modifiesGcode;

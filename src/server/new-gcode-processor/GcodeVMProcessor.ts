@@ -1,4 +1,4 @@
-import { GcodeProcessor, GcodeProcessorLifeCycle } from './GcodeProcessor';
+import { GcodeProcessor, GcodeProcessorLifeCycle, GcodeProcessorOptions } from './GcodeProcessor';
 import objtools from 'objtools';
 import GcodeVM, { VMState } from './GcodeVM';
 import GcodeLine from './GcodeLine';
@@ -6,9 +6,9 @@ import Controller from '../controller';
 import TightCNCServer from '../tightcnc-server';
 import { JSONSchema7 } from 'json-schema';
 
-interface GcodeVMProcessorOptions {
+interface GcodeVMProcessorOptions extends GcodeProcessorOptions{
     controller: Controller, // - The machine controller class instance for the gcode to run on.  Used to fetch initial state.
-    tightcnc: TightCNCServer, // - Server instance.  Can also be provided to get some initial state.
+  //  tightcnc: TightCNCServer, // - Server instance.  Can also be provided to get some initial state.
     axisLabels: string[], // - Override default axis labels.  Defaults come from the controller, or are [ 'x', 'y', 'z' ].
     maxFeed: number, // - Maximum feed rate, used to calculate time for G0 moves.
     minMoveTime: number, // - Minimum time to count for a move.  Can be set to a low value to compensate for delays if lots  of small moves aren't filling the controller's buffer.

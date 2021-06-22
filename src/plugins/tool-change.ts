@@ -1,18 +1,22 @@
-//import XError from 'xerror';
 import { errRegistry } from '../server/errRegistry';
-import { GcodeProcessor, GcodeProcessorLifeCycle } from '../server/new-gcode-processor/GcodeProcessor';
+import { GcodeProcessor, GcodeProcessorLifeCycle, GcodeProcessorOptions } from '../server/new-gcode-processor/GcodeProcessor';
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
 import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import objtools from 'objtools';
 import Operation from '../server/operation';
 import pasync from 'pasync';
-//import JobOption from '../consoleui/job-option';
-//import ListForm from '../consoleui/list-form';
 import TightCNCServer, { StatusObject } from '../server/tightcnc-server';
-//import { ConsoleUI } from '../consoleui/consoleui';
 import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core';
-import { type } from 'os';
+
+
+interface ToolChangeProcessorOptions extends GcodeProcessorOptions {
+    handleT?: boolean,
+    handleM6?: boolean
+    toolChangeOnT?: boolean
+    handleProgramStop?: boolean
+    stopSwitch?: boolean
+}
 
 // Order: Must be after recovery processor
 /**
@@ -49,14 +53,7 @@ export default class ToolChangeProcessor extends GcodeProcessor {
     currentlyStopped?:boolean|string
 
 
-    constructor(options: {
-        id?: any
-        handleT?: boolean,
-        handleM6?: boolean
-        toolChangeOnT?: boolean
-        handleProgramStop?: boolean
-        stopSwitch?: boolean
-    } = {}) {
+    constructor(options: ToolChangeProcessorOptions) {
         super(options, 'toolchange', true);
         this.vm = new GcodeVM(options);
         this.stopSwitch = options.stopSwitch || false;

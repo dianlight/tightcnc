@@ -1,9 +1,15 @@
-//import XError from 'xerror';
-import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor'
+import { GcodeProcessor, GcodeProcessorLifeCycle, GcodeProcessorOptions } from '../server/new-gcode-processor/GcodeProcessor'
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
 import GcodeVM  from '../server/new-gcode-processor/GcodeVM';
 import  objtools from 'objtools';
 import TightCNCServer from '../server/tightcnc-server';
+import { JSONSchema7 } from 'json-schema'
+import { UISchemaElement } from '@jsonforms/core'
+
+interface MoveSplitterProcessorOptions extends GcodeProcessorOptions {
+    maxMoveLength: number
+}
+
 /**
  * This gcode processor will split long linear moves into a series of shorter ones.
  *
@@ -13,11 +19,50 @@ import TightCNCServer from '../server/tightcnc-server';
  *   @param {Number} options.maxMoveLength=10
  */
 export class MoveSplitter extends GcodeProcessor {
-    constructor(options = {}) {
+
+    maxMoveLength: number
+    vm: GcodeVM
+
+    constructor(options:MoveSplitterProcessorOptions) {
         super(options, 'movesplitter', true);
-        (this as any).maxMoveLength = (options as any).maxMoveLength || 10;
-        (this as any).vm = new GcodeVM(options);
+        this.maxMoveLength = options.maxMoveLength || 10;
+        this.vm = new GcodeVM(options);
     }
+
+    static override getOptionSchema(): JSONSchema7 {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            $id: "/moves-plitter",
+            properties: {
+                "maxMoveLength": {
+                    type: "number",
+                    description: "Max allowed move lenght before cut",
+                    default: 10,
+                    min: 0.1
+                },
+            },
+            required: ['maxMoveLength']
+        } as JSONSchema7
+    }
+
+    static override getOptionUISchema(): UISchemaElement {
+        return {
+                type: 'HorizontalLayout',
+                elements: [
+                    {
+                        type: 'Control',
+                        label: 'Max Move Length',
+                        scope: '#/properties/maxMoveLength'
+                    }
+                ]
+            } as UISchemaElement
+    }
+
+    static override getLifeCicle(): GcodeProcessorLifeCycle {
+        return 'server-only'
+    }
+
     override processGcode(gline:GcodeLine) {
         let startVMState = objtools.deepCopy((this as any).vm.getState());
         // Run the line through the gcode VM
@@ -94,6 +139,6 @@ export class MoveSplitter extends GcodeProcessor {
     }
 }
 
-module.exports.registerServerComponents = function (tightcnc:TightCNCServer) {
+export function registerServerComponents(tightcnc: TightCNCServer) {
     tightcnc.registerGcodeProcessor(/*'movesplitter',*/ MoveSplitter);
 };
