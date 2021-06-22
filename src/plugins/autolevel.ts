@@ -796,7 +796,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
 }
 
 export function registerServerComponents(tightcnc:TightCNCServer) {
-    tightcnc.registerGcodeProcessor('autolevel', AutolevelGcodeProcessor);
+    tightcnc.registerGcodeProcessor(/*'autolevel',*/ AutolevelGcodeProcessor);
     tightcnc.registerOperation(/*'probeSurface',*/ OpProbeSurface);
     tightcnc.on('statusRequest', (status) => {
         let probeStatus = getProbeStatus();

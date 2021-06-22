@@ -22,6 +22,7 @@ import pasync from 'pasync';
 import fs from 'fs';
 import ListForm from '../consoleui/list-form';
 import { JSONSchema7 } from 'json-schema';
+import TightCNCServer from '../server/tightcnc-server';
 const getRecoveryFilename = (tightcnc: any) => {
     return tightcnc.getFilename('_recovery.json', 'data');
 };
@@ -363,11 +364,11 @@ function consoleUIRecoverJob(consoleui) {
 //module.exports.JobRecoveryTracker = JobRecoveryTracker;
 //module.exports.JobRecoveryProcessor = JobRecoveryProcessor;
 //module.exports.JobRecoveryOperation = JobRecoveryOperation;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-export function registerServerComponents(tightcnc) {
-    tightcnc.registerGcodeProcessor('recoverytracker', JobRecoveryTracker);
-    tightcnc.registerGcodeProcessor('recoveryprocessor', JobRecoveryProcessor);
-    tightcnc.registerOperation('recoverJob', JobRecoveryOperation);
+
+export function registerServerComponents(tightcnc:TightCNCServer) {
+    tightcnc.registerGcodeProcessor(/*'recoverytracker',*/ JobRecoveryTracker);
+    tightcnc.registerGcodeProcessor(/*'recoveryprocessor',*/ JobRecoveryProcessor);
+    tightcnc.registerOperation(/*'recoverJob',*/ JobRecoveryOperation);
 };
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 export function registerConsoleUIComponents(consoleui) {

@@ -181,7 +181,7 @@ export class GcodeLine extends CrispHooks {
 	 * @param {Number} [pos=null] - Position in the word array to add the word, if it doesn't exist.
 	 */
 	set(letter:string, value?:number, pos?:number):void {
-		if (letter.length > 1 && (!value)) {
+		if (letter.length > 1 && (value === undefined)) {
 			// Handle case of supplying a single string
 			return this.set(letter[0], parseFloat(letter.slice(1)), pos);
 		}
@@ -195,7 +195,7 @@ export class GcodeLine extends CrispHooks {
 			}
 		}
 
-		if (wordIdx) {
+		if (wordIdx !== undefined)  {
 			if (!value) {
 				this.words?.splice(wordIdx, 1);
 				this.modified = true;
@@ -208,7 +208,7 @@ export class GcodeLine extends CrispHooks {
 			return;
 		}
 
-		if (!value) return;
+		if (value === undefined) return;
 
 		if (!pos) {
 			// Guess position of word
@@ -253,7 +253,7 @@ export class GcodeLine extends CrispHooks {
 	}
 
 	remove(letter:string) {
-		this.set(letter);
+		this.set(letter[0]);
 	}
 
 	/**

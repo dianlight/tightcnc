@@ -32,6 +32,7 @@ import { GRBLController } from './grbl-controller'
 import { registerServerComponents } from '../plugins'
 import Operation from './operation';
 import Ajv from 'ajv'
+import * as _ from "lodash";
 
 export interface StatusObject {
     controller?: ControllerStatus
@@ -55,7 +56,7 @@ export interface JobSourceOptions {
             id: string
             updateOnHook?: string
         },
-        order: number
+        order?: number
         inst?: GcodeProcessor
     }[]
     data?: string[],
@@ -413,9 +414,12 @@ export default class TightCNCServer extends EventEmitter {
         opr.config = (this.config!.operations as any)[name]
         this.operations[name] = opr
     }
-    registerGcodeProcessor(name:string, cls:any) {
+
+    registerGcodeProcessor(cls: typeof GcodeProcessor) {
+        const name = _.camelCase(cls.getOptionSchema().$id?.slice(1)|| cls.toString())
         this.gcodeProcessors[name] = cls;
     }
+
     async runOperation(opname:string, params:any) {
         if (!(opname in this.operations)) {
             throw errRegistry.newError('INTERNAL_ERROR','NOT_FOUND').formatMessage('No such operation: ' + opname);

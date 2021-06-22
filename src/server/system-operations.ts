@@ -1,11 +1,31 @@
 import  Operation from './operation';
-import  TightCNCServer from './tightcnc-server';
+import  TightCNCServer, { TightCNCConfig } from './tightcnc-server';
 import  SerialPort, { PortInfo } from 'serialport';
 //import { resolve } from 'path/posix';
 //import { GcodeProcessor } from './new-gcode-processor/GcodeProcessor';
 import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core'
+import { errRegistry } from './errRegistry';
 
+
+
+class OpGetRunningConfig extends Operation {
+
+    override getParamSchema() {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/getRunningConfig",
+        } as JSONSchema7
+    }
+
+    async run(): Promise<TightCNCConfig> {
+        return new Promise<TightCNCConfig>((resolve, reject) => {
+            if (this.tightcnc.config) resolve(this.tightcnc.config)
+            else throw errRegistry.newError('INTERNAL_SERVER_ERROR','GENERIC').formatMessage('Running config not found!')
+        })
+    }
+
+}
 
 
 class OpGetAvailableSerials extends Operation {
@@ -43,7 +63,6 @@ class OpGetAvailableOperations extends Operation {
         })
     }
 
-  //  getParamSchema() { return {} }
 }
 
 
@@ -97,5 +116,6 @@ export default function registerOperations(tightcnc: TightCNCServer) {
     tightcnc.registerOperation(/*'getAvailableSerials',*/ OpGetAvailableSerials);
     tightcnc.registerOperation(/*'getAvailableOperations',*/ OpGetAvailableOperations);
     tightcnc.registerOperation(/*'getAvailableGcodeProcessors',*/ OpGetAvailableGcodeProcessors);
+    tightcnc.registerOperation(OpGetRunningConfig)
 //    tightcnc.registerOperation('shutdown', OpShutdown);
 }

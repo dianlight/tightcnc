@@ -6,6 +6,7 @@ import { GcodeLineReadableStream } from './GcodeLineReadableStream';
 import stable, { inplace } from 'stable'
 import { JSONSchema7 } from 'json-schema';
 import { UISchemaElement } from '@jsonforms/core'
+import * as _ from "lodash";
 
 
 export abstract class GcodeProcessor extends GcodeLineReadableStream {
@@ -68,7 +69,7 @@ export abstract class GcodeProcessor extends GcodeLineReadableStream {
         return {
             $schema: "http://json-schema.org/draft-07/schema#",
             type: "object",
-            $id: "",
+            $id: "/"+_.kebabCase(this.name),
         } as JSONSchema7
     }
 

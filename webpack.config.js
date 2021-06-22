@@ -152,5 +152,4 @@ const clientConfig = (env, argv) => {
     return config;
 }
 
-//module.exports = [serverConfig, /*clientConfig*/ , /*pluginsConfig*/ ]
-module.exports = serverConfig
+module.exports = [serverConfig /*, clientConfig*/ /*,pluginsConfig*/ ]

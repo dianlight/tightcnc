@@ -4,5 +4,5 @@ import GcodeVMProcessor from "./GcodeVMProcessor";
 
 
 export function registerGcodeProcessors(tightcnc: TightCNCServer) {
-    tightcnc.registerGcodeProcessor('gcodevm',GcodeVMProcessor)
+    tightcnc.registerGcodeProcessor(/*'gcodevm',*/GcodeVMProcessor)
 };

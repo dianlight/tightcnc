@@ -3,6 +3,7 @@ import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor'
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
 import GcodeVM  from '../server/new-gcode-processor/GcodeVM';
 import  objtools from 'objtools';
+import TightCNCServer from '../server/tightcnc-server';
 /**
  * This gcode processor will split long linear moves into a series of shorter ones.
  *
@@ -92,7 +93,7 @@ export class MoveSplitter extends GcodeProcessor {
         return undefined;
     }
 }
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerServerComponents = function (tightcnc) {
-    tightcnc.registerGcodeProcessor('movesplitter', MoveSplitter);
+
+module.exports.registerServerComponents = function (tightcnc:TightCNCServer) {
+    tightcnc.registerGcodeProcessor(/*'movesplitter',*/ MoveSplitter);
 };

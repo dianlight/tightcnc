@@ -95,40 +95,111 @@ export default class ToolChangeProcessor extends GcodeProcessor {
                 "stopSwitch": {
                     type: "boolean",
                     description: "Whether the optional stop switch is engaged"
-                }
-            }
+                },
+                "preToolChange": {
+                    type: "array",
+                    items: {
+                        type: "string"
+                    },
+                    default: [
+                        'G53 G0 Z0',
+                        'G53 G0 X0 Y0'
+                    ],
+                    description: "Pre ToolChange Gcode to execute"
+                },
+                "postToolChange": {
+                    type: "array",
+                    items: {
+                        type: "string"
+                    },
+                    default:[
+                    'G53 G0 Z0',
+                    'G0 X${x} Y${y}',
+                    'G1 Z${z + 0.4}'
+                    ],
+                    description: "Post ToolChange Gcode to execute"
+                },
+                "toolOffsetAxis": {
+                    type: "number",
+                    default: 2,
+                    description: "Which axis number tool offsets apply to (in standard config, Z=2)",
+                    minimum: 0
+                },
+                "negateToolOffset": {
+                    type: "boolean",
+                    default: false,
+                    description: "**** Not known ***"
+                }        
+            },
+            required: ['toolOffsetAxis']
         } as JSONSchema7
     }
 
     static override getOptionUISchema(): UISchemaElement {
         return {
-            type: 'HorizontalLayout',
-            elements: [
+            type: 'VerticalLayout',
+            elements: [{  
+                type: 'HorizontalLayout',
+                elements: [
+                    {
+                        type: 'Control',
+                        label: 'Tool change on T',
+                        scope: '#/properties/handleT'
+                    },
+                    {
+                        type: 'Control',
+                        label: 'Tool change on M6',
+                        scope: '#/properties/handleM6'
+                    },
+                    {
+                        type: 'Control',
+                        label: 'Handle tool change on T',
+                        scope: '#/properties/toolChangeOnT'
+                    },
+                    {
+                        type: 'Control',
+                        abel: 'Handle job stop (M0/M1)',
+                        scope: '#/properties/handleProgramStop'
+                    },
+                    {
+                        type: 'Control',
+                        label: 'Optional stop switch engaged',
+                        scope: '#/properties/stopSwitch'
+                    },
+                ]
+            },
                 {
-                    type: 'Control',
-                    label: 'intercept T words',
-                    scope: '#/properties/handleT'
-                },
-                {
-                    type: 'Control',
-                    label: 'intercept M6 words',
-                    scope: '#/properties/handleM6'
-                },
-                {
-                    type: 'Control',
-                    label: 'tool change on T',
-                    scope: '#/properties/toolChangeOnT'
-                },
-                {
-                    type: 'Control',
-                    label: 'handle M0, M1, and M60',
-                    scope: '#/properties/handleProgramStop'
-                },
-                {
-                    type: 'Control',
-                    label: 'use stop switch',
-                    scope: '#/properties/stopSwitch'
-                },
+                    type: 'Group',
+                    label: 'Advanced',
+                    elements: [{
+                        type: 'HorizontalLayout',
+                        elements: [
+                            {
+                                type: 'Control',
+                                label: 'Pre ToolChange Gcode',
+                                scope: '#/properties/preToolChange'
+                            },
+                            {
+                                type: 'Control',
+                                label: 'Post ToolChange Gcode',
+                                scope: '#/properties/postToolChange',
+                                options: {
+                                    showSortButtons: false
+                                }
+                            },
+                            {
+                                type: 'Control',
+                                label: 'Axis For ToolOffset',
+                                scope: '#/properties/toolOffsetAxis'
+                            },
+                            {
+                                type: 'Control',
+                                label: 'Negate Tool Offset',
+                                scope: '#/properties/negateToolOffset'
+                            },
+                        ]
+                    }]
+                }
             ]
         } as UISchemaElement
     }
@@ -170,6 +241,7 @@ export default class ToolChangeProcessor extends GcodeProcessor {
                 throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Incremental mode not supported with tool change');
         }
     }
+
     async _doToolChange() {
         // create a map from axis letters to current position in job
         let vmState = objtools.deepCopy(this.vm.getState());
@@ -311,7 +383,6 @@ class ResumeFromStopOperation extends Operation {
         return {
             $schema: "http://json-schema.org/draft-07/schema#",
             $id: "/resumeFromStop",
-            type: "null",
         } as JSONSchema7
     }
 
@@ -371,7 +442,7 @@ class SetToolOffsetOperation extends Operation {
 }
 
 export function registerServerComponents(tightcnc: TightCNCServer) {
-    tightcnc.registerGcodeProcessor('toolchange', ToolChangeProcessor);
+    tightcnc.registerGcodeProcessor(/*'toolchange',*/ ToolChangeProcessor);
     tightcnc.registerOperation(/*'resumeFromStop',*/ ResumeFromStopOperation);
     tightcnc.registerOperation(/*'setToolOffset',*/ SetToolOffsetOperation);
 };

@@ -26,7 +26,7 @@ export interface JobStatus {
         estTimeRemaining: number;
         percentComplete: number;
     },
-    waits: any
+    waits: string[]
 };
 export default class JobManager {
 

@@ -4,8 +4,7 @@ import GcodeVM, { VMState } from './GcodeVM';
 import GcodeLine from './GcodeLine';
 import Controller from '../controller';
 import TightCNCServer from '../tightcnc-server';
-
-
+import { JSONSchema7 } from 'json-schema';
 
 interface GcodeVMProcessorOptions {
     controller: Controller, // - The machine controller class instance for the gcode to run on.  Used to fetch initial state.
@@ -77,6 +76,18 @@ export default class GcodeVMProcessor extends GcodeProcessor {
     override async initProcessor() {
         this.vm.init();
     }
+
+    /**
+     * Thi method return json-schema definition of the custom options for the controller
+     */
+    static override getOptionSchema(): JSONSchema7 {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            $id: "/gcodevm",
+        } as JSONSchema7
+    }
+
 
     override getStatus():Record<string,any>|void {
         // return a reduced set of state information for the general status data; this is just used for

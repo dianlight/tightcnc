@@ -9,6 +9,7 @@ import Operation from '../server/operation';
 import ListForm from '../consoleui/list-form';
 import commonSchema from 'common-schema';
 import { JSONSchema7 } from 'json-schema';
+import TightCNCServer from '../server/tightcnc-server';
 /**
  * This gcode processors allows overriding things at job runtime.  Currently just supports feed multiplier.
  *
@@ -114,10 +115,10 @@ function findCurrentJobGcodeProcessor(tightcnc, name, throwOnMissing = true) {
 }
 module.exports.RuntimeOverride = RuntimeOverride;
 module.exports.SetFeedMultiplierOperation = SetFeedMultiplierOperation;
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
-module.exports.registerServerComponents = function (tightcnc) {
-    tightcnc.registerGcodeProcessor('runtimeoverride', RuntimeOverride);
-    tightcnc.registerOperation('setFeedMultiplier', SetFeedMultiplierOperation);
+
+module.exports.registerServerComponents = function (tightcnc:TightCNCServer) {
+    tightcnc.registerGcodeProcessor(/*'runtimeoverride',*/ RuntimeOverride);
+    tightcnc.registerOperation(/*'setFeedMultiplier',*/ SetFeedMultiplierOperation);
 };
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerConsoleUIComponents = function (consoleui) {
