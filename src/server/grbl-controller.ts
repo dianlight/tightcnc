@@ -2111,17 +2111,18 @@ export class GRBLController extends Controller {
                 gcode.set(this.axisLabels[axisNum], pos[axisNum]);
             }
         }
-        if ((gcode as any).words.length < 3)
+        if (gcode.words!.length < 3)
             throw errRegistry.newError('INTERNAL_ERROR','INVALID_ARGUMENT').formatMessage('Cannot probe toward current position');
         this.send(gcode);
         // Wait for a probe report, or an ack.  If an ack is received before a probe report, send out a param request and wait for the probe report to be returned with that.
-        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'block' implicitly has an 'any' type.
-        const ackHandler = (block) => {
+
+        const ackHandler = (block:{str:string}) => {
             console.log("This is a Block",typeof block,block)
             if (block.str.trim() !== '$#' && this._numInFlightRequests() < 10) { // prevent infinite loops and built on send queues
                 this.send('$#');
             }
         };
+
         this.on('receivedOk', ackHandler);
         try {
             await this._waitForEvent('deviceParamUpdate', (paramName) => paramName === 'PRB');

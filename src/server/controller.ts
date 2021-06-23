@@ -5,6 +5,7 @@ import { BaseRegistryError } from 'new-error';
 import fs from 'fs'
 import { VMState } from './new-gcode-processor/GcodeVM'
 import CrispHooks from 'crisphooks'
+import { errRegistry } from './errRegistry';
 
 export interface ControllerConfig {
     port: string
@@ -396,7 +397,9 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      * @param {Number} [feed]
      * @return {Promise{pos}}
      */
-    probe(pos:number[], feed?:number) { }
+    probe(pos: (number | undefined)[], feed?: number): Promise<number[]> {
+        throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Probe is not availble in this controller!')
+     }
     /**
      * Return an object containing controller status.  Controller classes may override this, but should make an effort
      * to conform as much as possible to the format of this status object.

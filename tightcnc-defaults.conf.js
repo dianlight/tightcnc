@@ -97,6 +97,7 @@ module.exports = {
     },
     enableDebug: false,
     debugToStdout: false,
+    /*
     consoleui: {
         logDir: path.resolve(basepath, 'tightcnc-consoleui'),
         log: {
@@ -349,4 +350,5 @@ module.exports = {
             }
         }
     }
+    */
 };

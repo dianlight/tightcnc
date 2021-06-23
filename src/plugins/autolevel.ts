@@ -1,6 +1,5 @@
 import  cross from 'cross';
 import  Operation from '../server/operation';
-//import  commonSchema from 'common-schema';
 import { errRegistry } from '../server/errRegistry';
 import  objtools from'objtools';
 import { kdTree } from 'kd-tree-javascript';
@@ -8,11 +7,6 @@ import fs from 'fs';
 import { GcodeProcessor, GcodeProcessorLifeCycle, GcodeProcessorOptions } from '../server/new-gcode-processor/GcodeProcessor';
 import  GcodeVM  from '../server/new-gcode-processor/GcodeVM'
 import { MoveSplitter } from './move-splitter';
-//import  JobOption from '../consoleui/job-option';
-//import  ListForm from '../consoleui/list-form';
-//import  blessed from 'blessed';
-//import  moment from 'moment';
-//import { ConsoleUI } from '../consoleui/consoleui';
 import TightCNCServer from '../server/tightcnc-server';
 import { JSONSchema7 } from 'json-schema';
 import GcodeLine from '../server/new-gcode-processor/GcodeLine';
@@ -96,13 +90,12 @@ export class SurfaceLevelMap {
     }
     // Returns the nearest 3 points in XY plane that are not colinear and define a plane that is not orthogonal to the XY plane, or null if no such 3 exist
     // Point is [x, y].  Return value is null or [ pointArray, normalVector ]
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
-    getNearest3PlanePoints(point) {
+
+    getNearest3PlanePoints(point: number[]):[number[][],number[]]|void {
         // Keep a tally of the closest 2 points, then keep searching for a third that's not colinear with the first two
-        let curPoints = null;
-        let vA;
-        // @ts-expect-error ts-migrate(7034) FIXME: Variable 'crossResult' implicitly has type 'any[]'... Remove this comment to see the full error message
-        let crossResult = [];
+        let curPoints:number[][]|undefined;
+        let vA:number[] = [];
+        let crossResult:number[] = [];
         for (let n = 3; n <= this.pointList.length; n++) {
             let results = this.getNearestPoints(point, n);
             if (curPoints) {
@@ -114,7 +107,6 @@ export class SurfaceLevelMap {
             }
             // Check if orthogonal to XY or colinear
             let vB = [curPoints[2][0] - curPoints[0][0], curPoints[2][1] - curPoints[0][1], curPoints[2][2] - curPoints[0][2]];
-            // @ts-expect-error ts-migrate(7005) FIXME: Variable 'crossResult' implicitly has an 'any[]' t... Remove this comment to see the full error message
             let norm = cross(crossResult, vA, vB);
             if (norm[2] !== 0) {
                 // not orthogonal to XY
@@ -124,29 +116,24 @@ export class SurfaceLevelMap {
                 }
             }
         }
-        return null;
+        return
     }
     /*
      * Given 3 points on a plane in the form [ [x1, y1, z1], [x2, y2, z2], [x3, y3, z3] ], and a single 2D point [x0, y0],
      * this returns the Z coordinate of the 2D point on the 3D plane specified by the 3 points.  This returns null in
      * cases that 2 of the plane points are colinear (and do not specify a plane), or the point given cannot fall on that plane.
      */
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'point' implicitly has an 'any' type.
-    _planeZAtPoint(point, planePoints, norm = null) {
+    _planeZAtPoint(point:number[], planePoints: number[][], norm?:number[]) {
         if (!norm) {
             let vA = [planePoints[1][0] - planePoints[0][0], planePoints[1][1] - planePoints[0][1], planePoints[1][2] - planePoints[0][2]];
             let vB = [planePoints[2][0] - planePoints[0][0], planePoints[2][1] - planePoints[0][1], planePoints[2][2] - planePoints[0][2]];
             norm = cross([], vA, vB);
         }
-        // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         if (norm[0] === 0 && norm[1] === 0 && norm[2] === 0)
             return null; // points are colinear
-        // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         if (norm[2] === 0)
             return null; // point does not intersect plane
-        // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         let d = -(norm[0] * planePoints[0][0] + norm[1] * planePoints[0][1] + norm[2] * planePoints[0][2]);
-        // @ts-expect-error ts-migrate(2531) FIXME: Object is possibly 'null'.
         let z = (-d - norm[0] * point[0] - norm[1] * point[1]) / norm[2];
         if (z === 0)
             return 0;
@@ -154,14 +141,45 @@ export class SurfaceLevelMap {
             return z; // check to avoid -0
     }
 }
-module.exports.SurfaceLevelMap = SurfaceLevelMap;
-let surfaceProbeStatus = {
+
+let surfaceProbeStatus: {
+    state: 'none'|'running'|'complete'|'error'
+    resultFilename?: string,
+    probePointsX?: number,
+    probePointsY?: number,
+    spacingX?: number,
+    spacingY?: number,
+    startPoint?: number[],
+    probePoints?: number,
+    currentProbePoint?: number,
+    percentComplete?: number,
+    error?: string    
+} = {
     state: 'none'
 };
-// @ts-expect-error ts-migrate(7034) FIXME: Variable 'surfaceProbeResults' implicitly has type... Remove this comment to see the full error message
-let surfaceProbeResults = null;
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'tightcnc' implicitly has an 'any' type.
-function startProbeSurface(tightcnc, options) {
+
+let surfaceProbeResults: {
+   bounds: number[][]
+   probePointsX:number,
+   probePointsY:number,
+   spacingX:number,
+   spacingY:number,
+   minSpacing: number,
+   time: string,
+   points: number[][]
+};
+
+function startProbeSurface(tightcnc: TightCNCServer, options: {
+    bounds: number[][],
+    probeSpacing: number,
+    surfaceMapFilename: string
+    clearanceHeight: number,
+    autoClearanceMin: number,
+    autoClearance?: boolean,
+    numProbeSamples?: number,
+    probeMinZ: number,
+    extraProbeSampleClearance?:number
+}) {
     if (surfaceProbeStatus.state === 'running')
         throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Surface probe already running');
     surfaceProbeStatus = { state: 'running' };
@@ -180,18 +198,18 @@ function startProbeSurface(tightcnc, options) {
         probePointsY = 2;
     let spacingX = probeAreaSizeX / (probePointsX - 1);
     let spacingY = probeAreaSizeY / (probePointsY - 1);
-    (surfaceProbeStatus as any).resultFilename = options.surfaceMapFilename;
-    (surfaceProbeStatus as any).probePointsX = probePointsX;
-    (surfaceProbeStatus as any).probePointsY = probePointsY;
-    (surfaceProbeStatus as any).spacingX = spacingX;
-    (surfaceProbeStatus as any).spacingY = spacingY;
+    surfaceProbeStatus.resultFilename = options.surfaceMapFilename;
+    surfaceProbeStatus.probePointsX = probePointsX;
+    surfaceProbeStatus.probePointsY = probePointsY;
+    surfaceProbeStatus.spacingX = spacingX;
+    surfaceProbeStatus.spacingY = spacingY;
     let startPoint = [lowerBound[0], lowerBound[1]];
-    (surfaceProbeStatus as any).startPoint = startPoint;
-    (surfaceProbeStatus as any).probePoints = probePointsX * probePointsY;
-    (surfaceProbeStatus as any).currentProbePoint = 0;
-    (surfaceProbeStatus as any).percentComplete = 0;
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'x' implicitly has an 'any' type.
-    const sendMove = (x, y, z) => {
+    surfaceProbeStatus.startPoint = startPoint;
+    surfaceProbeStatus.probePoints = probePointsX * probePointsY;
+    surfaceProbeStatus.currentProbePoint = 0;
+    surfaceProbeStatus.percentComplete = 0;
+
+    const sendMove = (x?:number, y?:number, z?:number) => {
         let gcode = 'G0';
         if (typeof x === 'number')
             gcode += ' X' + x.toFixed(3);
@@ -199,18 +217,19 @@ function startProbeSurface(tightcnc, options) {
             gcode += ' Y' + y.toFixed(3);
         if (typeof z === 'number')
             gcode += ' Z' + z.toFixed(3);
-        tightcnc.controller.send(gcode);
+        tightcnc.controller?.send(gcode);
     };
+
     const runProbeSurface = async () => {
         let slm = new SurfaceLevelMap([]);
         // Move to above starting point
-        sendMove(null, null, options.clearanceHeight);
-        sendMove(startPoint[0], startPoint[1], null);
+        sendMove(undefined, undefined, options.clearanceHeight);
+        sendMove(startPoint[0], startPoint[1], undefined);
         let currentZ = options.clearanceHeight;
         // Loop through each point
         for (let pointNum = 0; pointNum < probePointsX * probePointsY; pointNum++) {
-            (surfaceProbeStatus as any).currentProbePoint = pointNum;
-            (surfaceProbeStatus as any).percentComplete = pointNum / (probePointsX * probePointsY) * 100;
+            surfaceProbeStatus.currentProbePoint = pointNum;
+            surfaceProbeStatus.percentComplete = pointNum / (probePointsX * probePointsY) * 100;
             // Calculate the point number X and point number Y in such a way to move the machine in a "zig zag" pattern
             let pointNumX = Math.floor(pointNum / probePointsY);
             let pointNumY = pointNum - pointNumX * probePointsY;
@@ -229,23 +248,23 @@ function startProbeSurface(tightcnc, options) {
             }
             // Move to above the next point
             if (clearanceZ > currentZ)
-                sendMove(null, null, clearanceZ);
-            sendMove(pointPosX, pointPosY, null);
+                sendMove(undefined, undefined, clearanceZ);
+            sendMove(pointPosX, pointPosY, undefined);
             if (clearanceZ < currentZ)
-                sendMove(null, null, clearanceZ);
+                sendMove(undefined, undefined, clearanceZ);
             // Probe down towards the point the requisite number of times
             let numProbes = options.numProbeSamples || 1;
             let probesResults = [];
             for (let i = 0; i < numProbes; i++) {
-                let tripPos = await tightcnc.controller.probe([null, null, options.probeMinZ]);
-                let tripZ = tripPos[2];
+                let tripPos = await tightcnc.controller?.probe([undefined, undefined, options.probeMinZ]);
+                let tripZ = tripPos![2];
                 probesResults.push(tripZ);
                 if (i + 1 < numProbes) {
                     // move up small clearance for next sample
                     let smallClearanceZ = clearanceZ;
                     if (options.extraProbeSampleClearance)
                         smallClearanceZ = tripZ + options.extraProbeSampleClearance;
-                    sendMove(null, null, smallClearanceZ);
+                    sendMove(undefined, undefined, smallClearanceZ);
                 }
             }
             // Average together the probe results for each sample
@@ -257,11 +276,11 @@ function startProbeSurface(tightcnc, options) {
             slm.addPoint([pointPosX, pointPosY, tripZ]);
             // Move up to minimum clearance
             currentZ = options.autoClearance ? (tripZ + options.autoClearanceMin) : options.clearanceHeight;
-            sendMove(null, null, currentZ);
+            sendMove(undefined, undefined, currentZ);
         }
         // Probing complete.  Move back to full clearance, and the lower bound XY
-        sendMove(null, null, options.clearanceHeight);
-        sendMove(lowerBound[0], lowerBound[1], null);
+        sendMove(undefined, undefined, options.clearanceHeight);
+        sendMove(lowerBound[0], lowerBound[1], undefined);
         // Save the probing results
         surfaceProbeResults = {
             bounds: options.bounds,
@@ -275,12 +294,10 @@ function startProbeSurface(tightcnc, options) {
         };
         if (options.surfaceMapFilename) {
             await new Promise((resolve, reject) => {
-                // @ts-expect-error ts-migrate(7005) FIXME: Variable 'surfaceProbeResults' implicitly has an '... Remove this comment to see the full error message
                 fs.writeFile(options.surfaceMapFilename, JSON.stringify(surfaceProbeResults, null, 2), (err) => {
                     if (err)
                         reject(errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Error saving probe result file').withMetadata(err));
                     else
-                        // @ts-expect-error ts-migrate(7005) FIXME: Variable 'surfaceProbeResults' implicitly has an '... Remove this comment to see the full error message
                         resolve(surfaceProbeResults);
                 });
             });
@@ -290,12 +307,12 @@ function startProbeSurface(tightcnc, options) {
     runProbeSurface()
         .then(() => {
         surfaceProbeStatus.state = 'complete';
-        (surfaceProbeStatus as any).currentProbePoint = probePointsX * probePointsY - 1;
-        (surfaceProbeStatus as any).percentComplete = 100;
+        surfaceProbeStatus.currentProbePoint = probePointsX * probePointsY - 1;
+        surfaceProbeStatus.percentComplete = 100;
     })
         .catch((err) => {
         surfaceProbeStatus.state = 'error';
-        (surfaceProbeStatus as any).error = err.toObject ? err.toObject() : ('' + err);
+        surfaceProbeStatus.error = err.toObject ? err.toObject() : ('' + err);
     });
 }
 function getProbeStatus() {
@@ -325,8 +342,11 @@ class OpProbeSurface extends Operation {
             return bounds;
         } else throw errRegistry.newError('INTERNAL_ERROR','GENERIC').formatMessage('Could not determine bounds from gcode file - no dryRunResults');
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'params' implicitly has an 'any' type.
-    async run(params) {
+
+    async run(params: {
+        bounds: true,
+        gcodeFilename: string
+    }) {
         let options = objtools.deepCopy(params);
         if (options.gcodeFilename)
             options.gcodeFilename = this.tightcnc.getFilename(options.gcodeFilename, 'data');
