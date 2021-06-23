@@ -148,7 +148,7 @@ class OpRealTimeMove extends Operation {
                     description: 'Amount to move the axis'
                 },
             },
-            required: ['axis','number']
+            required: ['axis','inc']
         } as JSONSchema7;
     }
     run(params:{axis:number, inc:number}) {

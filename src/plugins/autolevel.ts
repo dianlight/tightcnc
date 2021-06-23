@@ -1,20 +1,23 @@
 import  cross from 'cross';
 import  Operation from '../server/operation';
-import  commonSchema from 'common-schema';
+//import  commonSchema from 'common-schema';
 import { errRegistry } from '../server/errRegistry';
 import  objtools from'objtools';
 import { kdTree } from 'kd-tree-javascript';
 import fs from 'fs';
-import { GcodeProcessor } from '../server/new-gcode-processor/GcodeProcessor';
+import { GcodeProcessor, GcodeProcessorLifeCycle, GcodeProcessorOptions } from '../server/new-gcode-processor/GcodeProcessor';
 import  GcodeVM  from '../server/new-gcode-processor/GcodeVM'
 import { MoveSplitter } from './move-splitter';
-import  JobOption from '../consoleui/job-option';
-import  ListForm from '../consoleui/list-form';
-import  blessed from 'blessed';
-import  moment from 'moment';
-import { ConsoleUI } from '../consoleui/consoleui';
+//import  JobOption from '../consoleui/job-option';
+//import  ListForm from '../consoleui/list-form';
+//import  blessed from 'blessed';
+//import  moment from 'moment';
+//import { ConsoleUI } from '../consoleui/consoleui';
 import TightCNCServer from '../server/tightcnc-server';
 import { JSONSchema7 } from 'json-schema';
+import GcodeLine from '../server/new-gcode-processor/GcodeLine';
+import { UISchemaElement } from '@jsonforms/core'
+
 
 export class SurfaceLevelMap {
 
@@ -336,96 +339,139 @@ class OpProbeSurface extends Operation {
     
     getParamSchema() {
         return {
-            surfaceMapFilename: {
-                type: String,
-                description: 'Filename to save the resulting surface map to'
-            },
-            bounds: {
-                type: 'array',
-                elements: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            $id: "/probeSurface",
+            type: 'object',
+            properties: {
+                surfaceMapFilename: {
+                    type: 'string',
+                    description: 'Filename to save the resulting surface map to'
+                },
+                bounds: {
                     type: 'array',
-                    elements: Number,
+                    items: {
+                        type: 'array',
+                        items: {
+                          type: 'number'  
+                        } ,
+                        /*
+                        // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
+                        validate(val) {
+                            if (val.length < 2)
+                                throw new commonSchema.FieldError('invalid', 'Bounds points must have at least 2 coordinates');
+                        }
+                        */
+                    },
                     /*
                     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
                     validate(val) {
-                        if (val.length < 2)
-                            throw new commonSchema.FieldError('invalid', 'Bounds points must have at least 2 coordinates');
-                    }
+                        if (val.length !== 2)
+                            throw new commonSchema.FieldError('invalid', 'Bounds must have 2 elements');
+                    },
                     */
+                    description: 'Bounds to run surface probe on'
                 },
-                /*
-                // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'val' implicitly has an 'any' type.
-                validate(val) {
-                    if (val.length !== 2)
-                        throw new commonSchema.FieldError('invalid', 'Bounds must have 2 elements');
+                gcodeFilename: {
+                    type: 'string',
+                    description: 'Can be supplied instead of bounds to automatically determine bounds'
                 },
-                */
-                description: 'Bounds to run surface probe on'
-            },
-            gcodeFilename: {
-                type: String,
-                description: 'Can be supplied instead of bounds to automatically determine bounds'
-            },
-            probeSpacing: {
-                type: Number,
-                default: this.config?.defaultOptions.probeSpacing,
-                description: 'Maximum grid separation between probe points'
-            },
-            probeFeed: {
-                type: Number,
-                default: this.config?.defaultOptions.probeFeed,
-                description: 'Feed rate for probing'
-            },
-            clearanceHeight: {
-                type: Number,
-                default: this.config?.defaultOptions.clearanceHeight,
-                description: 'Clearance Z for moving across surface'
-            },
-            autoClearance: {
-                type: Boolean,
-                default: this.config?.defaultOptions.autoClearance,
-                description: 'Whether to automatically adjust clearance height based on known probe points to optimize speed'
-            },
-            autoClearanceMin: {
-                type: Number,
-                default: this.config?.defaultOptions.autoClearanceMin,
-                description: 'Minimum amount of clearance when using autoClearance'
-            },
-            probeMinZ: {
-                type: Number,
-                default: this.config?.defaultOptions.probeMinZ,
-                description: 'Minimum Z value to probe toward.  Error if this Z is reached without the probe tripping.'
-            },
-            numProbeSamples: {
-                type: Number,
-                default: this.config?.defaultOptions.numProbeSamples,
-                description: 'Number of times to probe for each point'
-            },
-            extraProbeSampleClearance: {
-                type: Number,
-                default: this.config?.defaultOptions.extraProbeSampleClearance,
-                description: 'When probing multiple times per point, the clearance to use for all but the first probe'
+                probeSpacing: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.probeSpacing,
+                    description: 'Maximum grid separation between probe points'
+                },
+                probeFeed: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.probeFeed,
+                    description: 'Feed rate for probing'
+                },
+                clearanceHeight: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.clearanceHeight,
+                    description: 'Clearance Z for moving across surface'
+                },
+                autoClearance: {
+                    type: 'boolean',
+                    default: this.config?.defaultOptions.autoClearance,
+                    description: 'Whether to automatically adjust clearance height based on known probe points to optimize speed'
+                },
+                autoClearanceMin: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.autoClearanceMin,
+                    description: 'Minimum amount of clearance when using autoClearance'
+                },
+                probeMinZ: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.probeMinZ,
+                    description: 'Minimum Z value to probe toward.  Error if this Z is reached without the probe tripping.'
+                },
+                numProbeSamples: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.numProbeSamples,
+                    description: 'Number of times to probe for each point'
+                },
+                extraProbeSampleClearance: {
+                    type: 'number',
+                    default: this.config?.defaultOptions.extraProbeSampleClearance,
+                    description: 'When probing multiple times per point, the clearance to use for all but the first probe'
+                }
             }
         } as JSONSchema7
     }
 }
+
+interface AutolevelGcodeProcessorOptions extends GcodeProcessorOptions {
+    surfaceMapFilename: string
+}
 class AutolevelGcodeProcessor extends GcodeProcessor {
     surfaceMapFilename: string;
-    vm: any;
+    vm: GcodeVM;
     surfaceMap?: SurfaceLevelMap;
     surfaceMapData?: {
         points: number[][]
         minSpacing: number
     }
 
-    constructor(options: {
-        id?:string
-        surfaceMapFilename: string
-    }) {
+    constructor(options:AutolevelGcodeProcessorOptions) {
         super(options, 'autolevel', true);
         this.surfaceMapFilename = options.surfaceMapFilename;
         this.vm = new GcodeVM({} /*options*/);
     }
+
+    static override getOptionSchema(): JSONSchema7 {
+        return {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            $id: "/autolevel",
+            properties: {
+                "surfaceMapFilename": {
+                    type: "string",
+                    description: "Filename for surface data",
+                },
+            },
+            required: ['surfaceMapFilename']
+        } as JSONSchema7
+    }
+
+    static override getOptionUISchema(): UISchemaElement {
+        return {
+                type: 'HorizontalLayout',
+                elements: [
+                    {
+                        type: 'Control',
+                        label: 'Filename for surface data',
+                        scope: '#/properties/surfaceMapFilename'
+                    }
+                ]
+            } as UISchemaElement
+    }
+
+    static override getLifeCicle(): GcodeProcessorLifeCycle {
+        return 'optional-ui'
+    }
+
+
+
     _loadSurfaceMap() {
         if (this.surfaceMap)
             return;
@@ -449,11 +495,12 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
         }));
         super.addToChain(chain);
     }
+
     override async initProcessor() {
         await this._loadSurfaceMap();
     }
-    // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'gline' implicitly has an 'any' type.
-    processGcode(gline) {
+
+    override processGcode(gline:GcodeLine) {
         let startVMState = objtools.deepCopy(this.vm.getState());
         // Run the line through the gcode VM
         let { isMotion, changedCoordOffsets, motionCode } = this.vm.runGcodeLine(gline);
@@ -484,6 +531,8 @@ class AutolevelGcodeProcessor extends GcodeProcessor {
         return gline;
     }
 }
+
+/*
 class AutolevelConsoleUIJobOption extends JobOption {
 
     alOptions: {
@@ -794,6 +843,7 @@ class AutolevelConsoleUIJobOption extends JobOption {
         }
     }
 }
+*/
 
 export function registerServerComponents(tightcnc:TightCNCServer) {
     tightcnc.registerGcodeProcessor(/*'autolevel',*/ AutolevelGcodeProcessor);
