@@ -15,6 +15,7 @@
         "_build:dev": "webpack --mode development --stats-error-details",
         "_watch": "webpack --mode development --watch --stats-error-details",
         "watch": "tsc --watch --sourceMap --declaration --pretty --outDir ./dist",
+        "dev:default": "yarn run watch",
         "build": "tsc --sourceMap --declaration --pretty --outDir ./dist",
         "server:debug": "ts-node --inspect-brk ./src/server/server.ts",
         "server": "ts-node ./src/server/server.ts",
