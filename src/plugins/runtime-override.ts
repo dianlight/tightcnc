@@ -6,7 +6,7 @@ import GcodeVM from '../server/new-gcode-processor/GcodeVM';
 import objtools from 'objtools';
 import pasync from 'pasync';
 import Operation from '../server/operation';
-import ListForm from '../consoleui/list-form';
+//import ListForm from '../consoleui/list-form';
 import commonSchema from 'common-schema';
 import { JSONSchema7 } from 'json-schema';
 import TightCNCServer from '../server/tightcnc-server';
@@ -120,6 +120,7 @@ module.exports.registerServerComponents = function (tightcnc:TightCNCServer) {
     tightcnc.registerGcodeProcessor(/*'runtimeoverride',*/ RuntimeOverride);
     tightcnc.registerOperation(/*'setFeedMultiplier',*/ SetFeedMultiplierOperation);
 };
+/*
 // @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
 module.exports.registerConsoleUIComponents = function (consoleui) {
     // Automatically add to all jobs created in the console UI
@@ -153,7 +154,7 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
                     throw new commonSchema.FieldError('invalid', 'Feed multiplier must be a positive number');
             }
         }, objtools.getPath(consoleui, 'lastStatus.job.gcodeProcessors.runtimeoverride.feedMultiplier') || 1);
-        if (mult /*&& !form.editorCancelled*/) {
+        if (mult /*&& !form.editorCancelled* /) {
             await consoleui.client.op('setFeedMultiplier', { feedMultiplier: mult });
         }
     };
@@ -161,3 +162,4 @@ module.exports.registerConsoleUIComponents = function (consoleui) {
         doFeedOverride().catch((err) => consoleui.clientError(err));
     });
 };
+*/

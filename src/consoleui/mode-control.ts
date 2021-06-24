@@ -1,7 +1,6 @@
 import  ConsoleUIMode from './consoleui-mode';
 import blessed from 'blessed';
 import { ConsoleUI } from './consoleui';
-//import ListForm from'./list-form';
 export default class ModeControl extends ConsoleUIMode {
 
     sendTextbox?: blessed.Widgets.TextboxElement

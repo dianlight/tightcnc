@@ -1,5 +1,6 @@
 // Server
-export { default as TightCNCServer,JobSourceOptions,TightCNCControllers,TightCNCTinyGConfig,TightCNCGrblConfig,TightCNCConfig, StatusObject } from './server/tightcnc-server'
+export * as server from './server/server'
+export { default as TightCNCServer, JobSourceOptions, TightCNCControllers, TightCNCTinyGConfig, TightCNCGrblConfig, TightCNCConfig, StatusObject } from './server/tightcnc-server'
 export { ControllerStatus, ControllerCapabilities } from './server/controller';
 export { PortInfo } from 'serialport'
 export { ERRORCODES } from './server/errRegistry'

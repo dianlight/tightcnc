@@ -1,4 +1,3 @@
-import { ConsoleUI } from "../consoleui/consoleui";
 import TightCNCServer from "../server/tightcnc-server";
 
 import * as autolevel from './autolevel'

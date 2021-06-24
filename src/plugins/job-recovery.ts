@@ -20,7 +20,7 @@ import Operation from '../server/operation';
 import objtools from 'objtools';
 import pasync from 'pasync';
 import fs from 'fs';
-import ListForm from '../consoleui/list-form';
+//import ListForm from '../consoleui/list-form';
 import { JSONSchema7 } from 'json-schema';
 import TightCNCServer from '../server/tightcnc-server';
 const getRecoveryFilename = (tightcnc: any) => {
@@ -325,7 +325,7 @@ class JobRecoveryOperation extends Operation {
  * This handles recovering a job in the console ui.  It's registered to run on a keypress from the home
  * screen, and just displays a few dialogs before starting the recovery operation.
  */
-// @ts-expect-error ts-migrate(7006) FIXME: Parameter 'consoleui' implicitly has an 'any' type... Remove this comment to see the full error message
+/*
 function consoleUIRecoverJob(consoleui) {
     async function doRecover() {
         // Ask how much time to back up
@@ -361,6 +361,7 @@ function consoleUIRecoverJob(consoleui) {
         consoleui.clientError(err);
     });
 }
+*/
 //module.exports.JobRecoveryTracker = JobRecoveryTracker;
 //module.exports.JobRecoveryProcessor = JobRecoveryProcessor;
 //module.exports.JobRecoveryOperation = JobRecoveryOperation;
@@ -370,7 +371,8 @@ export function registerServerComponents(tightcnc:TightCNCServer) {
     tightcnc.registerGcodeProcessor(/*'recoveryprocessor',*/ JobRecoveryProcessor);
     tightcnc.registerOperation(/*'recoverJob',*/ JobRecoveryOperation);
 };
-// @ts-expect-error ts-migrate(2580) FIXME: Cannot find name 'module'. Do you need to install ... Remove this comment to see the full error message
+
+/*
 export function registerConsoleUIComponents(consoleui) {
     // Automatically add recovery tracker to all jobs created in the console UI
     // @ts-expect-error ts-migrate(7006) FIXME: Parameter 'jobOptions' implicitly has an 'any' typ... Remove this comment to see the full error message
@@ -386,3 +388,4 @@ export function registerConsoleUIComponents(consoleui) {
     // Add a key to recover a job to the home screen
     consoleui.registerHomeKey(['r', 'R'], 'r', 'Recover Job', () => consoleUIRecoverJob(consoleui));
 };
+*/

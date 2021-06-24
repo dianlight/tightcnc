@@ -9,6 +9,7 @@ const serverConfig = (env, argv) => {
     var config = {
         target: 'node14',
         externals: [nodeExternals()],
+        //    devtool: 'inline-source-map',
         entry: {
             server: './src/server/server.ts',
             //            consoleui: './src/consoleui/consoleui.ts',
@@ -23,7 +24,8 @@ const serverConfig = (env, argv) => {
         resolve: {
             extensions: ['.tsx', '.ts', '.js'],
             alias: {
-                'pty.js': false
+                'pty.js': false,
+                'vertx': false
             }
         },
         output: {
