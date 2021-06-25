@@ -2060,7 +2060,7 @@ export class GRBLController extends Controller {
         }
     }
 
-    override async move(pos:number[], feed?:number) {
+    override async move(pos:(number|boolean)[], feed?:number) {
         let gcode = feed ? 'G1' : 'G0';
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
             if (typeof pos[axisNum] === 'number') {

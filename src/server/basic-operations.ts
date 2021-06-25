@@ -3,6 +3,7 @@ import objtools from 'objtools';
 import { errRegistry } from './errRegistry';
 import TightCNCServer, { StatusObject } from './tightcnc-server';
 import { JSONSchema7 } from 'json-schema';
+import { number } from 'yargs';
 
 class OpGetStatus extends Operation {
 
@@ -167,7 +168,10 @@ class OpMove extends Operation {
                 pos: {
                     type: 'array',
                     items: {
-                        type: "number"
+                        oneOf: [
+                            { type: "number" },
+                            { type: "boolean"}
+                        ]
                     },
                     description: 'Position to move to'
                 },
@@ -180,7 +184,7 @@ class OpMove extends Operation {
         } as JSONSchema7;
     }
     
-    async run(params:{pos:number[],feed?:number}) {
+    async run(params:{pos:(number|false)[],feed?:number}) {
         this.checkReady();
         await this.tightcnc.controller?.move(params.pos, params.feed);
     }
@@ -225,7 +229,7 @@ class OpSetAbsolutePos extends Operation {
                             { type: "boolean" }
                         ]
                     },
-                    description: 'Positions of axes to set.  If null, 0 is used for all axes.  Elements can also be true (synonym for 0) or false (to ignore that axis).'
+                    description: 'Positions of axes to set (machine coords).  If undefined, 0 is used for all axes.  Elements can also be true (synonym for 0) or false (to ignore that axis).'
                 }
             }
         } as JSONSchema7;
@@ -253,7 +257,7 @@ class OpSetAbsolutePos extends Operation {
                     pos[axisNum] = 0;
             }
         }
-        let gcode = 'G28.3';
+        let gcode = 'G53 G0';
         if(this.tightcnc.controller) for (let axisNum of this.tightcnc.controller.listUsedAxisNumbers()) {
             let axis = this.tightcnc.controller!.axisLabels[axisNum].toUpperCase();
             if (typeof pos[axisNum] === 'number') {
@@ -275,7 +279,10 @@ class OpProbe extends Operation {
                 pos: {
                     type: 'array',
                     items: {
-                        type: "number"
+                        anyOf: [
+                            { type: 'number' },
+                            { type: 'null'}
+                        ]
                     },
                     description: 'Position to probe to'
                 },

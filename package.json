@@ -40,6 +40,7 @@
         "ajv": "^8.6.0",
         "axios": "^0.21.1",
         "blessed": "^0.1.81",
+        "bluebird": "^3.7.2",
         "catch-exit": "^1.1.0",
         "common-schema": "^3.0.0",
         "cors": "^2.8.5",
@@ -68,7 +69,8 @@
         "type": "git",
         "url": "https://github.com/crispy1989/tightcnc.git"
     },
-    "devDependencies": {
-        "typescript": "^4.3.4"
-    }
+    "engines": {
+        "node": "14"
+    },
+    "devDependencies": {}
 }

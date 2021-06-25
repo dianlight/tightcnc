@@ -378,7 +378,7 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      * @param {Number} [feed] - Optional feed rate to move at.
      * @return {Promise} - Resolve when move is complete and machine is stopped.
      */
-    move(pos:number[], feed?:number) { }
+    move(pos:(number|false)[], feed?:number) { }
     /**
      * Home machine. (G28.2)
      *

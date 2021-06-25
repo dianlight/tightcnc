@@ -1,7 +1,9 @@
 import AbstractBinding from "@serialport/binding-abstract"
 import { OpenOptions, PortInfo } from "serialport"
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process'
-import {addExitCallback} from 'catch-exit';
+import { addExitCallback } from 'catch-exit';
+import path from 'path'
+import os from 'os'
 
 export default class GrblsimBinding extends AbstractBinding {
 
@@ -28,13 +30,13 @@ export default class GrblsimBinding extends AbstractBinding {
      * @param {openOptions} options openOptions for the serialport
      * @returns {Promise} Resolves after the port is opened and configured.
      */
-    override async open(path: string, options: OpenOptions): Promise<void> {
+    override async open(_path: string, options: OpenOptions): Promise<void> {
         this.options = options
         return new Promise<void>((resolve, reject) => {
-            const url = new URL(path)
+            const url = new URL(_path)
             //console.log(url,url.href.substr(8))
             if (url.protocol !== 'grblsim:') return reject(new Error("Only grblsim://<path to grbl_sim.exe > path are supported"))
-            this.process = spawn(url.href.substr(8), ['-t','10','-n','-r','1','-s','./log/step.out','-b','./log/block.out'], {
+            this.process = spawn(url.href.substr(8), ['-t','10','-n','-r','1','-s',path.join(os.tmpdir(), '/log_step.out'),'-b',path.join(os.tmpdir(),'/log_block.out')], {
                 shell: false,
                 stdio: ['pipe','pipe','pipe']
             })
@@ -54,7 +56,7 @@ export default class GrblsimBinding extends AbstractBinding {
                 console.error("<grbl>Exit:", code,'Signal:',signal)
                 this.isOpen = false
                 this.process = undefined
-                if(!signal)this.open(path,options)
+                if(!signal)this.open(_path,options)
             })
             process.on('beforeExit', (code) => {
                 console.error(`TightCNC server shutdown.. ${code}`)
