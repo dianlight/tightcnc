@@ -256,7 +256,7 @@ function startProbeSurface(tightcnc: TightCNCServer, options: {
             let numProbes = options.numProbeSamples || 1;
             let probesResults = [];
             for (let i = 0; i < numProbes; i++) {
-                let tripPos = await tightcnc.controller?.probe([undefined, undefined, options.probeMinZ]);
+                let tripPos = await tightcnc.controller?.probe([false, false, options.probeMinZ]);
                 let tripZ = tripPos![2];
                 probesResults.push(tripZ);
                 if (i + 1 < numProbes) {

@@ -2099,7 +2099,7 @@ export class GRBLController extends Controller {
         this.send('G90');
     }
 
-    override async probe(pos:number[], feed?:number):Promise<any> {
+    override async probe(pos:(number|boolean)[], feed?:number):Promise<any> {
         if (feed === null || feed === undefined)
             feed = 25;
         await this.waitSync();
@@ -2108,7 +2108,7 @@ export class GRBLController extends Controller {
         let cpos = this.getPos();
         for (let axisNum = 0; axisNum < pos.length; axisNum++) {
             if (this.usedAxes[axisNum] && typeof pos[axisNum] === 'number' && pos[axisNum] !== cpos[axisNum]) {
-                gcode.set(this.axisLabels[axisNum], pos[axisNum]);
+                gcode.set(this.axisLabels[axisNum], pos[axisNum] as number);
             }
         }
         if (gcode.words!.length < 3)
@@ -2144,9 +2144,7 @@ export class GRBLController extends Controller {
             }
             this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
             throw errRegistry.newError('MACHINE_ERROR','PROBE_NOT_TRIPPED').formatMessage('Probe was not tripped during probing');
-        }
-        // If the probe was successful, move back to the position the probe tripped
-        await this.move(tripPos);
+        }    
         // Sync the time estimation vm position to the new pos after probing
         this.timeEstVM.syncStateToMachine({ include: ['mpos'], controller: this });
         return tripPos;

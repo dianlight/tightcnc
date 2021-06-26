@@ -281,7 +281,7 @@ class OpProbe extends Operation {
                     items: {
                         anyOf: [
                             { type: 'number' },
-                            { type: 'null'}
+                            { type: 'boolean'}
                         ]
                     },
                     description: 'Position to probe to'
@@ -295,7 +295,7 @@ class OpProbe extends Operation {
         } as JSONSchema7;
     }
 
-    async run(params: { pos: number[], feed?: number }) {
+    async run(params: { pos: (number|boolean)[], feed?: number }) {
         this.checkReady();
         return await this.tightcnc.controller?.probe(params.pos, params.feed);
     }

@@ -397,7 +397,7 @@ export default abstract class Controller  extends EventEmitter implements VMStat
      * @param {Number} [feed]
      * @return {Promise{pos}}
      */
-    probe(pos: (number | undefined)[], feed?: number): Promise<number[]> {
+    probe(pos: (number | boolean)[], feed?: number): Promise<number[]> {
         throw errRegistry.newError('INTERNAL_ERROR','UNSUPPORTED_OPERATION').formatMessage('Probe is not availble in this controller!')
      }
     /**

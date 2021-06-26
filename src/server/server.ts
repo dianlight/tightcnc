@@ -100,7 +100,9 @@ async function startServer() {
 			return (request: JSONRPCRequest): JSONRPCResponsePromise => {
 				const validator = ajv.getSchema(object.getParamSchema().$id || '') || ajv.compile(object.getParamSchema())				
 				const valid = validator(request.params)
-				if(!valid)console.warn(object.getParamSchema().$id,validator.errors)
+				if (!valid) {
+					console.warn(request.params,object.getParamSchema().$id, validator.errors)
+				}
 				let response = object.run(request.params);
 				return Promise.resolve(response).then(
 					(result: any) => mapResultToJSONRPCResponse(request.id, result),
