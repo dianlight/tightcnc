@@ -72,5 +72,7 @@
     "engines": {
         "node": "14"
     },
-    "devDependencies": {}
+    "devDependencies": {
+        "@manuth/typescript-eslint-plugin": "^1.4.1"
+    }
 }

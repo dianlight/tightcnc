@@ -9,7 +9,6 @@ import { BaseRegistryError, ErrorRegistry } from 'new-error';
 import GcodeLine from './new-gcode-processor/GcodeLine';
 import fs from 'fs'
 import { GcodeLineReadableStream } from './new-gcode-processor/GcodeLineReadableStream';
-import { hasSubscribers } from 'diagnostic_channel';
 
 export interface JobStatus {
     state: string,
