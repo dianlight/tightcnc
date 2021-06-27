@@ -74,5 +74,6 @@
     },
     "devDependencies": {
         "@manuth/typescript-eslint-plugin": "^1.4.1"
-    }
+    },
+    "gitHead": "bc9b5984a67e5c3aa9bbfa5a19fd3bdfe9fd502d"
 }
