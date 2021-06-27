@@ -31,7 +31,7 @@
         "tightcnc-consoleui": "./bin/tightcnc-consoleui.js",
         "tightcnc-server": "./bin/tightcnc-server.js"
     },
-    "main": "dist/server/server.js",
+    "main": "dist/src/index.js",
     "types": "types/src/index.d.ts",
     "dependencies": {
         "@jsonforms/core": "^2.5.2",
