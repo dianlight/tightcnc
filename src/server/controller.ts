@@ -48,7 +48,9 @@ export interface ControllerStatus extends VMState {
     /*
     mpos: number[],
     pos: number[],
+    */
     mposOffset: number[],
+    /*
     activeCoordSys: number,
     offset:number[],
     offsetEnabled: boolean,
