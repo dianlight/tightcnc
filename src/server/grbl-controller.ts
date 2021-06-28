@@ -491,6 +491,34 @@ export class GRBLController extends Controller {
             this.grblReportInches = value;
         if (setting === 22)
             this.homableAxes = value ? (this.config.homableAxes || [true, true, true]) : [false, false, false];
+        if (setting === 23) {
+            switch (value) {
+                case 0:
+                    this.homeDirection = ['+', '+', '+']
+                    break;
+                case 1:
+                    this.homeDirection = ['-', '+', '+']
+                    break;
+                case 2:
+                    this.homeDirection = ['+', '-', '+']
+                    break;
+                case 3:
+                    this.homeDirection = ['-', '-', '+']
+                    break;
+                case 4:
+                    this.homeDirection = ['+', '+', '-']
+                    break;
+                case 5:
+                    this.homeDirection = ['-', '+', '-']
+                    break;
+                case 6:
+                    this.homeDirection = ['+', '-', '-']
+                    break;
+                case 7:
+                    this.homeDirection = ['-', '-', '-']
+                    break;
+                }
+        }
         if (setting === 30)
             this.spindleSpeedMax = value as number;
         if (setting === 31)

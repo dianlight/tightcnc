@@ -48,7 +48,8 @@ export interface VMState {
     offsetEnabled?: boolean
     storedPositions: number[][]
     line?: number
-    gcodeLine?:string
+    gcodeLine?: string
+    homeDirection?:('+'|'-')[]
 }
 
 /**

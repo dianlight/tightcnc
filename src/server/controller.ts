@@ -110,6 +110,7 @@ export default abstract class Controller  extends EventEmitter implements VMStat
     inverseFeed = false;
     spindleSpeedMax?: number
     spindleSpeedMin?: number
+    homeDirection?: ('+'|'-')[]
 
     coord?: ((coords: number[], axis: string | number, value?: number | undefined) => number | undefined) | undefined;
     totalTime: number = 0;
@@ -257,6 +258,7 @@ export default abstract class Controller  extends EventEmitter implements VMStat
         // Spindle
         this.spindleSpeedMax = undefined
         this.spindleSpeedMin = undefined
+        this.homeDirection = undefined
     }
     /**
      * Initialize and connect to CNC machine.  Should update machine state properties as much as is possible.
@@ -454,7 +456,8 @@ export default abstract class Controller  extends EventEmitter implements VMStat
             coordSysOffsets: c.coordSysOffsets,
             countT: c.countT,
             seenWordSet: c.seenWordSet,
-            totalTime: c.totalTime
+            totalTime: c.totalTime,
+            homeDirection: c.homeDirection
         } as ControllerStatus;
     }
     listUsedAxisNumbers() {
